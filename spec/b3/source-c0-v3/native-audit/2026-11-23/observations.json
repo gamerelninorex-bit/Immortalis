@@ -1,0 +1,2987 @@
+{
+  "registry": [
+    {
+      "id": "workshop-opening-quiet-v3",
+      "rows": [
+        {
+          "seq": 1,
+          "alias": "world",
+          "kind": "world_profile",
+          "declared": [
+            "world_state",
+            "world_profile"
+          ],
+          "registered": [
+            "world_state",
+            "world_profile",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/profile$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/profile",
+              "world_profile"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 2,
+          "alias": "workshop_locus",
+          "kind": "world_locus",
+          "declared": [
+            "world_state",
+            "world_locus"
+          ],
+          "registered": [
+            "world_state",
+            "world_locus",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3",
+              "world_locus"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 3,
+          "alias": "pc_classification",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "operation",
+            "host",
+            "items",
+            "answer"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 4,
+          "alias": "pc_host",
+          "kind": "pc_existence_contract",
+          "declared": [
+            "pc_existence",
+            "existence_contract"
+          ],
+          "registered": [
+            "pc_existence",
+            "existence_contract",
+            "^pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/existence-contract$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "pc/example-id/existence-contract",
+              "pc_existence_contract"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 5,
+          "alias": "setup_input",
+          "kind": "initial_setup_input",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/input$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/input",
+              "initial_setup_input"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "source.fact_key invalid_type Invalid input: expected string, received undefined",
+            "source.version invalid_type Invalid input: expected number, received undefined",
+            "source unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "pc.fact_key invalid_type Invalid input: expected string, received undefined",
+            "pc.version invalid_type Invalid input: expected number, received undefined",
+            "pc unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "scope_fingerprint invalid_type Invalid input: expected string, received object",
+            "setup_message invalid_type Invalid input: expected string, received object",
+            "author.grade invalid_value Invalid option: expected one of \"ORIGINAL_MESSAGE_VERIFIED\"|\"OPERATOR_CONFIRMED_RECORD_ONLY\"|\"TOOL_CALL_ONLY\"",
+            "author.client invalid_type Invalid input: expected string, received undefined",
+            "author.oauth_grant invalid_type Invalid input: expected string, received undefined",
+            "author.request_ref invalid_type Invalid input: expected string, received undefined",
+            "author.original_message_hash invalid_type Invalid input: expected string, received undefined",
+            "author.method_id invalid_type Invalid input: expected string, received undefined",
+            "author.proof_hash invalid_type Invalid input: expected string, received undefined",
+            "author unrecognized_keys binding,source,strict_schema,required",
+            "chronology.format_version invalid_union Invalid discriminator value. Expected '1' | '2'",
+            "genesis invalid_type Invalid input: expected array, received object",
+            "projection_hash invalid_type Invalid input: expected string, received object",
+            "pre_state.head invalid_type Invalid input: expected string, received undefined",
+            "pre_state.basis_hash invalid_type Invalid input: expected string, received undefined",
+            "pre_state unrecognized_keys binding,source,strict_schema,required",
+            "runner.runner_id invalid_value Invalid input: expected \"initial-locality-runner-v1\"",
+            "runner.key_id invalid_type Invalid input: expected string, received undefined",
+            "runner.public_key invalid_type Invalid input: expected string, received undefined",
+            "runner.instruction_hash invalid_type Invalid input: expected string, received undefined",
+            "runner.driver_id invalid_type Invalid input: expected string, received undefined",
+            "runner.driver_config_hash invalid_type Invalid input: expected string, received undefined",
+            "runner unrecognized_keys binding,source,strict_schema,required"
+          ],
+          "unresolvedFields": [
+            "setup_id",
+            "scope_fingerprint",
+            "setup_message",
+            "author",
+            "chronology",
+            "genesis",
+            "projection_hash",
+            "pre_state",
+            "runner"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 6,
+          "alias": "scope_invocation",
+          "kind": "initial_setup_invocation",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/(?:([0-9a-f]{64})\\/scope-reservation|scene-reservation)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/scope-reservation",
+              "initial_setup_invocation"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\""
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 7,
+          "alias": "scope_response",
+          "kind": "initial_setup_response",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/response\\/(SCOPE|SCENE)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/response/SCOPE",
+              "initial_setup_response"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "reservation.fact_key invalid_type Invalid input: expected string, received undefined",
+            "reservation.version invalid_type Invalid input: expected number, received undefined",
+            "reservation unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "raw_response_base64 invalid_type Invalid input: expected string, received object",
+            "raw_response_hash invalid_type Invalid input: expected string, received object",
+            "envelope.body invalid_type Invalid input: expected object, received undefined",
+            "envelope.signature invalid_type Invalid input: expected string, received undefined",
+            "envelope unrecognized_keys binding,source,strict_schema,required",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\""
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "raw_response_base64",
+            "raw_response_hash",
+            "envelope",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 8,
+          "alias": "scope_delegation",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "record"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 9,
+          "alias": "setup_grant",
+          "kind": "initial_setup_grant",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/grant$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/grant",
+              "initial_setup_grant"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "classification.fact_key invalid_type Invalid input: expected string, received undefined",
+            "classification.version invalid_type Invalid input: expected number, received undefined",
+            "classification unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "scope_response.fact_key invalid_type Invalid input: expected string, received undefined",
+            "scope_response.version invalid_type Invalid input: expected number, received undefined",
+            "scope_response unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "facets invalid_type Invalid input: expected array, received object",
+            "restrictions invalid_type Invalid input: expected array, received object",
+            "chronology_hash invalid_type Invalid input: expected string, received object",
+            "scope_hash invalid_type Invalid input: expected string, received object"
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "facets",
+            "restrictions",
+            "chronology_hash",
+            "scope_hash"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 10,
+          "alias": "scene_invocation",
+          "kind": "initial_setup_invocation",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/(?:([0-9a-f]{64})\\/scope-reservation|scene-reservation)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-setup/scene-reservation",
+              "initial_setup_invocation"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\"",
+            "grant.fact_key invalid_type Invalid input: expected string, received undefined",
+            "grant.version invalid_type Invalid input: expected number, received undefined",
+            "grant unrecognized_keys binding,source_alias,expected_type,source_field,required"
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 11,
+          "alias": "scene_response",
+          "kind": "initial_setup_response",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/response\\/(SCOPE|SCENE)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/response/SCENE",
+              "initial_setup_response"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "reservation.fact_key invalid_type Invalid input: expected string, received undefined",
+            "reservation.version invalid_type Invalid input: expected number, received undefined",
+            "reservation unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "raw_response_base64 invalid_type Invalid input: expected string, received object",
+            "raw_response_hash invalid_type Invalid input: expected string, received object",
+            "envelope.body invalid_type Invalid input: expected object, received undefined",
+            "envelope.signature invalid_type Invalid input: expected string, received undefined",
+            "envelope unrecognized_keys binding,source,strict_schema,required",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\""
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "raw_response_base64",
+            "raw_response_hash",
+            "envelope",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 12,
+          "alias": "locality_completion",
+          "kind": "initial_locality_completion",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/completion$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-setup/completion",
+              "initial_locality_completion"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "grant.fact_key invalid_type Invalid input: expected string, received undefined",
+            "grant.version invalid_type Invalid input: expected number, received undefined",
+            "grant unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "scene_response.fact_key invalid_type Invalid input: expected string, received undefined",
+            "scene_response.version invalid_type Invalid input: expected number, received undefined",
+            "scene_response unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "selection.domain invalid_type Invalid input: expected object, received undefined",
+            "selection.closure invalid_type Invalid input: expected object, received undefined",
+            "selection.actors invalid_type Invalid input: expected object, received undefined",
+            "selection.source_claims invalid_type Invalid input: expected array, received undefined",
+            "selection.workforce invalid_type Invalid input: expected object, received undefined",
+            "selection.coverage invalid_type Invalid input: expected object, received undefined",
+            "selection.provenance invalid_type Invalid input: expected array, received undefined",
+            "selection unrecognized_keys binding,source,strict_schema,required"
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "selection"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 13,
+          "alias": "ms_issue",
+          "kind": "initial_actor_setup_issue",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_actor_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-actor\\/([0-9a-f]{64})\\/issue$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-actor/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/issue",
+              "initial_actor_setup_issue"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 14,
+          "alias": "ms_response",
+          "kind": "initial_actor_setup_response",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_actor_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-actor\\/([0-9a-f]{64})\\/response$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3/initial-actor/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/response",
+              "initial_actor_setup_response"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "signed_original"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 15,
+          "alias": "attendant_existence",
+          "kind": "named_actor_existence_basis",
+          "declared": [
+            "named_actor",
+            "actor_existence"
+          ],
+          "registered": [
+            "named_actor",
+            "actor_existence",
+            "^named-actor\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/existence-basis$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "named-actor/example-id/existence-basis",
+              "named_actor_existence_basis"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "actor_id"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 16,
+          "alias": "actor_setup_placement",
+          "kind": "actor_setup_placement",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world-state\\/actor\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/setup-placement$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world-state/actor/example-id/setup-placement",
+              "actor_setup_placement"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 17,
+          "alias": "actor_setup_closure",
+          "kind": "world_setup_closure",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/setup-closure$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/setup-closure",
+              "world_setup_closure"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 18,
+          "alias": "temporal_genesis",
+          "kind": "temporal_state",
+          "declared": [
+            "temporal_kernel",
+            "temporal_coordination"
+          ],
+          "registered": [
+            "temporal_kernel",
+            "temporal_coordination",
+            "^temporal\\/state$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "temporal/state",
+              "temporal_state"
+            ],
+            [
+              "temporal/origin",
+              "temporal_origin"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "verified_v2_chronology"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 19,
+          "alias": "attendant_presence",
+          "kind": "actor_physical_presence",
+          "declared": [
+            "world_state",
+            "world_actor_presence"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world-state\\/actor\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/presence$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world-state/actor/example-id/presence",
+              "actor_physical_presence"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 20,
+          "alias": "native_compatibility_verdict",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "operation",
+            "host",
+            "answer",
+            "statement"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 21,
+          "alias": "pc_binding",
+          "kind": "player_character_binding",
+          "declared": [
+            "role_registry",
+            "player_character_binding"
+          ],
+          "registered": [
+            "role_registry",
+            "player_character_binding",
+            "^role-registry\\/binding\\/role\\.player_character$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "role-registry/binding/role.player_character",
+              "player_character_binding"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 22,
+          "alias": "physical_placement_verdict",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "operation",
+            "host",
+            "answer"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 23,
+          "alias": "pc_placement",
+          "kind": "world_pc_locus_custody",
+          "declared": [
+            "world_state",
+            "world_pc_locus_custody"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world-state\\/pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus-custody$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world-state/pc/example-id/locus-custody",
+              "world_pc_locus_custody"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 24,
+          "alias": "institution",
+          "kind": "gip_institution_identity",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/identity$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/example-id/identity",
+              "gip_institution_identity"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "constitutive_source_ref invalid_type Invalid input: expected string, received object"
+          ],
+          "unresolvedFields": [
+            "constitutive_source_ref"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 25,
+          "alias": "supervisor_office",
+          "kind": "gip_office_authority_locus",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/office\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/example-id/office/example-id",
+              "gip_office_authority_locus"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "$ invalid_union Invalid input"
+          ],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 26,
+          "alias": "attendant_post",
+          "kind": "gip_office_authority_locus",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/office\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/example-id/office/example-id",
+              "gip_office_authority_locus"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "$ invalid_union Invalid input"
+          ],
+          "unresolvedFields": [
+            "holder_ref"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 27,
+          "alias": "local_scope",
+          "kind": "gip_scope_binding",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/office\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/scope-binding\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/office/b3-qualification-notice-supervisor/scope-binding/b3-qualification-local-notice-scope",
+              "gip_scope_binding"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 28,
+          "alias": "charter",
+          "kind": "gip_local_completion_notice_charter",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": null,
+          "missing": [
+            "gip_local_completion_notice_charter"
+          ],
+          "keys": [
+            [
+              "gip/local-completion-notice/campaign/example-id/charter",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 29,
+          "alias": "population_ledger",
+          "kind": "population_ledger",
+          "declared": [
+            "population",
+            "population_state"
+          ],
+          "registered": [
+            "population",
+            "population_state",
+            "^population\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/ledger$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "population/example-id/ledger",
+              "population_ledger"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 30,
+          "alias": "economy_request",
+          "kind": "economy_request",
+          "declared": [
+            "economy",
+            "economy_state"
+          ],
+          "registered": [
+            "economy",
+            "economy_state",
+            "^economy\\/request\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "economy/request/example-id",
+              "economy_request"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 31,
+          "alias": "production_reserve",
+          "kind": "production_reserve",
+          "declared": [
+            "production",
+            "production_state"
+          ],
+          "registered": [
+            "production",
+            "production_state",
+            "^production\\/reserve\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "production/reserve/b3-qualification-bracket-stock",
+              "production_reserve"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 32,
+          "alias": "production_start",
+          "kind": "production_operation",
+          "declared": [
+            "production",
+            "production_state"
+          ],
+          "registered": [
+            "production",
+            "production_state",
+            "^production\\/operation\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "production/operation/example-id",
+              "production_operation"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 33,
+          "alias": "production_temporal_enrolment",
+          "kind": "temporal_object",
+          "declared": [
+            "temporal_kernel",
+            "temporal_coordination"
+          ],
+          "registered": [
+            "temporal_kernel",
+            "temporal_coordination",
+            "^temporal\\/object\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "temporal/object/example-id",
+              "temporal_object"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "object_id invalid_type Invalid input: expected string, received undefined",
+            "owning_ref invalid_type Invalid input: expected object, received undefined",
+            "last_resolved_basis invalid_type Invalid input: expected object, received undefined",
+            "partition invalid_type Invalid input: expected object, received undefined",
+            "next_boundary invalid_type Invalid input: expected object, received undefined",
+            "dependencies invalid_type Invalid input: expected array, received undefined",
+            "continuation invalid_type Invalid input: expected object, received undefined",
+            "invalidators invalid_type Invalid input: expected array, received undefined",
+            "information_latency invalid_type Invalid input: expected object, received undefined",
+            "$ unrecognized_keys completion_boundary,fallback_acceptance_owner,operation,temporal_owner_native"
+          ],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 34,
+          "alias": "instruction",
+          "kind": "gip_local_completion_notice_instruction",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": null,
+          "missing": [
+            "gip_local_completion_notice_instruction"
+          ],
+          "keys": [
+            [
+              "gip/local-completion-notice/campaign/example-id/instruction/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 35,
+          "alias": "accepted_standing_duty",
+          "kind": "named_actor_local_notice_duty",
+          "declared": [
+            "named_actor",
+            "actor_profile"
+          ],
+          "registered": null,
+          "missing": [
+            "named_actor_local_notice_duty"
+          ],
+          "keys": [
+            [
+              "named-actor/example-id/local-notice-duty/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 36,
+          "alias": "coverage_anchor",
+          "kind": "health_pc_sensory_coverage_anchor",
+          "declared": [
+            "health",
+            "health_condition_process"
+          ],
+          "registered": null,
+          "missing": [
+            "health_pc_sensory_coverage_anchor"
+          ],
+          "keys": [
+            [
+              "health/pc/example-id/auditory/coverage-anchor/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        }
+      ],
+      "negativeAssertions": 9
+    },
+    {
+      "id": "workshop-opening-glassbell-v3",
+      "rows": [
+        {
+          "seq": 1,
+          "alias": "world",
+          "kind": "world_profile",
+          "declared": [
+            "world_state",
+            "world_profile"
+          ],
+          "registered": [
+            "world_state",
+            "world_profile",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/profile$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/profile",
+              "world_profile"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 2,
+          "alias": "workshop_locus",
+          "kind": "world_locus",
+          "declared": [
+            "world_state",
+            "world_locus"
+          ],
+          "registered": [
+            "world_state",
+            "world_locus",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3",
+              "world_locus"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 3,
+          "alias": "pc_classification",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "operation",
+            "host",
+            "items",
+            "answer"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 4,
+          "alias": "pc_host",
+          "kind": "pc_existence_contract",
+          "declared": [
+            "pc_existence",
+            "existence_contract"
+          ],
+          "registered": [
+            "pc_existence",
+            "existence_contract",
+            "^pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/existence-contract$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "pc/example-id/existence-contract",
+              "pc_existence_contract"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 5,
+          "alias": "setup_input",
+          "kind": "initial_setup_input",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/input$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/input",
+              "initial_setup_input"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "source.fact_key invalid_type Invalid input: expected string, received undefined",
+            "source.version invalid_type Invalid input: expected number, received undefined",
+            "source unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "pc.fact_key invalid_type Invalid input: expected string, received undefined",
+            "pc.version invalid_type Invalid input: expected number, received undefined",
+            "pc unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "scope_fingerprint invalid_type Invalid input: expected string, received object",
+            "setup_message invalid_type Invalid input: expected string, received object",
+            "author.grade invalid_value Invalid option: expected one of \"ORIGINAL_MESSAGE_VERIFIED\"|\"OPERATOR_CONFIRMED_RECORD_ONLY\"|\"TOOL_CALL_ONLY\"",
+            "author.client invalid_type Invalid input: expected string, received undefined",
+            "author.oauth_grant invalid_type Invalid input: expected string, received undefined",
+            "author.request_ref invalid_type Invalid input: expected string, received undefined",
+            "author.original_message_hash invalid_type Invalid input: expected string, received undefined",
+            "author.method_id invalid_type Invalid input: expected string, received undefined",
+            "author.proof_hash invalid_type Invalid input: expected string, received undefined",
+            "author unrecognized_keys binding,source,strict_schema,required",
+            "chronology.format_version invalid_union Invalid discriminator value. Expected '1' | '2'",
+            "genesis invalid_type Invalid input: expected array, received object",
+            "projection_hash invalid_type Invalid input: expected string, received object",
+            "pre_state.head invalid_type Invalid input: expected string, received undefined",
+            "pre_state.basis_hash invalid_type Invalid input: expected string, received undefined",
+            "pre_state unrecognized_keys binding,source,strict_schema,required",
+            "runner.runner_id invalid_value Invalid input: expected \"initial-locality-runner-v1\"",
+            "runner.key_id invalid_type Invalid input: expected string, received undefined",
+            "runner.public_key invalid_type Invalid input: expected string, received undefined",
+            "runner.instruction_hash invalid_type Invalid input: expected string, received undefined",
+            "runner.driver_id invalid_type Invalid input: expected string, received undefined",
+            "runner.driver_config_hash invalid_type Invalid input: expected string, received undefined",
+            "runner unrecognized_keys binding,source,strict_schema,required"
+          ],
+          "unresolvedFields": [
+            "setup_id",
+            "scope_fingerprint",
+            "setup_message",
+            "author",
+            "chronology",
+            "genesis",
+            "projection_hash",
+            "pre_state",
+            "runner"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 6,
+          "alias": "scope_invocation",
+          "kind": "initial_setup_invocation",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/(?:([0-9a-f]{64})\\/scope-reservation|scene-reservation)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/scope-reservation",
+              "initial_setup_invocation"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\""
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 7,
+          "alias": "scope_response",
+          "kind": "initial_setup_response",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/response\\/(SCOPE|SCENE)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/response/SCOPE",
+              "initial_setup_response"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "reservation.fact_key invalid_type Invalid input: expected string, received undefined",
+            "reservation.version invalid_type Invalid input: expected number, received undefined",
+            "reservation unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "raw_response_base64 invalid_type Invalid input: expected string, received object",
+            "raw_response_hash invalid_type Invalid input: expected string, received object",
+            "envelope.body invalid_type Invalid input: expected object, received undefined",
+            "envelope.signature invalid_type Invalid input: expected string, received undefined",
+            "envelope unrecognized_keys binding,source,strict_schema,required",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\""
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "raw_response_base64",
+            "raw_response_hash",
+            "envelope",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 8,
+          "alias": "scope_delegation",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "record"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 9,
+          "alias": "setup_grant",
+          "kind": "initial_setup_grant",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/grant$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/grant",
+              "initial_setup_grant"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "classification.fact_key invalid_type Invalid input: expected string, received undefined",
+            "classification.version invalid_type Invalid input: expected number, received undefined",
+            "classification unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "scope_response.fact_key invalid_type Invalid input: expected string, received undefined",
+            "scope_response.version invalid_type Invalid input: expected number, received undefined",
+            "scope_response unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "facets invalid_type Invalid input: expected array, received object",
+            "restrictions invalid_type Invalid input: expected array, received object",
+            "chronology_hash invalid_type Invalid input: expected string, received object",
+            "scope_hash invalid_type Invalid input: expected string, received object"
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "facets",
+            "restrictions",
+            "chronology_hash",
+            "scope_hash"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 10,
+          "alias": "scene_invocation",
+          "kind": "initial_setup_invocation",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/(?:([0-9a-f]{64})\\/scope-reservation|scene-reservation)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-setup/scene-reservation",
+              "initial_setup_invocation"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\"",
+            "grant.fact_key invalid_type Invalid input: expected string, received undefined",
+            "grant.version invalid_type Invalid input: expected number, received undefined",
+            "grant unrecognized_keys binding,source_alias,expected_type,source_field,required"
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 11,
+          "alias": "scene_response",
+          "kind": "initial_setup_response",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/([0-9a-f]{64})\\/response\\/(SCOPE|SCENE)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-setup/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/response/SCENE",
+              "initial_setup_response"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "reservation.fact_key invalid_type Invalid input: expected string, received undefined",
+            "reservation.version invalid_type Invalid input: expected number, received undefined",
+            "reservation unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "task_id invalid_type Invalid input: expected string, received object",
+            "input_hash invalid_type Invalid input: expected string, received object",
+            "raw_response_base64 invalid_type Invalid input: expected string, received object",
+            "raw_response_hash invalid_type Invalid input: expected string, received object",
+            "envelope.body invalid_type Invalid input: expected object, received undefined",
+            "envelope.signature invalid_type Invalid input: expected string, received undefined",
+            "envelope unrecognized_keys binding,source,strict_schema,required",
+            "parser invalid_value Invalid option: expected one of \"INITIAL_LOCALITY_PARSER_V1\"|\"INITIAL_LOCALITY_PARSER_V2\""
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "task_id",
+            "input_hash",
+            "raw_response_base64",
+            "raw_response_hash",
+            "envelope",
+            "parser"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 12,
+          "alias": "locality_completion",
+          "kind": "initial_locality_completion",
+          "declared": [
+            "world_state",
+            "world_initial_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-setup\\/completion$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-setup/completion",
+              "initial_locality_completion"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "world_id invalid_type Invalid input: expected string, received object",
+            "locus_id invalid_type Invalid input: expected string, received object",
+            "setup_id invalid_type Invalid input: expected string, received object",
+            "input.fact_key invalid_type Invalid input: expected string, received undefined",
+            "input.version invalid_type Invalid input: expected number, received undefined",
+            "input unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "grant.fact_key invalid_type Invalid input: expected string, received undefined",
+            "grant.version invalid_type Invalid input: expected number, received undefined",
+            "grant unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "scene_response.fact_key invalid_type Invalid input: expected string, received undefined",
+            "scene_response.version invalid_type Invalid input: expected number, received undefined",
+            "scene_response unrecognized_keys binding,source_alias,expected_type,source_field,required",
+            "selection.domain invalid_type Invalid input: expected object, received undefined",
+            "selection.closure invalid_type Invalid input: expected object, received undefined",
+            "selection.actors invalid_type Invalid input: expected object, received undefined",
+            "selection.source_claims invalid_type Invalid input: expected array, received undefined",
+            "selection.workforce invalid_type Invalid input: expected object, received undefined",
+            "selection.coverage invalid_type Invalid input: expected object, received undefined",
+            "selection.provenance invalid_type Invalid input: expected array, received undefined",
+            "selection unrecognized_keys binding,source,strict_schema,required"
+          ],
+          "unresolvedFields": [
+            "world_id",
+            "locus_id",
+            "setup_id",
+            "selection"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 13,
+          "alias": "ms_issue",
+          "kind": "initial_actor_setup_issue",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_actor_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-actor\\/([0-9a-f]{64})\\/issue$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-actor/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/issue",
+              "initial_actor_setup_issue"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 14,
+          "alias": "ms_response",
+          "kind": "initial_actor_setup_response",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_initial_actor_setup",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/initial-actor\\/([0-9a-f]{64})\\/response$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3/initial-actor/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/response",
+              "initial_actor_setup_response"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "signed_original"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 15,
+          "alias": "attendant_existence",
+          "kind": "named_actor_existence_basis",
+          "declared": [
+            "named_actor",
+            "actor_existence"
+          ],
+          "registered": [
+            "named_actor",
+            "actor_existence",
+            "^named-actor\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/existence-basis$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "named-actor/example-id/existence-basis",
+              "named_actor_existence_basis"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "actor_id"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 16,
+          "alias": "actor_setup_placement",
+          "kind": "actor_setup_placement",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world-state\\/actor\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/setup-placement$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world-state/actor/example-id/setup-placement",
+              "actor_setup_placement"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 17,
+          "alias": "actor_setup_closure",
+          "kind": "world_setup_closure",
+          "declared": [
+            "world_state",
+            "world_initial_actor_setup"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/setup-closure$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/setup-closure",
+              "world_setup_closure"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 18,
+          "alias": "temporal_genesis",
+          "kind": "temporal_state",
+          "declared": [
+            "temporal_kernel",
+            "temporal_coordination"
+          ],
+          "registered": [
+            "temporal_kernel",
+            "temporal_coordination",
+            "^temporal\\/state$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "temporal/state",
+              "temporal_state"
+            ],
+            [
+              "temporal/origin",
+              "temporal_origin"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "verified_v2_chronology"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 19,
+          "alias": "attendant_presence",
+          "kind": "actor_physical_presence",
+          "declared": [
+            "world_state",
+            "world_actor_presence"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world-state\\/actor\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/presence$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world-state/actor/example-id/presence",
+              "actor_physical_presence"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 20,
+          "alias": "native_compatibility_verdict",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "operation",
+            "host",
+            "answer",
+            "statement"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 21,
+          "alias": "pc_binding",
+          "kind": "player_character_binding",
+          "declared": [
+            "role_registry",
+            "player_character_binding"
+          ],
+          "registered": [
+            "role_registry",
+            "player_character_binding",
+            "^role-registry\\/binding\\/role\\.player_character$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "role-registry/binding/role.player_character",
+              "player_character_binding"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 22,
+          "alias": "physical_placement_verdict",
+          "kind": "referee_decision",
+          "declared": [
+            "referee_adjudication_kernel",
+            "referee_provenance"
+          ],
+          "registered": [
+            "referee_adjudication_kernel",
+            "referee_provenance",
+            "^referee\\/([0-9a-f]{64})\\/decision$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "referee/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/decision",
+              "referee_decision"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [
+            "operation",
+            "host",
+            "answer"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 23,
+          "alias": "pc_placement",
+          "kind": "world_pc_locus_custody",
+          "declared": [
+            "world_state",
+            "world_pc_locus_custody"
+          ],
+          "registered": [
+            "world_state",
+            "world_fallback_physical_entity",
+            "^world-state\\/pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus-custody$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "world-state/pc/example-id/locus-custody",
+              "world_pc_locus_custody"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 24,
+          "alias": "institution",
+          "kind": "gip_institution_identity",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/identity$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/example-id/identity",
+              "gip_institution_identity"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "constitutive_source_ref invalid_type Invalid input: expected string, received object"
+          ],
+          "unresolvedFields": [
+            "constitutive_source_ref"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 25,
+          "alias": "supervisor_office",
+          "kind": "gip_office_authority_locus",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/office\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/example-id/office/example-id",
+              "gip_office_authority_locus"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "$ invalid_union Invalid input"
+          ],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 26,
+          "alias": "attendant_post",
+          "kind": "gip_office_authority_locus",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/office\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/example-id/office/example-id",
+              "gip_office_authority_locus"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "$ invalid_union Invalid input"
+          ],
+          "unresolvedFields": [
+            "holder_ref"
+          ],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 27,
+          "alias": "local_scope",
+          "kind": "gip_scope_binding",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": [
+            "gip",
+            "gip_institution_identity",
+            "^gip\\/institution\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/office\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/scope-binding\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/office/b3-qualification-notice-supervisor/scope-binding/b3-qualification-local-notice-scope",
+              "gip_scope_binding"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 28,
+          "alias": "charter",
+          "kind": "gip_local_completion_notice_charter",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": null,
+          "missing": [
+            "gip_local_completion_notice_charter"
+          ],
+          "keys": [
+            [
+              "gip/local-completion-notice/campaign/example-id/charter",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 29,
+          "alias": "population_ledger",
+          "kind": "population_ledger",
+          "declared": [
+            "population",
+            "population_state"
+          ],
+          "registered": [
+            "population",
+            "population_state",
+            "^population\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/ledger$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "population/example-id/ledger",
+              "population_ledger"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 30,
+          "alias": "economy_request",
+          "kind": "economy_request",
+          "declared": [
+            "economy",
+            "economy_state"
+          ],
+          "registered": [
+            "economy",
+            "economy_state",
+            "^economy\\/request\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "SEALED"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "economy/request/example-id",
+              "economy_request"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 31,
+          "alias": "production_reserve",
+          "kind": "production_reserve",
+          "declared": [
+            "production",
+            "production_state"
+          ],
+          "registered": [
+            "production",
+            "production_state",
+            "^production\\/reserve\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "production/reserve/b3-qualification-bracket-stock",
+              "production_reserve"
+            ]
+          ],
+          "staticErrors": [],
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 32,
+          "alias": "production_start",
+          "kind": "production_operation",
+          "declared": [
+            "production",
+            "production_state"
+          ],
+          "registered": [
+            "production",
+            "production_state",
+            "^production\\/operation\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "production/operation/example-id",
+              "production_operation"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 33,
+          "alias": "production_temporal_enrolment",
+          "kind": "temporal_object",
+          "declared": [
+            "temporal_kernel",
+            "temporal_coordination"
+          ],
+          "registered": [
+            "temporal_kernel",
+            "temporal_coordination",
+            "^temporal\\/object\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "temporal/object/example-id",
+              "temporal_object"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "object_id invalid_type Invalid input: expected string, received undefined",
+            "owning_ref invalid_type Invalid input: expected object, received undefined",
+            "last_resolved_basis invalid_type Invalid input: expected object, received undefined",
+            "partition invalid_type Invalid input: expected object, received undefined",
+            "next_boundary invalid_type Invalid input: expected object, received undefined",
+            "dependencies invalid_type Invalid input: expected array, received undefined",
+            "continuation invalid_type Invalid input: expected object, received undefined",
+            "invalidators invalid_type Invalid input: expected array, received undefined",
+            "information_latency invalid_type Invalid input: expected object, received undefined",
+            "$ unrecognized_keys completion_boundary,fallback_acceptance_owner,operation,temporal_owner_native"
+          ],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 34,
+          "alias": "instruction",
+          "kind": "gip_local_completion_notice_instruction",
+          "declared": [
+            "gip",
+            "gip_institution_identity"
+          ],
+          "registered": null,
+          "missing": [
+            "gip_local_completion_notice_instruction"
+          ],
+          "keys": [
+            [
+              "gip/local-completion-notice/campaign/example-id/instruction/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 35,
+          "alias": "accepted_standing_duty",
+          "kind": "named_actor_local_notice_duty",
+          "declared": [
+            "named_actor",
+            "actor_profile"
+          ],
+          "registered": null,
+          "missing": [
+            "named_actor_local_notice_duty"
+          ],
+          "keys": [
+            [
+              "named-actor/example-id/local-notice-duty/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 36,
+          "alias": "glassbell_exposure",
+          "kind": "world_opening_glassbell_exposure",
+          "declared": [
+            "world_state",
+            "world_locus"
+          ],
+          "registered": null,
+          "missing": [
+            "world_opening_glassbell_exposure"
+          ],
+          "keys": [
+            [
+              "world/b3-qualification-workshop-world/opening-glassbell-exposure/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 37,
+          "alias": "auditory_condition",
+          "kind": "health_pc_relevant_condition",
+          "declared": [
+            "health",
+            "health_condition_process"
+          ],
+          "registered": null,
+          "missing": [
+            "health_pc_relevant_condition"
+          ],
+          "keys": [
+            [
+              "health/pc/example-id/relevant-condition/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        },
+        {
+          "seq": 38,
+          "alias": "health_recovery_enrolment",
+          "kind": "temporal_object",
+          "declared": [
+            "temporal_kernel",
+            "temporal_coordination"
+          ],
+          "registered": [
+            "temporal_kernel",
+            "temporal_coordination",
+            "^temporal\\/object\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$",
+            "ADVANCING"
+          ],
+          "missing": [],
+          "keys": [
+            [
+              "temporal/object/example-id",
+              "temporal_object"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": [
+            "object_id invalid_type Invalid input: expected string, received undefined",
+            "owning_ref invalid_type Invalid input: expected object, received undefined",
+            "last_resolved_basis invalid_type Invalid input: expected object, received undefined",
+            "partition invalid_type Invalid input: expected object, received undefined",
+            "next_boundary invalid_type Invalid input: expected object, received undefined",
+            "dependencies invalid_type Invalid input: expected array, received undefined",
+            "continuation invalid_type Invalid input: expected object, received undefined",
+            "invalidators invalid_type Invalid input: expected array, received undefined",
+            "information_latency invalid_type Invalid input: expected object, received undefined",
+            "$ unrecognized_keys condition,native_temporal_stage,recovery_boundary"
+          ],
+          "unresolvedFields": [],
+          "ownerFacetMatches": true
+        },
+        {
+          "seq": 39,
+          "alias": "coverage_anchor",
+          "kind": "health_pc_sensory_coverage_anchor",
+          "declared": [
+            "health",
+            "health_condition_process"
+          ],
+          "registered": null,
+          "missing": [
+            "health_pc_sensory_coverage_anchor"
+          ],
+          "keys": [
+            [
+              "health/pc/example-id/auditory/coverage-anchor/example-id",
+              "UNREGISTERED"
+            ]
+          ],
+          "staticErrors": null,
+          "nativeInputErrors": null,
+          "unresolvedFields": [],
+          "ownerFacetMatches": false
+        }
+      ],
+      "negativeAssertions": 9
+    }
+  ],
+  "owner_controls": [
+    {
+      "id": "workshop-opening-quiet-v3",
+      "classification": "isolated component controls, no original signed setup",
+      "witnesses": [
+        {
+          "label": "manifest world body",
+          "owner": "world_state",
+          "writes": [
+            [
+              "world/b3-qualification-workshop-world/profile",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-1",
+            "intent_id": "wf-intent-1",
+            "revision": 1,
+            "group_sha256": "e2887eb17cc0d4a646df516f98d56bb0db1fc6253dc5696bd7954d9b852ccb57",
+            "state_sha256": "550f20ce766741d6deffafdbc7484de5358353266e2a6aaf1282ec40dcf5589d"
+          }
+        },
+        {
+          "label": "manifest locus body",
+          "owner": "world_state",
+          "writes": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v3",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-2",
+            "intent_id": "wf-intent-2",
+            "revision": 2,
+            "group_sha256": "3e3390dd951f5b954d1758b9c0c64f0dbf2de66baf0c553ad7692d4062188580",
+            "state_sha256": "9a34014256764e1dc3e34c5a38bf4679464b0de06821793f63ea92acf66c3f51"
+          }
+        },
+        {
+          "label": "manifest genesis has no finite source",
+          "code": "GENESIS_SHAPE",
+          "message": "exactly one world profile, one locus and one finite source are required"
+        },
+        {
+          "label": "M-S issue without Completion",
+          "error": "no source-qualified MS Completion"
+        },
+        {
+          "label": "captured chronology without Completion",
+          "code": "CAPTURED_CHRONOLOGY_UNAVAILABLE",
+          "message": "no qualifying Completion exists: MISSING_STATE, not a guessed zero and not a plain fallback"
+        },
+        {
+          "label": "ordinary control clock",
+          "owner": "temporal_kernel",
+          "writes": [
+            [
+              "temporal/state",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-3",
+            "intent_id": "wf-intent-3",
+            "revision": 3,
+            "group_sha256": "8b7a580266f4cf7eafc9c2e1cb0bb5024ef73a9be494148110ce11d478485ab6",
+            "state_sha256": "3d06de4501a7a88ef312962e31a2b002a26ddb4c4be9e4e11e63d3821144d9d6"
+          }
+        },
+        {
+          "label": "Economy demand without ledger",
+          "code": "PREREQUISITE_MISSING",
+          "message": "the carrier's Population ledger is not committed",
+          "details": {
+            "key": "population/b3-qualification-workshop-population/ledger"
+          }
+        },
+        {
+          "label": "manifest ledger",
+          "owner": "population",
+          "writes": [
+            [
+              "population/b3-qualification-workshop-population/ledger",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-5",
+            "intent_id": "wf-intent-5",
+            "revision": 4,
+            "group_sha256": "f66ec8f7d301ddd942735a1ecc51620095eb8accadce6c6aaddc8e1e7c21c8ae",
+            "state_sha256": "5c13a12acbbc85ce1ba8079274b9687514a680f44db11fc70002b499f7f2009f"
+          }
+        },
+        {
+          "label": "Economy demand with absent unit",
+          "code": "REFERENCE_INVALID",
+          "message": "the carrier is not a Population Unit of that ledger",
+          "details": {
+            "unit_id": "absent-unit"
+          }
+        },
+        {
+          "label": "manifest Economy demand",
+          "owner": "economy",
+          "writes": [
+            [
+              "economy/demand/b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "economy/request/request:b3-qualification-bracket-job",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-7",
+            "intent_id": "wf-intent-7",
+            "revision": 5,
+            "group_sha256": "28f4825374d4dddd71e4f32f8282b1def4c3d2832d5a314eb7699a96314e4f0a",
+            "state_sha256": "453e3942e062bcee9afecb16aec95d97cc5640831ddc37fe0d9cd4c6173f71cb"
+          }
+        },
+        {
+          "label": "reserve via native owner from exact authored fields",
+          "owner": "production",
+          "writes": [
+            [
+              "production/reserve/b3-qualification-bracket-stock",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-8",
+            "intent_id": "wf-intent-8",
+            "revision": 6,
+            "group_sha256": "2d44e0389adc47237bbf8e8b6c6fe29421b4f9e13d980dfed64da83df05e4dce",
+            "state_sha256": "5431a8ebdf805a5f9671594f6137cb196b76df1230fa516c3d9464815d91d97b"
+          }
+        },
+        {
+          "label": "v3 Production request key",
+          "code": "PREREQUISITE_MISSING",
+          "message": "no Production Request is committed at the given key",
+          "details": {
+            "key": "economy/request/b3-qualification-bracket-job"
+          }
+        },
+        {
+          "label": "derived original Economy request key",
+          "owner": "production",
+          "writes": [
+            [
+              "production/operation/request:b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "production/claim/claim:request:b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "production/reserve/b3-qualification-bracket-stock",
+              1
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-10",
+            "intent_id": "wf-intent-10",
+            "revision": 7,
+            "group_sha256": "c83142bd245441526c2a8aa88bb79ab880aca91710ce5ae38daec44f29c9672e",
+            "state_sha256": "26924f5d472559796a556f1edbbf45d961abc10c8162ad5c5f20718bdb223907"
+          }
+        },
+        {
+          "label": "v3 Temporal registration shape",
+          "code": "INPUT_INVALID",
+          "message": "object failed validation",
+          "details": {
+            "issues": [
+              "object_id: Invalid input: expected string, received undefined",
+              "owning_ref: Invalid input: expected object, received undefined",
+              "last_resolved_basis: Invalid input: expected object, received undefined",
+              "partition: Invalid input: expected object, received undefined",
+              "next_boundary: Invalid input: expected object, received undefined"
+            ]
+          }
+        },
+        {
+          "label": "native Temporal owner recipe and index",
+          "owner": "temporal_kernel",
+          "writes": [
+            [
+              "temporal/object/obj-production-request:b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "temporal/boundary-index",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-12",
+            "intent_id": "wf-intent-12",
+            "revision": 8,
+            "group_sha256": "8bd571c047cbe3e6cca3c604cbbd5dcd9d79003a8347c91fc1feab8cd79a2c65",
+            "state_sha256": "687f4fa30c60db5b9a52c9880b91b0d7717b938a1e3bea63b05fb3a50f88c4d1"
+          }
+        },
+        {
+          "label": "v3 Institution recipe passed literally",
+          "code": "INPUT_INVALID",
+          "message": "institution identity failed validation",
+          "details": {
+            "issues": [
+              "constitutive_source_ref: Invalid input: expected string, received object"
+            ]
+          }
+        },
+        {
+          "label": "existing Institution route with opaque control reference",
+          "owner": "gip",
+          "writes": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/identity",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-14",
+            "intent_id": "wf-intent-14",
+            "revision": 9,
+            "group_sha256": "780abc733f1f0ff8bcbb108a45f2c3460ed644930a320f42f2e70c925da4dfdd",
+            "state_sha256": "69dfdc7a1d5fe3b0dc7b84b3426e0f23ba4252235b1440ff7b1e40d684e78a7b"
+          }
+        },
+        {
+          "label": "v3 office recipe passed literally",
+          "code": "INPUT_INVALID",
+          "message": "office failed validation",
+          "details": {
+            "issues": [
+              ": Invalid input"
+            ]
+          }
+        },
+        {
+          "label": "existing GIP opaque holder route",
+          "owner": "gip",
+          "writes": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/office/b3-qualification-notice-supervisor",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-16",
+            "intent_id": "wf-intent-16",
+            "revision": 10,
+            "group_sha256": "45eeed0040386c072e1b51ff84d0b8d3277a98f688802113871ba268037354d1",
+            "state_sha256": "dea2a71c5259eb9500aedcf2638c134c5a9efa525858edec6d31947cf4aeab4a"
+          }
+        },
+        {
+          "label": "manifest GIP scope through owner",
+          "owner": "gip",
+          "writes": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/office/b3-qualification-notice-supervisor/scope-binding/b3-qualification-local-notice-scope",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-quiet-v3",
+            "group_id": "wf-group-17",
+            "intent_id": "wf-intent-17",
+            "revision": 11,
+            "group_sha256": "c09bf0efcf4d7d776df6c0f43311df786db243be6b206089a60115a4a636f5f3",
+            "state_sha256": "8719ad89ceab00eaad6e06aa6afb3f584228b768396bfce47d47eeabb13acbdd"
+          }
+        }
+      ],
+      "replay": "PASS"
+    },
+    {
+      "id": "workshop-opening-glassbell-v3",
+      "classification": "isolated component controls, no original signed setup",
+      "witnesses": [
+        {
+          "label": "manifest world body",
+          "owner": "world_state",
+          "writes": [
+            [
+              "world/b3-qualification-workshop-world/profile",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-1",
+            "intent_id": "wf-intent-1",
+            "revision": 1,
+            "group_sha256": "9718be082164de638f49524c491b6d63935c447774589166383c6b8cc8222be0",
+            "state_sha256": "a384137c03d0cad81ee570d457a386a007752e2343a98df5f3f7fbb6c0475bf2"
+          }
+        },
+        {
+          "label": "manifest locus body",
+          "owner": "world_state",
+          "writes": [
+            [
+              "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v3",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-2",
+            "intent_id": "wf-intent-2",
+            "revision": 2,
+            "group_sha256": "758b7a3eef211cc15642e2ae378791c6df1d6921719674910a5fa59e09c673c9",
+            "state_sha256": "553524ad56d82960b9f85d979ab1c0bc1262790295b65c14dc9cbec462c46ea5"
+          }
+        },
+        {
+          "label": "manifest genesis has no finite source",
+          "code": "GENESIS_SHAPE",
+          "message": "exactly one world profile, one locus and one finite source are required"
+        },
+        {
+          "label": "M-S issue without Completion",
+          "error": "no source-qualified MS Completion"
+        },
+        {
+          "label": "captured chronology without Completion",
+          "code": "CAPTURED_CHRONOLOGY_UNAVAILABLE",
+          "message": "no qualifying Completion exists: MISSING_STATE, not a guessed zero and not a plain fallback"
+        },
+        {
+          "label": "ordinary control clock",
+          "owner": "temporal_kernel",
+          "writes": [
+            [
+              "temporal/state",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-3",
+            "intent_id": "wf-intent-3",
+            "revision": 3,
+            "group_sha256": "ad5a1924ee921b23ad919dcb62b78ecd7f4e6c6a64794e8005fca71708654b82",
+            "state_sha256": "3f785e39ef9b2a2c600bd82b1e8453d0390849396d0b1c7268d484495ec8cb68"
+          }
+        },
+        {
+          "label": "Economy demand without ledger",
+          "code": "PREREQUISITE_MISSING",
+          "message": "the carrier's Population ledger is not committed",
+          "details": {
+            "key": "population/b3-qualification-workshop-population/ledger"
+          }
+        },
+        {
+          "label": "manifest ledger",
+          "owner": "population",
+          "writes": [
+            [
+              "population/b3-qualification-workshop-population/ledger",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-5",
+            "intent_id": "wf-intent-5",
+            "revision": 4,
+            "group_sha256": "ea99137fc1fb16d31506aebc44593a226488b0b9b765630d97084d49a1e217a9",
+            "state_sha256": "eceed9d0f8460641e130f2f9710502b88182f6dfacebf01557327d87bcb57579"
+          }
+        },
+        {
+          "label": "Economy demand with absent unit",
+          "code": "REFERENCE_INVALID",
+          "message": "the carrier is not a Population Unit of that ledger",
+          "details": {
+            "unit_id": "absent-unit"
+          }
+        },
+        {
+          "label": "manifest Economy demand",
+          "owner": "economy",
+          "writes": [
+            [
+              "economy/demand/b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "economy/request/request:b3-qualification-bracket-job",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-7",
+            "intent_id": "wf-intent-7",
+            "revision": 5,
+            "group_sha256": "90501259b9e268f2e7640d1c953a1d5d5ab7e09e838872162b62b3b33e60dae5",
+            "state_sha256": "e3a3ffdb1a278a45f28c251351c206ec7bfc696308d00aac06fffd05444882d2"
+          }
+        },
+        {
+          "label": "reserve via native owner from exact authored fields",
+          "owner": "production",
+          "writes": [
+            [
+              "production/reserve/b3-qualification-bracket-stock",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-8",
+            "intent_id": "wf-intent-8",
+            "revision": 6,
+            "group_sha256": "6cb7e04c0d87678849dd4bfcd378f45f84d371720e6d36d0a463c68b0134a4b6",
+            "state_sha256": "89b5c84e3e3bcd2c0ddd781cb4ae86be3a1b24f23ee48fc4f059fed8f1e8ec9f"
+          }
+        },
+        {
+          "label": "v3 Production request key",
+          "code": "PREREQUISITE_MISSING",
+          "message": "no Production Request is committed at the given key",
+          "details": {
+            "key": "economy/request/b3-qualification-bracket-job"
+          }
+        },
+        {
+          "label": "derived original Economy request key",
+          "owner": "production",
+          "writes": [
+            [
+              "production/operation/request:b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "production/claim/claim:request:b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "production/reserve/b3-qualification-bracket-stock",
+              1
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-10",
+            "intent_id": "wf-intent-10",
+            "revision": 7,
+            "group_sha256": "b0736351691e0274d64401c19c420ed83db7b7ef9ff11893af131a234cb53da1",
+            "state_sha256": "5f38de677bf41e650d6ed152ec647ba25673d65113718e6afce46bdffc543fc0"
+          }
+        },
+        {
+          "label": "v3 Temporal registration shape",
+          "code": "INPUT_INVALID",
+          "message": "object failed validation",
+          "details": {
+            "issues": [
+              "object_id: Invalid input: expected string, received undefined",
+              "owning_ref: Invalid input: expected object, received undefined",
+              "last_resolved_basis: Invalid input: expected object, received undefined",
+              "partition: Invalid input: expected object, received undefined",
+              "next_boundary: Invalid input: expected object, received undefined"
+            ]
+          }
+        },
+        {
+          "label": "native Temporal owner recipe and index",
+          "owner": "temporal_kernel",
+          "writes": [
+            [
+              "temporal/object/obj-production-request:b3-qualification-bracket-job",
+              0
+            ],
+            [
+              "temporal/boundary-index",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-12",
+            "intent_id": "wf-intent-12",
+            "revision": 8,
+            "group_sha256": "60e8e797dee72725322ca4b3ca49bdddf0936c15342e6a992633bd3f7e88bd66",
+            "state_sha256": "de144c2878fca176dfa2d7c41ae70358e2de9425abb332469257117f4523fd33"
+          }
+        },
+        {
+          "label": "v3 Institution recipe passed literally",
+          "code": "INPUT_INVALID",
+          "message": "institution identity failed validation",
+          "details": {
+            "issues": [
+              "constitutive_source_ref: Invalid input: expected string, received object"
+            ]
+          }
+        },
+        {
+          "label": "existing Institution route with opaque control reference",
+          "owner": "gip",
+          "writes": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/identity",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-14",
+            "intent_id": "wf-intent-14",
+            "revision": 9,
+            "group_sha256": "fa3df2e27bf2322d8b63b7d4136a23623068bbd01619c78ad947ceda6e1eb3a5",
+            "state_sha256": "9f1bcef5ef1d33a168c7af5806867628c62c7289e3d7f61a17c7dd79b8366460"
+          }
+        },
+        {
+          "label": "v3 office recipe passed literally",
+          "code": "INPUT_INVALID",
+          "message": "office failed validation",
+          "details": {
+            "issues": [
+              ": Invalid input"
+            ]
+          }
+        },
+        {
+          "label": "existing GIP opaque holder route",
+          "owner": "gip",
+          "writes": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/office/b3-qualification-notice-supervisor",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-16",
+            "intent_id": "wf-intent-16",
+            "revision": 10,
+            "group_sha256": "2134a9e61b95fdc9c351f95220840185e38c17b70f1c6e1ec73d566cf182ceba",
+            "state_sha256": "b0fb34301ae7a792061929df6ccbcc32a50ae4960760b608f6e1539fd8ee96e2"
+          }
+        },
+        {
+          "label": "manifest GIP scope through owner",
+          "owner": "gip",
+          "writes": [
+            [
+              "gip/institution/b3-qualification-workshop-institution/office/b3-qualification-notice-supervisor/scope-binding/b3-qualification-local-notice-scope",
+              0
+            ]
+          ],
+          "receipt": {
+            "campaign_id": "c0-native-control-workshop-opening-glassbell-v3",
+            "group_id": "wf-group-17",
+            "intent_id": "wf-intent-17",
+            "revision": 11,
+            "group_sha256": "76a215a41216c90d52da7127596ad9db64f99ebb9fe43d0aef316a8777fad62e",
+            "state_sha256": "0b55e65cf2d198eda2cb5c75d9d71cf38e37c0936a51ec15bb194ae050214a2a"
+          }
+        }
+      ],
+      "replay": "PASS"
+    }
+  ]
+}
