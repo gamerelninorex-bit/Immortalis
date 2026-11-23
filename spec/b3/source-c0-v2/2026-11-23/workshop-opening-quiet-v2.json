@@ -1,0 +1,2400 @@
+{
+  "admission_controls": {
+    "no_automatic_health_clearance": true,
+    "no_dynamic_result_without_real_registered_owner": true,
+    "no_forged_referee_or_M_S": true,
+    "no_historical_world_reuse": true,
+    "no_positive_Lane_X_without_B2_IF6B": true,
+    "no_prior_owner_output_predeclared": true,
+    "no_production_allowlist_until_Ad4B": true
+  },
+  "campaign_class": "QUALIFICATION",
+  "disposable_only": true,
+  "id": "workshop-opening-quiet-v2",
+  "opening_contract": {
+    "all_groups_at_original_t0": true,
+    "allowlist": "EMPTY",
+    "canonical_time": {
+      "unit": "b3-qualification-in-world-second-v1",
+      "value": 0
+    },
+    "clock": "SI_SUBDAY_V1_COMPUTATION_ONLY_FOR_RECOVERY_5_MINUTES",
+    "fail_closed": "any non-owner-generated result unqualified, no live fact writes",
+    "group_count": 26,
+    "groups": [
+      {
+        "alias": "world",
+        "authored_fact": {
+          "key": "world/b3-qualification-workshop-world/profile",
+          "strict_schema": "world_profileSchema",
+          "value": {
+            "insertion_supporting_constraints": [
+              {
+                "aspect": "locus",
+                "statement": "The qualified opening has exactly one workshop bay at the single original locale."
+              },
+              {
+                "aspect": "qualification",
+                "statement": "This source profile exists only for one disposable QUALIFICATION campaign and is not portable to a historical settlement."
+              }
+            ],
+            "material_world_law_departures": [],
+            "premise": "A single fictional workshop operated only as a disposable Immortalis source-qualification case.",
+            "reference_causal_basis": {
+              "established_canon": "One bounded fictional workshop with one operative PC, one original M-S named attendant, and one opaque GIP supervisor-office holder. No historical world is modified.",
+              "mode": "ORIGINAL"
+            },
+            "world_id": "b3-qualification-workshop-world"
+          }
+        },
+        "facet": "world_profile",
+        "group_writes": [
+          "world_profile"
+        ],
+        "kind": "world_profile",
+        "owner": "world_state",
+        "phase": 1,
+        "requires": [],
+        "sequence": 1,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "STATIC_EXACT",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "workshop_locus",
+        "authored_fact": {
+          "key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v2",
+          "strict_schema": "world_locusSchema",
+          "value": {
+            "constraints": [
+              {
+                "aspect": "physical-locality",
+                "statement": "One bounded workshop bay in the original world; a physical PC and attendant can be co-located here."
+              }
+            ],
+            "designation": "Workshop Bay 1",
+            "locus_id": "workshop-opening-quiet-v2",
+            "world": {
+              "entity_id": "b3-qualification-workshop-world",
+              "fact_key": "world/b3-qualification-workshop-world/profile"
+            }
+          }
+        },
+        "facet": "world_locus",
+        "group_writes": [
+          "world_locus"
+        ],
+        "kind": "world_locus",
+        "owner": "world_state",
+        "phase": 1,
+        "requires": [
+          "world"
+        ],
+        "sequence": 2,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "STATIC_EXACT",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "pc_host",
+        "facet": "existence_contract",
+        "group_writes": [
+          "pc_existence_contract"
+        ],
+        "kind": "pc_existence_contract",
+        "owner": "pc_existence",
+        "phase": 2,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "existence_contract",
+            "key_derivation": {
+              "pattern": "pc/{pc_id}/existence-contract",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "pc_existence_contract",
+            "owner": "pc_existence",
+            "strict_result_schema": "pc_existence_contractSchema",
+            "write_kinds": [
+              "pc_existence_contract"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "claim_author": "PLAYER_AUTHORED_OR_PLAYER_DELEGATED",
+              "continuity": "one continuing physical life",
+              "embodiment": "one ordinary human body",
+              "identity": "Bob, an ordinary embodied human workshop visitor",
+              "pc_id": "b3-qualification-pc-bob",
+              "physical_location": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "producer_mode": "DISPOSABLE_SYNTHETIC_TEST_AUTHORING_ONLY"
+            },
+            "operation": "PC_EXISTENCE_ORIGINAL_PLAYER_AUTHORED",
+            "schema": "PcExistenceOriginalAuthoringInputV1",
+            "source_owner": "pc_existence"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "existence_contract",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "pc_existence",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "workshop_locus"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 3,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "native_compatibility_verdict",
+        "facet": "referee_provenance",
+        "group_writes": [
+          "referee_decision"
+        ],
+        "kind": "referee_decision",
+        "owner": "referee_kernel",
+        "phase": 2,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "referee_provenance",
+            "key_derivation": {
+              "pattern": "referee/{auth_decision_sha256}/decision",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "referee_decision",
+            "owner": "referee_kernel",
+            "strict_result_schema": "referee_decisionSchema",
+            "write_kinds": [
+              "referee_decision"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "operation": "IR_NATIVE_COMPATIBILITY",
+              "pc": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_host",
+                "source_field": "fact_ref"
+              },
+              "referee_mode": "NATIVE_AUTHENTICATED_SIGNER_AT_ORIGINAL_CUT",
+              "world": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "world",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "IR_NATIVE_COMPATIBILITY",
+            "schema": "RefereeNativeCompatibilityRequestV1",
+            "source_owner": "referee_kernel"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "referee_provenance",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "referee_kernel",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "pc_host",
+              "workshop_locus"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "pc_host",
+          "workshop_locus"
+        ],
+        "sequence": 4,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "pc_binding",
+        "facet": "player_character_binding",
+        "group_writes": [
+          "player_character_binding"
+        ],
+        "kind": "player_character_binding",
+        "owner": "role_registry",
+        "phase": 2,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "player_character_binding",
+            "key_derivation": {
+              "pattern": "role-registry/binding/role.player_character",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "player_character_binding",
+            "owner": "role_registry",
+            "strict_result_schema": "player_character_bindingSchema",
+            "write_kinds": [
+              "player_character_binding"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "existence": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_host",
+                "source_field": "fact_ref"
+              },
+              "mode": "FIRST_NATIVE_ACTIVATION",
+              "native_verdict": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "native_compatibility_verdict",
+                "source_field": "fact_ref"
+              },
+              "pc_id": "b3-qualification-pc-bob"
+            },
+            "operation": "ROLE_REGISTRY_ORIGINAL_PLAYER_ACTIVATION",
+            "schema": "RoleRegistryOriginalActivationRequestV1",
+            "source_owner": "role_registry"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "player_character_binding",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "role_registry",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "pc_host",
+              "native_compatibility_verdict"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "pc_host",
+          "native_compatibility_verdict"
+        ],
+        "sequence": 5,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "physical_placement_verdict",
+        "facet": "referee_provenance",
+        "group_writes": [
+          "referee_decision"
+        ],
+        "kind": "referee_decision",
+        "owner": "referee_kernel",
+        "phase": 2,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "referee_provenance",
+            "key_derivation": {
+              "pattern": "referee/{physical_decision_sha256}/decision",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "referee_decision",
+            "owner": "referee_kernel",
+            "strict_result_schema": "referee_decisionSchema",
+            "write_kinds": [
+              "referee_decision"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "operation": "IR_PHYSICAL_PLACEMENT",
+              "pc_binding": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_binding",
+                "source_field": "fact_ref"
+              },
+              "physical_locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "referee_mode": "NATIVE_AUTHENTICATED_SIGNER_AT_ORIGINAL_CUT"
+            },
+            "operation": "IR_PHYSICAL_PLACEMENT",
+            "schema": "RefereeOriginalPhysicalPlacementRequestV1",
+            "source_owner": "referee_kernel"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "referee_provenance",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "referee_kernel",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "pc_binding",
+              "workshop_locus"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "pc_binding",
+          "workshop_locus"
+        ],
+        "sequence": 6,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "pc_placement",
+        "facet": "world_pc_locus_custody",
+        "group_writes": [
+          "world_pc_locus_custody"
+        ],
+        "kind": "world_pc_locus_custody",
+        "owner": "world_state",
+        "phase": 2,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "world_pc_locus_custody",
+            "key_derivation": {
+              "pattern": "world-state/pc/{pc_id}/locus-custody",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "world_pc_locus_custody",
+            "owner": "world_state",
+            "strict_result_schema": "world_pc_locus_custodySchema",
+            "write_kinds": [
+              "world_pc_locus_custody"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "binding": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_binding",
+                "source_field": "fact_ref"
+              },
+              "branch": "ORIGINAL_ACTIVATION",
+              "locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "native_verdict": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "native_compatibility_verdict",
+                "source_field": "fact_ref"
+              },
+              "pc_id": "b3-qualification-pc-bob",
+              "physical_verdict": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "physical_placement_verdict",
+                "source_field": "fact_ref"
+              },
+              "world": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "world",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "WORLD_PC_ORIGINAL_ACTIVATION",
+            "schema": "PcPhysicalLocusCustodyOriginalActivationInputV1",
+            "source_owner": "world_state"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "world_pc_locus_custody",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "world_state",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "pc_binding",
+              "physical_placement_verdict",
+              "native_compatibility_verdict"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "pc_binding",
+          "physical_placement_verdict",
+          "native_compatibility_verdict"
+        ],
+        "sequence": 7,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "ms_issue",
+        "facet": "world_initial_actor_setup",
+        "group_writes": [
+          "initial_actor_setup_issue"
+        ],
+        "kind": "initial_actor_setup_issue",
+        "owner": "world_state",
+        "phase": 3,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "world_initial_actor_setup",
+            "key_derivation": {
+              "derived_by": "MS_SOURCE_DERIVATION_FROM_ACTUAL_SIGNED_ORIGINAL_INPUTS",
+              "pattern": "world/{world_id}/locus/{locus_id}/initial-actor/{digest}/issue",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "initial_actor_setup_issue",
+            "owner": "world_state",
+            "strict_result_schema": "initial_actor_setup_issueSchema",
+            "write_kinds": [
+              "initial_actor_setup_issue"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "actor_id": "b3-qualification-attendant-mara",
+              "actor_leaf_cardinality": 1,
+              "authoring_scope": "PLAYER_AUTHORED_OR_DELEGATED",
+              "initial_setup_input": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_host",
+                "source_field": "fact_ref"
+              },
+              "locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "runner_mode": "SOURCE_NATIVE_MS_SETUP",
+              "world": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "world",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "MS_BUILD_NATIVE_ACTOR_ISSUE",
+            "schema": "InitialActorSetupIssueSchema",
+            "source_owner": "world_state"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "world_initial_actor_setup",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "world_state",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "pc_host",
+              "workshop_locus"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "pc_host",
+          "workshop_locus"
+        ],
+        "sequence": 8,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "ms_response",
+        "facet": "world_initial_actor_setup",
+        "group_writes": [
+          "initial_actor_setup_response"
+        ],
+        "kind": "initial_actor_setup_response",
+        "owner": "world_state",
+        "phase": 3,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "world_initial_actor_setup",
+            "key_derivation": {
+              "derived_by": "MS_SOURCE_DERIVATION_FROM_ACTUAL_SIGNED_ORIGINAL_INPUTS",
+              "pattern": "world/{world_id}/locus/{locus_id}/initial-actor/{digest}/response",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "initial_actor_setup_response",
+            "owner": "world_state",
+            "strict_result_schema": "initial_actor_setup_responseSchema",
+            "write_kinds": [
+              "initial_actor_setup_response"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "actor_id": "b3-qualification-attendant-mara",
+              "issue": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "ms_issue",
+                "source_field": "fact_ref"
+              },
+              "raw_response_predeclared": false,
+              "signature_requirement": "ED25519_VERIFIED_ORIGINAL_ACTOR_RESPONSE"
+            },
+            "operation": "MS_BUILD_SIGNED_ACTOR_RESPONSE",
+            "schema": "InitialActorSetupResponseSchema",
+            "source_owner": "world_state"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "world_initial_actor_setup",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "world_state",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "ms_issue"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "ms_issue"
+        ],
+        "sequence": 9,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "attendant_existence",
+        "facet": "actor_existence",
+        "group_writes": [
+          "named_actor_existence_basis"
+        ],
+        "kind": "named_actor_existence_basis",
+        "owner": "named_actor",
+        "phase": 3,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "actor_existence",
+            "key_derivation": {
+              "pattern": "named-actor/{actor_id}/existence-basis",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "named_actor_existence_basis",
+            "owner": "named_actor",
+            "strict_result_schema": "named_actor_existence_basisSchema",
+            "write_kinds": [
+              "named_actor_existence_basis"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "actor_id": "b3-qualification-attendant-mara",
+              "actor_leaf_cardinality": 1,
+              "locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "source_issue": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "ms_issue",
+                "source_field": "fact_ref"
+              },
+              "source_signed_response": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "ms_response",
+                "source_field": "fact_ref"
+              },
+              "world": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "world",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "MS_DERIVE_SINGLE_NAMED_ACTOR_EXISTENCE",
+            "schema": "NamedActorExistenceBasisSchema",
+            "source_owner": "named_actor"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "actor_existence",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "named_actor",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "workshop_locus"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "ms_issue",
+          "ms_response"
+        ],
+        "sequence": 10,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "actor_setup_placement",
+        "facet": "world_initial_actor_setup",
+        "group_writes": [
+          "actor_setup_placement"
+        ],
+        "kind": "actor_setup_placement",
+        "owner": "world_state",
+        "phase": 3,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "world_initial_actor_setup",
+            "key_derivation": {
+              "pattern": "world-state/actor/{actor_id}/setup-placement",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "actor_setup_placement",
+            "owner": "world_state",
+            "strict_result_schema": "actor_setup_placementSchema",
+            "write_kinds": [
+              "actor_setup_placement"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "actor": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_existence",
+                "source_field": "fact_ref"
+              },
+              "locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "placement_mode": "MS_NATIVE_ORIGINAL",
+              "world": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "world",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "MS_R1_ACTOR_ORIGINAL_PLACEMENT",
+            "schema": "ActorSetupPlacementSchema",
+            "source_owner": "world_state"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "world_initial_actor_setup",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "world_state",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "attendant_existence"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "attendant_existence"
+        ],
+        "sequence": 11,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "actor_setup_closure",
+        "facet": "world_initial_actor_setup",
+        "group_writes": [
+          "world_setup_closure"
+        ],
+        "kind": "world_setup_closure",
+        "owner": "world_state",
+        "phase": 3,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "world_initial_actor_setup",
+            "key_derivation": {
+              "pattern": "world/{world_id}/setup-closure",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "world_setup_closure",
+            "owner": "world_state",
+            "strict_result_schema": "world_setup_closureSchema",
+            "write_kinds": [
+              "world_setup_closure"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "actor": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_existence",
+                "source_field": "fact_ref"
+              },
+              "placement": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "actor_setup_placement",
+                "source_field": "fact_ref"
+              },
+              "single_actor": true,
+              "world": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "world",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "MS_R1_WORLD_SETUP_CLOSE",
+            "schema": "WorldSetupClosureSchema",
+            "source_owner": "world_state"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "world_initial_actor_setup",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "world_state",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "actor_setup_placement",
+              "attendant_existence"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "actor_setup_placement",
+          "attendant_existence"
+        ],
+        "sequence": 12,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "attendant_presence",
+        "facet": "world_actor_presence",
+        "group_writes": [
+          "actor_physical_presence"
+        ],
+        "kind": "actor_physical_presence",
+        "owner": "world_state",
+        "phase": 3,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "world_actor_presence",
+            "key_derivation": {
+              "pattern": "world-state/actor/{actor_id}/presence",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "actor_physical_presence",
+            "owner": "world_state",
+            "strict_result_schema": "actor_physical_presenceSchema",
+            "write_kinds": [
+              "actor_physical_presence"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "actor": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_existence",
+                "source_field": "fact_ref"
+              },
+              "closure": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "actor_setup_closure",
+                "source_field": "fact_ref"
+              },
+              "locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "presence_mode": "MS_R1_VERIFIED_ORIGINAL"
+            },
+            "operation": "MS_R1_ACTOR_PHYSICAL_PRESENCE",
+            "schema": "ActorPhysicalPresenceSchema",
+            "source_owner": "world_state"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "world_actor_presence",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "world_state",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "actor_setup_closure",
+              "attendant_existence"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "actor_setup_closure",
+          "attendant_existence"
+        ],
+        "sequence": 13,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "institution",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_institution_identity"
+        ],
+        "kind": "gip_institution_identity",
+        "owner": "gip",
+        "phase": 4,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "gip_institution_identity",
+            "key_derivation": {
+              "pattern": "gip/institution/{institution_id}/identity",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "gip_institution_identity",
+            "owner": "gip",
+            "strict_result_schema": "gip_institution_identitySchema",
+            "write_kinds": [
+              "gip_institution_identity"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "constitutive_source_ref": {
+                "derive": "ADOPTED_PROFILE_PIN",
+                "format": "profile:{profile_id}:{sha256}",
+                "never_self_hash": true
+              },
+              "continuity_status": "continuing",
+              "identity_label": "Workshop Qualification Institution",
+              "institution_id": "b3-qualification-workshop-institution"
+            },
+            "operation": "GIP_ESTABLISH_INSTITUTION_IDENTITY",
+            "schema": "InstitutionIdentitySchema",
+            "source_owner": "gip"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "gip_institution_identity",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "gip",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "workshop_locus"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 14,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "supervisor_office",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_office_authority_locus"
+        ],
+        "kind": "gip_office_authority_locus",
+        "owner": "gip",
+        "phase": 4,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "gip_institution_identity",
+            "key_derivation": {
+              "pattern": "gip/institution/{institution_id}/office/{office_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "gip_office_authority_locus",
+            "owner": "gip",
+            "strict_result_schema": "gip_office_authority_locusSchema",
+            "write_kinds": [
+              "gip_office_authority_locus"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "authority_source_ref": {
+                "derive": "ADOPTED_PROFILE_PIN",
+                "format": "profile:{profile_id}:{sha256}"
+              },
+              "competence_scope": "one disposable workshop",
+              "duties": [
+                "monitor one completion notice only"
+              ],
+              "holder_ref": "b3-qualification-supervisor-rowan-opaque-holder",
+              "institution_id": "b3-qualification-workshop-institution",
+              "no_actor_existence_dereference": true,
+              "office_id": "b3-qualification-notice-supervisor",
+              "powers": [],
+              "removal_rule": "holder change ends duty permanently",
+              "selection_rule": "original seeded post",
+              "succession_rule": "no continuation"
+            },
+            "operation": "GIP_ESTABLISH_OFFICE_AUTHORITY_LOCUS",
+            "schema": "OfficeAuthorityLocusHolderSchema",
+            "source_owner": "gip"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "gip_institution_identity",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "gip",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "institution"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "institution"
+        ],
+        "sequence": 15,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "attendant_post",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_office_authority_locus"
+        ],
+        "kind": "gip_office_authority_locus",
+        "owner": "gip",
+        "phase": 4,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "gip_institution_identity",
+            "key_derivation": {
+              "pattern": "gip/institution/{institution_id}/office/{office_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "gip_office_authority_locus",
+            "owner": "gip",
+            "strict_result_schema": "gip_office_authority_locusSchema",
+            "write_kinds": [
+              "gip_office_authority_locus"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "authority_source_ref": {
+                "derive": "ADOPTED_PROFILE_PIN",
+                "format": "profile:{profile_id}:{sha256}"
+              },
+              "competence_scope": "one disposable workshop",
+              "duties": [
+                "hold one accepted standing duty"
+              ],
+              "holder_ref": "b3-qualification-attendant-mara",
+              "institution_id": "b3-qualification-workshop-institution",
+              "no_actor_existence_dereference": true,
+              "office_id": "b3-qualification-attendant-post",
+              "powers": [],
+              "removal_rule": "holder change ends duty permanently",
+              "selection_rule": "original seeded post",
+              "succession_rule": "no continuation"
+            },
+            "operation": "GIP_ESTABLISH_OFFICE_AUTHORITY_LOCUS",
+            "schema": "OfficeAuthorityLocusHolderSchema",
+            "source_owner": "gip"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "gip_institution_identity",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "gip",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "institution",
+              "attendant_existence"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "institution",
+          "attendant_existence"
+        ],
+        "sequence": 16,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "local_scope",
+        "authored_fact": {
+          "key": "gip/institution/b3-qualification-workshop-institution/office/b3-qualification-notice-supervisor/scope-binding/b3-qualification-local-notice-scope",
+          "strict_schema": "gip_scope_bindingSchema",
+          "value": {
+            "institution_id": "b3-qualification-workshop-institution",
+            "office_id": "b3-qualification-notice-supervisor",
+            "scope_binding_id": "b3-qualification-local-notice-scope",
+            "scope_ref": "workshop-opening-quiet-v2",
+            "scope_type": "QUALIFICATION_ONLY_SINGLE_WORKSHOP",
+            "target_condition": "Applies only to one original job and the designated operative PC in disposable QUALIFICATION campaign."
+          }
+        },
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_scope_binding"
+        ],
+        "kind": "gip_scope_binding",
+        "owner": "gip",
+        "phase": 4,
+        "requires": [
+          "supervisor_office"
+        ],
+        "sequence": 17,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "STATIC_EXACT",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "charter",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_local_completion_notice_charter"
+        ],
+        "kind": "gip_local_completion_notice_charter",
+        "owner": "gip",
+        "phase": 4,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "gip_institution_identity",
+            "key_derivation": {
+              "pattern": "gip/local-completion-notice/campaign/{campaign_id}/charter",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "gip_local_completion_notice_charter",
+            "owner": "gip",
+            "strict_result_schema": "gip_local_completion_notice_charterSchema",
+            "write_kinds": [
+              "gip_local_completion_notice_charter"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "attendant_existence": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_existence",
+                "source_field": "fact_ref"
+              },
+              "attendant_post": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_post",
+                "source_field": "fact_ref"
+              },
+              "campaign_id": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "CampaignId",
+                "required": true,
+                "source_alias": "pc_host",
+                "source_field": "campaign_id"
+              },
+              "designated_pc_binding": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_binding",
+                "source_field": "fact_ref"
+              },
+              "future_production_operation": {
+                "key": "production/operation/b3-qualification-bracket-job",
+                "must_exist_before_instruction": true,
+                "no_present_fact_assertion": true
+              },
+              "grant_id": "AD-1",
+              "institution": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "institution",
+                "source_field": "fact_ref"
+              },
+              "locus": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "workshop_locus",
+                "source_field": "fact_ref"
+              },
+              "office": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "supervisor_office",
+                "source_field": "fact_ref"
+              },
+              "operative_effect": "authority_grant",
+              "power": "ISSUE_ONE_STANDING_COMPLETION_DIRECTION",
+              "scope": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "local_scope",
+                "source_field": "fact_ref"
+              },
+              "source_profile_pin": {
+                "derive": "ADOPTED_PROFILE_PIN",
+                "format": "profile:{profile_id}:{sha256}"
+              },
+              "world": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "world",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "GIP_AD1_SOURCE_AUTHORIZED_CHARTER",
+            "schema": "GipLocalCompletionNoticeCharterSchema (prospective AD-1)",
+            "source_owner": "gip"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "gip_institution_identity",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "gip",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "institution",
+              "supervisor_office",
+              "attendant_post",
+              "attendant_existence",
+              "pc_binding",
+              "local_scope"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "institution",
+          "supervisor_office",
+          "attendant_post",
+          "attendant_existence",
+          "pc_binding",
+          "local_scope"
+        ],
+        "sequence": 18,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "population_ledger",
+        "facet": "population_state",
+        "group_writes": [
+          "population_ledger"
+        ],
+        "kind": "population_ledger",
+        "owner": "population",
+        "phase": 5,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "population_state",
+            "key_derivation": {
+              "pattern": "population/{ledger_id}/ledger",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "population_ledger",
+            "owner": "population",
+            "strict_result_schema": "population_ledgerSchema",
+            "write_kinds": [
+              "population_ledger"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "ledger_id": "b3-qualification-workshop-population",
+              "locus_id": "workshop-opening-quiet-v2",
+              "point": {
+                "unit": "b3-qualification-in-world-second-v1",
+                "value": 0
+              },
+              "unit_class": "HUMAN_VISITOR",
+              "units": [
+                {
+                  "burden_allocation": null,
+                  "presence": "workshop-opening-quiet-v2",
+                  "residence": "workshop-opening-quiet-v2",
+                  "unit_id": "b3-qualification-population-visitor"
+                }
+              ],
+              "world_id": "b3-qualification-workshop-world"
+            },
+            "operation": "POPULATION_ESTABLISH_LEDGER",
+            "schema": "EstablishLedgerInputSchema",
+            "source_owner": "population"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "population_state",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "population",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "workshop_locus"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 19,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "economy_request",
+        "facet": "economy_state",
+        "group_writes": [
+          "economy_demand",
+          "economy_request"
+        ],
+        "kind": "economy_request",
+        "owner": "economy",
+        "phase": 5,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "economy_state",
+            "key_derivation": {
+              "pattern": "economy/request/{request_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "economy_request",
+            "owner": "economy",
+            "strict_result_schema": "economy_requestSchema",
+            "write_kinds": [
+              "economy_demand",
+              "economy_request"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "carrier": {
+                "kind": "POPULATION_UNIT",
+                "ledger_id": "b3-qualification-workshop-population",
+                "unit_id": "b3-qualification-population-visitor"
+              },
+              "demand_entry": {
+                "output_class": "bracket",
+                "quantity": {
+                  "amount": 1,
+                  "unit": "unit"
+                }
+              },
+              "demand_envelope_id": "b3-qualification-bracket-job",
+              "source_carrier_must_match": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "population_ledger",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "ECONOMY_ISSUE_DEMAND_REQUEST_ATOMIC",
+            "schema": "IssueDemandInputSchema",
+            "source_owner": "economy"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "economy_state",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "economy",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "population_ledger"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "population_ledger"
+        ],
+        "sequence": 20,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "production_reserve",
+        "authored_fact": {
+          "key": "production/reserve/b3-qualification-bracket-stock",
+          "strict_schema": "production_reserveSchema",
+          "value": {
+            "claims": [],
+            "condition": "raw-local-stock",
+            "consumed": [],
+            "established": {
+              "amount": 1,
+              "unit": "unit"
+            },
+            "holding": "HELD_LOCAL_BY_PRODUCTION",
+            "locality": {
+              "locus": {
+                "entity_id": "workshop-opening-quiet-v2",
+                "fact_key": "world/b3-qualification-workshop-world/locus/workshop-opening-quiet-v2"
+              },
+              "world": {
+                "entity_id": "b3-qualification-workshop-world",
+                "fact_key": "world/b3-qualification-workshop-world/profile"
+              }
+            },
+            "material_class": "bracket-stock",
+            "quantity": {
+              "amount": 1,
+              "unit": "unit"
+            },
+            "reserve_id": "b3-qualification-bracket-stock"
+          }
+        },
+        "facet": "production_state",
+        "group_writes": [
+          "production_reserve"
+        ],
+        "kind": "production_reserve",
+        "owner": "production",
+        "phase": 5,
+        "requires": [
+          "workshop_locus"
+        ],
+        "sequence": 21,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "STATIC_EXACT",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "production_start",
+        "facet": "production_state",
+        "group_writes": [
+          "production_reserve",
+          "production_claim",
+          "production_operation"
+        ],
+        "kind": "production_operation",
+        "owner": "production",
+        "phase": 5,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "production_state",
+            "key_derivation": {
+              "pattern": "production/operation/{request_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "production_operation",
+            "owner": "production",
+            "strict_result_schema": "production_operationSchema",
+            "write_kinds": [
+              "production_reserve",
+              "production_claim",
+              "production_operation"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "completion_at": {
+                "unit": "b3-qualification-in-world-second-v1",
+                "value": 600
+              },
+              "request_key": "economy/request/b3-qualification-bracket-job",
+              "requires_real_economy_request": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "economy_request",
+                "source_field": "fact_ref"
+              },
+              "reserve_id": "b3-qualification-bracket-stock",
+              "transformation": {
+                "input_quantity": {
+                  "amount": 1,
+                  "unit": "unit"
+                },
+                "output_class": "bracket",
+                "output_condition": "finished",
+                "output_quantity": {
+                  "amount": 1,
+                  "unit": "unit"
+                }
+              }
+            },
+            "operation": "PRODUCTION_START_RESERVE_CLAIM_OPERATION_ATOMIC",
+            "schema": "StartOperationInputSchema",
+            "source_owner": "production"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "production_state",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "production",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "economy_request",
+              "production_reserve"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "economy_request",
+          "production_reserve"
+        ],
+        "sequence": 22,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "production_temporal_enrolment",
+        "facet": "temporal_coordination",
+        "group_writes": [
+          "temporal_object"
+        ],
+        "kind": "temporal_object",
+        "owner": "temporal_kernel",
+        "phase": 5,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "temporal_coordination",
+            "key_derivation": {
+              "pattern": "temporal/object/{object_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "temporal_object",
+            "owner": "temporal_kernel",
+            "strict_result_schema": "temporal_objectSchema",
+            "write_kinds": [
+              "temporal_object"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "completion_boundary": {
+                "unit": "b3-qualification-in-world-second-v1",
+                "value": 600
+              },
+              "fallback_acceptance_owner": "world_state",
+              "operation": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "production_start",
+                "source_field": "fact_ref"
+              },
+              "temporal_owner_native": true
+            },
+            "operation": "TEMPORAL_REGISTER_NATIVE_PRODUCTION_OBJECT",
+            "schema": "TemporalObjectSchema",
+            "source_owner": "temporal_kernel"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "temporal_coordination",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "temporal_kernel",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "production_start"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "production_start"
+        ],
+        "sequence": 23,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "instruction",
+        "facet": "gip_institution_identity",
+        "group_writes": [
+          "gip_local_completion_notice_instruction"
+        ],
+        "kind": "gip_local_completion_notice_instruction",
+        "owner": "gip",
+        "phase": 6,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "gip_institution_identity",
+            "key_derivation": {
+              "pattern": "gip/local-completion-notice/campaign/{campaign_id}/instruction/{instruction_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "gip_local_completion_notice_instruction",
+            "owner": "gip",
+            "strict_result_schema": "gip_local_completion_notice_instructionSchema",
+            "write_kinds": [
+              "gip_local_completion_notice_instruction"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "attendant": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_existence",
+                "source_field": "fact_ref"
+              },
+              "campaign_id": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "CampaignId",
+                "required": true,
+                "source_alias": "pc_host",
+                "source_field": "campaign_id"
+              },
+              "charter": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "charter",
+                "source_field": "fact_ref"
+              },
+              "disclosure_scope": "COMPLETION_CONFIRMED_TO_DESIGNATED_PC",
+              "grant_id": "AD-1",
+              "issued_basis": {
+                "derive": "ADOPTED_PROFILE_PIN"
+              },
+              "operation": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "production_start",
+                "source_field": "fact_ref"
+              },
+              "operative_effect": "administrative_direction",
+              "pc_binding": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_binding",
+                "source_field": "fact_ref"
+              },
+              "post": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_post",
+                "source_field": "fact_ref"
+              },
+              "scope": "MONITOR_ACCEPTED_COMPLETION",
+              "source_holder": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "supervisor_office",
+                "source_field": "fact_ref"
+              }
+            },
+            "operation": "GIP_AD1_SOURCE_AUTHORIZED_INSTRUCTION",
+            "schema": "GipLocalCompletionNoticeInstructionSchema (prospective AD-1)",
+            "source_owner": "gip"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "gip_institution_identity",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "gip",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "charter",
+              "production_start",
+              "production_temporal_enrolment"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "charter",
+          "production_start",
+          "production_temporal_enrolment"
+        ],
+        "sequence": 24,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "accepted_standing_duty",
+        "facet": "actor_profile",
+        "group_writes": [
+          "named_actor_local_notice_duty"
+        ],
+        "kind": "named_actor_local_notice_duty",
+        "owner": "named_actor",
+        "phase": 6,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "actor_profile",
+            "key_derivation": {
+              "pattern": "named-actor/{actor_id}/local-notice-duty/{instruction_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "named_actor_local_notice_duty",
+            "owner": "named_actor",
+            "strict_result_schema": "named_actor_local_notice_dutySchema",
+            "write_kinds": [
+              "named_actor_local_notice_duty"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "accepted_basis": "SEEDED_STANDING_POST_DUTY",
+              "actor": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "attendant_existence",
+                "source_field": "fact_ref"
+              },
+              "issued_instruction": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "instruction",
+                "source_field": "fact_ref"
+              },
+              "no_npc_choice_receipt": true,
+              "profile_pin": {
+                "derive": "ADOPTED_PROFILE_PIN"
+              }
+            },
+            "operation": "NAMED_ACTOR_RD6_ORIGINAL_STANDING_DUTY",
+            "schema": "NamedActorLocalNoticeDutySchema (prospective RD.6)",
+            "source_owner": "named_actor"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "actor_profile",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "named_actor",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "instruction",
+              "attendant_existence"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "instruction",
+          "attendant_existence"
+        ],
+        "sequence": 25,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      },
+      {
+        "alias": "coverage_anchor",
+        "facet": "health_condition_process",
+        "group_writes": [
+          "health_pc_sensory_coverage_anchor"
+        ],
+        "kind": "health_pc_sensory_coverage_anchor",
+        "owner": "health",
+        "phase": 9,
+        "producer_instruction": {
+          "activation": "TEST_SEAM_ONLY_UNTIL_EXACT_PROFILE_SHA_ADOPTED",
+          "expected_output": {
+            "facet": "health_condition_process",
+            "key_derivation": {
+              "pattern": "health/pc/{pc_id}/auditory/coverage-anchor/{anchor_id}",
+              "profile_id": "workshop-opening-quiet-v2"
+            },
+            "kind": "health_pc_sensory_coverage_anchor",
+            "owner": "health",
+            "strict_result_schema": "health_pc_sensory_coverage_anchorSchema",
+            "write_kinds": [
+              "health_pc_sensory_coverage_anchor"
+            ]
+          },
+          "independent_falsifier": {
+            "negative_cases": [
+              "CALLER_ASSERTS_OUTPUT_WITHOUT_OWNER_WRITE",
+              "UNQUALIFIED_OR_STALE_PREDECESSOR",
+              "INCORRECT_OWNER_OR_KEY_OR_POLICY",
+              "MISSING_SOURCE_SIGNATURE_OR_REAL_RECEIPT"
+            ],
+            "positive": "ACTUAL_OWNER_ADMISSION_WITH_NATIVE_OWNER_PROVENANCE_AND_ALL_REQUIRED_PREDECESSORS",
+            "required_negative_result": "REJECT_NO_QUALIFIED_OUTPUT"
+          },
+          "input_contract": {
+            "argument_object": {
+              "host": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_host",
+                "source_field": "fact_ref"
+              },
+              "inventory_aliases": [],
+              "modality": "AUDITORY",
+              "pc_binding": {
+                "binding": "COMMITTED_ORIGINAL_OWNER_OUTPUT",
+                "expected_type": "FactRef",
+                "required": true,
+                "source_alias": "pc_binding",
+                "source_field": "fact_ref"
+              },
+              "requires_full_owner_proof": true,
+              "result_if_incomplete": "UNKNOWN",
+              "scope_start": {
+                "unit": "b3-qualification-in-world-second-v1",
+                "value": 0
+              },
+              "source_classes": [
+                "health_pc_relevant_condition"
+              ],
+              "source_segments": "EVERY_ORIGINAL_SEGMENT_FROM_ANCHOR"
+            },
+            "operation": "HEALTH_ORIGINAL_SENSORY_COVERAGE_ANCHOR",
+            "schema": "HealthPcSensoryCoverageAnchorSchema (prospective Grant H)",
+            "source_owner": "health"
+          },
+          "kind": "PRODUCER_ORIGINAL",
+          "producer_resolution": {
+            "facet": "health_condition_process",
+            "original_cut": {
+              "unit": "b3-qualification-in-world-second-v1",
+              "value": 0
+            },
+            "owner": "health",
+            "owner_registered_writer_required": true,
+            "policy_identity": {
+              "Sovereign_B3_D1_D4_ratification": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+              "ratification_pin": "2026-11-23T11:42:34.869Z"
+            },
+            "required_predecessor_aliases": [
+              "pc_binding"
+            ],
+            "result_must_be_derived_not_assumed": true
+          }
+        },
+        "requires": [
+          "pc_binding"
+        ],
+        "sequence": 26,
+        "source_contract_refs": [
+          "BLUE v2.0 RED CB-1..CB-9",
+          "SOVEREIGN D1..D4",
+          "728104565662fece3e76be5b94c28f3c4201dbb7"
+        ],
+        "source_form": "PRODUCER_ORIGINAL",
+        "source_scope": "QUALIFICATION_ONLY"
+      }
+    ],
+    "nine_phase_order": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "original_owner_writes_only": true,
+    "original_signature": "independent signed M-S and referee outputs never predeclared",
+    "physical_world_fields": "bounded fictional testkit scope only",
+    "schema": "C0_TYPED_ORIGINAL_INPUTS_V4",
+    "source_adoption": "FUTURE_AD4B_EXACT_ID_AND_DIGEST",
+    "source_execution": "C1_C2_OWNER_MODULES_AND_AUTHENTIC_NATIVE_PRODUCERS_REQUIRED"
+  },
+  "profile_policy": {
+    "actor_origin": "ONE_M_S_PLAYER_AUTHORED_OR_DELEGATED_ACTOR_LEAF",
+    "authority": "TWO_NEW_GIP_GRANT_G_KINDS_AD1",
+    "b2_if6b": "SOURCE_APPROVED_IN_SEPARATE_ISSUE_138_NOT_IMPLEMENTED",
+    "government_founding": "OPAQUE_CONSTITUTIVE_PROFILE_PIN_DERIVED_AFTER_ADOPTION",
+    "health": "NO_OPENING_GLASSBELL_NO_ASSUMED_HEARING_NORMALITY",
+    "only": "DISPOSABLE_QUALIFICATION",
+    "production": "RESERVE_CREATE_THEN_RESERVE_ADVANCE_CLAIM_CREATE_OPERATION_CREATE_ATOMIC",
+    "production_allowlist": "EMPTY_UNTIL_SEPARATE_SOVEREIGN_AD4B_EXACT_DIGEST_ADOPTION",
+    "requester": "POPULATION_UNIT_TO_ECONOMY_DEMAND_AND_REQUEST_ATOMIC",
+    "supervisor": "OPAQUE_GIP_OFFICE_HOLDER_NO_NAMED_ACTOR_EXISTENCE"
+  },
+  "schema": "immortalis.blue.b3.c0.typed-original-producer-source-candidate.v4",
+  "sha256_binding": {
+    "adoption": "PENDING_SOVEREIGN_AD4B",
+    "calculated_externally_on_full_UTF8_BYTES": true,
+    "no_self_referential_hash_inside_static_values": true,
+    "present_candidate_not_legal_source": true
+  },
+  "source_census": {
+    "group_count": 26,
+    "group_write_count": 29,
+    "main": "728104565662fece3e76be5b94c28f3c4201dbb7",
+    "note": "C0 candidate source recipe is not an engine-accepted original publication or exact Sovereign adoption.",
+    "producer_count": 22,
+    "static_count": 4,
+    "status": "EXISTING_OWNER_SCHEMAS_LITERALS_VERIFIED_SELECTIVELY; PROSPECTIVE_KIND_SCHEMAS_NEED_C1_C2_ENGINE_PARSER_VALIDATION"
+  },
+  "source_law": {
+    "base_main": "728104565662fece3e76be5b94c28f3c4201dbb7",
+    "blue_plan_pin": "2026-11-23T10:14:06.394Z",
+    "blue_plan_v2": "https://app.notion.com/p/42120af901e081fdac32e51c3350e5ce",
+    "sovereign_D1_D4": "https://app.notion.com/p/42120af901e0811ca412e09374ae5c18",
+    "sovereign_pin": "2026-11-23T11:42:34.869Z"
+  },
+  "status": "SOURCE_INPUT_CANDIDATE_QV1_STATIC_AND_TYPED_PRODUCER_VALIDATION_REQUIRED_NOT_ADOPTED"
+}
