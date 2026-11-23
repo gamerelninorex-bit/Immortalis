@@ -32,11 +32,12 @@ reviewer can read it, and what was not measured. All figures are `UNRUN` for any
 
 Reading: the ratios scatter on both sides of 1 (range 0.88 to 1.45 over all cells and the four statistics; the median of the 27 ratios for commit median,
 warm open and strict cold open is 1.03) with no trend in either axis. The one cell that stands out, the smallest (0 dormant, 0 history) warm
-open, is a ~55 ms measurement whose base runs were tight (54 to 57 ms) and whose six head runs all lay above them (58 to 91 ms). It was not left as a bare number: the same cell
-was repeated six times inside ONE process, three interleaved pairs (`measurements-raw/repeat-cell-*`, script `b2-bench-repeat-cell.ts.txt`), and the head÷base ratio of
-the warm open by repetition is **1.128, 0.963, 1.065, 0.944, 1.386, 1.176**: it falls on both sides of 1 and shows no steady-state difference. A larger code surface to load and warm is a plausible contributor to the first
-repetition of a fresh process; it was not isolated, and the first cell of any run is its least stable. The harness cannot resolve a difference of a few
-percent of a 3 to 7 ms commit or a 50 to 100 ms open; this page does not claim there is none.
+open, is a ~55 ms measurement whose base runs were tight (54 to 57 ms) and whose six head runs all lay above them (58 to 91 ms). It was not left as a bare number: the same cell was repeated six times inside ONE process, three interleaved pairs
+(`measurements-raw/repeat-cell-*`, script `b2-bench-repeat-cell.ts.txt`). The head÷base ratio of the warm open by repetition is **1.128, 0.963, 1.065, 0.944, 1.386, 1.176**
+(median 1.096): it falls on both sides of 1 with a wide spread, so a steady-state difference cannot be resolved from noise at this scale, **and a
+small overhead, on the order of ten percent of a tens-of-milliseconds open, is not excluded**. A larger code surface to load and warm is a plausible contributor to the
+first repetition of a fresh process; it was not isolated, and the first cell of any run is its least stable. The harness cannot resolve a difference of a few percent of a
+3 to 7 ms commit or a 50 to 100 ms open; this page does not claim there is none.
 
 ## Structural evidence (deterministic, asserted by `tests/integration/b2-cost.test.ts`)
 
