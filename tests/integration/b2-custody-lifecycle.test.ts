@@ -18,7 +18,6 @@ import {
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
   type CommitGroup,
-  type StageRecord,
 } from "@immortalis/contracts";
 import {
   buildMarkerGroup,
@@ -27,8 +26,6 @@ import {
   deriveGmWaitFence,
   gmWaitCustodyCheck,
   factKind,
-  stageGroupId,
-  stageIntentId,
   verifyTemporalIntegrity,
   type CampaignStore,
 } from "@immortalis/engine";
@@ -37,12 +34,10 @@ import {
   FIXTURE_CAMPAIGN,
   FIXTURE_PC_ID,
   PUB,
-  SYNTH_FACET,
-  SYNTH_OWNER,
-  SYNTH_RULE,
   T0,
   TARGET,
   authorityGroupOf,
+  stageClaim,
   foreignGroup,
   lifecycle,
   markerInput,
@@ -335,50 +330,6 @@ describe("B2-T01 — marker, separate OPEN, own zero-stage seal and sealed recon
 });
 
 describe("B2-T02 — the common W2 fence while a wait is ACTIVE", () => {
-  const stageKey = {
-    causal_process_id: "b2-process-1",
-    owner_operation: { owner: SYNTH_OWNER, operation: "b2-stage-op" },
-    prospective_result_id: "b2-result-1",
-  };
-  /** the genuine owner stage of the open transaction: the cause every stage carries, a dependency on its durable opening, its derived identity */
-  const stageOf = (x: string, authorityGroupId: string): CommitGroup => ({
-    campaign_id: FIXTURE_CAMPAIGN,
-    group_id: stageGroupId(stageKey),
-    intent_id: stageIntentId(stageKey),
-    owner: SYNTH_OWNER,
-    facet: SYNTH_FACET,
-    cause: `transaction:${txOf(x)}`,
-    rule: SYNTH_RULE,
-    authority: { role: "role.archivist", permission: "permission.canon.write" },
-    reads: [],
-    depends_on: [authorityGroupId],
-    writes: [
-      {
-        key: "synthetic/stage/b2-result",
-        owner: SYNTH_OWNER,
-        facet: SYNTH_FACET,
-        unit: null,
-        basis: "synthetic-basis",
-        secrecy: "synthetic-secrecy",
-        expected_version: 0,
-        value: "stage-result" as never,
-      },
-    ],
-  });
-  const stageRecord = (
-    g: CommitGroup,
-    r: { revision: number; group_sha256: string; invariants: readonly { name: string }[] },
-  ): StageRecord => ({
-    stage: stageKey,
-    reads: [],
-    group_id: g.group_id,
-    intent_id: g.intent_id,
-    revision: r.revision,
-    group_sha256: r.group_sha256,
-    writes: g.writes.map((w) => ({ key: w.key, version: w.expected_version + 1 })),
-    validation: { invariants: r.invariants.map((i) => i.name) },
-  });
-
   it("[control + negatives] a zero-credit ACTIVE wait refuses a foreign canonical owner write, a foreign extension write, a raw kernel registration and a second operation; each refusal changes nothing", async () => {
     const rig = await seededRig(tempDir());
     const { store, campaign } = rig;
@@ -419,32 +370,36 @@ describe("B2-T02 — the common W2 fence while a wait is ACTIVE", () => {
     expect((await refused(store, second.value.group)).reason).toBe("GM_WAIT_ACTIVE_FOREIGN");
   });
 
-  it("[control + positive] an owner stage of that exact X is admitted, X's own seal citing it is admitted, and the same group refused during ACTIVE is newly evaluated afterwards", async () => {
+  it("[control + positive] while ACTIVE a foreign group and every claim to be a stage of X are refused, X's own zero-stage seal is admitted, and the group refused during ACTIVE is newly evaluated afterwards", async () => {
     const rig = await seededRig(tempDir());
     const { x } = await lifecycle(rig, "open");
     const authGroup = authorityGroupOf(rig.store, x);
 
-    // negatives, one change from the stage: a stage that does not depend on X's opening, and one that carries another transaction's cause
-    const stage = stageOf(x, authGroup);
-    expect((await refused(rig.store, { ...stage, depends_on: [] })).reason).toBe(
-      "GM_WAIT_ACTIVE_FOREIGN",
+    // BLUE F-1: there is no owner stage of a GM wait in this build (no source witness for a due StageKey of X), so a group that CLAIMS to be one is refused
+    // whatever else it carries; the adversarial twins (live, historical, MARKED) are tests/integration/b2-stage-claims.test.ts
+    const claim = stageClaim(x, authGroup, 1);
+    const unsourced = (await refused(rig.store, claim)).reason;
+    expect(unsourced).toBe("GM_WAIT_STAGE_CLAIM_UNSOURCED");
+    // one change from the claim: without its dependency, with another transaction's cause, with neither (a plain foreign group)
+    expect((await refused(rig.store, { ...claim, depends_on: [] })).reason).toBe(
+      "GM_WAIT_STAGE_CLAIM_UNSOURCED",
     );
-    expect((await refused(rig.store, { ...stage, cause: "transaction:another-tx" })).reason).toBe(
-      "GM_WAIT_ACTIVE_FOREIGN",
+    expect((await refused(rig.store, { ...claim, cause: "transaction:another-tx" })).reason).toBe(
+      "GM_WAIT_STAGE_CLAIM_UNSOURCED",
     );
-    // the foreign group is refused while ACTIVE
+    expect(
+      (await refused(rig.store, { ...claim, cause: "transaction:another-tx", depends_on: [] }))
+        .reason,
+    ).toBe("GM_WAIT_ACTIVE_FOREIGN");
     expect((await refused(rig.store, foreignGroup(2))).reason).toBe("GM_WAIT_ACTIVE_FOREIGN");
 
-    // the genuine stage of X
-    const staged = await must(rig.store.commit(stage));
-    const record = stageRecord(stage, staged.receipt);
-    // the own seal, citing the stage
-    const sealed = await must(rig.custody.sealOwn(x, [{ record, groupId: stage.group_id }]));
+    // the own seal: the only group the fence admits, and it credits the time
+    const sealed = await must(rig.custody.sealOwn(x));
     expect(clockOf(rig.store)).toEqual(TARGET);
     expect(
       JSON.parse(JSON.stringify(rig.store.getFact(temporalTransactionKey(txOf(x)))!.value)).stages,
-    ).toHaveLength(1);
-    expect(sealed.receipt.revision).toBeGreaterThan(staged.receipt.revision);
+    ).toHaveLength(0);
+    expect(sealed.receipt.revision).toBeGreaterThan(0);
     expect([...rig.campaign.verify(), ...verifyTemporalIntegrity(rig.store)]).toEqual([]);
 
     // W2 ended at the seal: the previously refused group is NOW evaluated afresh under its own owner's law (it is not auto-passed by W2 ending)
@@ -457,6 +412,8 @@ describe("B2-T02 — the common W2 fence while a wait is ACTIVE", () => {
     ).toBe(false);
     expect((refusedByOwner as any).error.code).toBe("KEY_NOT_ADMITTED");
     expect(((refusedByOwner as any).error.details ?? {}).reason).not.toBe("GM_WAIT_ACTIVE_FOREIGN");
+    // and after the seal the claim is STILL refused: a stage of a finished wait is no more sourced than one of an open wait
+    expect((await refused(rig.store, claim)).reason).toBe("GM_WAIT_STAGE_CLAIM_UNSOURCED");
   });
 
   it("[control + negative] an identical already-committed group replays as a READ: it publishes nothing and cannot clear custody", async () => {

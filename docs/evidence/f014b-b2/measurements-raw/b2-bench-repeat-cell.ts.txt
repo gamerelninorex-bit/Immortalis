@@ -123,7 +123,7 @@ async function measure(dormant: number, history: number) {
   const dir = mkdtempSync(join(tmpdir(), "b2-bench-"));
   try {
     const b = await build(dir, dormant, history);
-    const K = 300;
+    const K = 100;
     const times: number[] = [];
     const before = snap();
     for (let i = 0; i < K; i++) {
@@ -210,6 +210,6 @@ const out = {
   measurements: [] as unknown[],
   policy_transition: [] as unknown[],
 };
-for (const [dormant, history] of [[0, 0], [100, 0], [100, 0], [0, 0]] as const) out.measurements.push(await measure(dormant, history));
+for (const [dormant, history] of [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]] as const) out.measurements.push(await measure(dormant, history));
 writeFileSync(outPath, `${JSON.stringify(out, null, 2)}\n`);
 console.log(`wrote ${outPath}`);

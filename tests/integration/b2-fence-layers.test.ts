@@ -7,6 +7,7 @@
 //
 // SCRIPTED TESTKIT MECHANISM ONLY: the wait is opened through the TESTKIT-ONLY fixture admission.
 import { describe, expect, it } from "vitest";
+import type { CommitGroup } from "@immortalis/contracts";
 import {
   deriveGmWaitFence,
   storeBindings,
@@ -20,7 +21,7 @@ import {
   foreignGroup,
   lifecycle,
   seededRig,
-  stageGroup,
+  stageClaim,
   tempDir,
 } from "./b2-support.ts";
 
@@ -33,60 +34,64 @@ const extensionAdmission = (): WriteAdmission => {
 
 async function states() {
   const rig = await seededRig(tempDir());
-  await lifecycle(rig, "marker");
+  const { x } = await lifecycle(rig, "marker");
   const marked = rig.store.canonicalState!() as CampaignState;
   await rig.custody.open(rig.proof);
   const active = rig.store.canonicalState!() as CampaignState;
-  const x = deriveGmWaitFence(active).active!.x;
+  if (deriveGmWaitFence(active).active?.x !== x) throw new Error("the wait is not ACTIVE");
   return { rig, marked, active, x };
 }
 
+/** the verdicts of one layer on one group, as the reasons the fence gave: live, then in original-policy historical verification */
+const verdicts = (a: WriteAdmission, group: CommitGroup, state: CampaignState) => ({
+  live: reasonOf(a.check(group, state, undefined)),
+  historical: reasonOf(a.verifyHistorical?.(group, state)),
+});
+
 describe("B2-T02 each fence layer is independently sound", () => {
-  it("[control] with only a marker (no durable opening) no layer fences a foreign group", async () => {
-    const { marked } = await states();
-    const ext = extensionAdmission();
+  it("[control + F-2] with only a marker (no durable opening) no layer fences an ordinary foreign group, yet every layer refuses a claim to be a stage of X that hangs from the marker", async () => {
+    const { marked, x } = await states();
+    const claim = stageClaim(x, `gm-wait-marker-group:${x}`, 1);
     for (const [name, a] of [
       ["base", FIXTURE_ADMISSION],
-      ["extension", ext],
+      ["extension", extensionAdmission()],
     ] as const) {
-      expect(reasonOf(a.check(foreignGroup(1), marked, undefined)), `${name} live`).not.toBe(
-        "GM_WAIT_ACTIVE_FOREIGN",
-      );
-      expect(
-        reasonOf(a.verifyHistorical?.(foreignGroup(1), marked)),
-        `${name} historical`,
-      ).not.toBe("GM_WAIT_ACTIVE_FOREIGN");
+      const ordinary = verdicts(a, foreignGroup(1), marked);
+      expect(ordinary.live, `${name} live`).not.toBe("GM_WAIT_ACTIVE_FOREIGN");
+      expect(ordinary.historical, `${name} historical`).not.toBe("GM_WAIT_ACTIVE_FOREIGN");
+      expect(verdicts(a, claim, marked), `${name} claim`).toEqual({
+        live: "GM_WAIT_STAGE_CLAIM_UNSOURCED",
+        historical: "GM_WAIT_STAGE_CLAIM_UNSOURCED",
+      });
     }
   });
 
-  it("the BASE owner admission refuses a foreign group on an ACTIVE state, live and in historical verification, and does not fence the transaction's own stage", async () => {
+  it("the BASE owner admission refuses a foreign group (ACTIVE) and a claim to be a stage (unsourced) on an ACTIVE state, live and in historical verification", async () => {
     const { rig, active, x } = await states();
-    const stage = stageGroup(x, authorityGroupOf(rig.store, x), 1);
-    expect(reasonOf(FIXTURE_ADMISSION.check(foreignGroup(1), active, undefined))).toBe(
-      "GM_WAIT_ACTIVE_FOREIGN",
-    );
-    expect(reasonOf(FIXTURE_ADMISSION.verifyHistorical?.(foreignGroup(1), active))).toBe(
-      "GM_WAIT_ACTIVE_FOREIGN",
-    );
-    expect(reasonOf(FIXTURE_ADMISSION.check(stage, active, undefined))).not.toBe(
-      "GM_WAIT_ACTIVE_FOREIGN",
-    );
-    expect(reasonOf(FIXTURE_ADMISSION.verifyHistorical?.(stage, active))).not.toBe(
-      "GM_WAIT_ACTIVE_FOREIGN",
-    );
+    const claim = stageClaim(x, authorityGroupOf(rig.store, x), 1);
+    expect(verdicts(FIXTURE_ADMISSION, foreignGroup(1), active)).toEqual({
+      live: "GM_WAIT_ACTIVE_FOREIGN",
+      historical: "GM_WAIT_ACTIVE_FOREIGN",
+    });
+    expect(verdicts(FIXTURE_ADMISSION, claim, active)).toEqual({
+      live: "GM_WAIT_STAGE_CLAIM_UNSOURCED",
+      historical: "GM_WAIT_STAGE_CLAIM_UNSOURCED",
+    });
   });
 
-  it("the EXTENSION binding refuses a foreign extension-owner group on an ACTIVE state AHEAD of its early return, live and in historical verification, and does not fence the stage", async () => {
+  it("the EXTENSION binding refuses the same two groups AHEAD of its early return, live and in historical verification", async () => {
     const { rig, active, x } = await states();
     const ext = extensionAdmission();
-    const stage = stageGroup(x, authorityGroupOf(rig.store, x), 2);
-    // the group belongs to the extension owner: without the fence ahead of the early return, `check` would hand it to the extension's own admission
+    const claim = stageClaim(x, authorityGroupOf(rig.store, x), 2);
+    // the groups belong to the extension owner: without the fence ahead of the early return, `check` would hand them to the extension's own admission
     // and `verifyHistorical` would return null at once (the owner-specific verification of extension groups stays skipped, as the census records)
-    expect(reasonOf(ext.check(foreignGroup(2), active, undefined))).toBe("GM_WAIT_ACTIVE_FOREIGN");
-    expect(reasonOf(ext.verifyHistorical?.(foreignGroup(2), active))).toBe(
-      "GM_WAIT_ACTIVE_FOREIGN",
-    );
-    expect(reasonOf(ext.check(stage, active, undefined))).not.toBe("GM_WAIT_ACTIVE_FOREIGN");
-    expect(reasonOf(ext.verifyHistorical?.(stage, active))).not.toBe("GM_WAIT_ACTIVE_FOREIGN");
+    expect(verdicts(ext, foreignGroup(2), active)).toEqual({
+      live: "GM_WAIT_ACTIVE_FOREIGN",
+      historical: "GM_WAIT_ACTIVE_FOREIGN",
+    });
+    expect(verdicts(ext, claim, active)).toEqual({
+      live: "GM_WAIT_STAGE_CLAIM_UNSOURCED",
+      historical: "GM_WAIT_STAGE_CLAIM_UNSOURCED",
+    });
   });
 });

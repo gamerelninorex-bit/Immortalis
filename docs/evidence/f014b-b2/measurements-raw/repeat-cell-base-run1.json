@@ -1,0 +1,128 @@
+{
+  "label": "b",
+  "node": "v22.23.5",
+  "has_fence_counters": false,
+  "measurements": [
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 108,
+      "journal_bytes": 224644,
+      "ordinary_commit_ms": {
+        "median": 3.06029,
+        "p95": 4.331407,
+        "samples": 100
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 96.037842,
+        "historical_verifications": 6
+      },
+      "strict_cold_open": {
+        "ms": 74.338602,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 108,
+      "journal_bytes": 224644,
+      "ordinary_commit_ms": {
+        "median": 3.099896,
+        "p95": 3.774867,
+        "samples": 100
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 67.11401,
+        "historical_verifications": 6
+      },
+      "strict_cold_open": {
+        "ms": 69.052837,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 108,
+      "journal_bytes": 224644,
+      "ordinary_commit_ms": {
+        "median": 3.062146,
+        "p95": 4.037913,
+        "samples": 100
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 66.798247,
+        "historical_verifications": 6
+      },
+      "strict_cold_open": {
+        "ms": 67.349573,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 108,
+      "journal_bytes": 224644,
+      "ordinary_commit_ms": {
+        "median": 3.343762,
+        "p95": 4.881369,
+        "samples": 100
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 80.483332,
+        "historical_verifications": 6
+      },
+      "strict_cold_open": {
+        "ms": 67.482329,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 108,
+      "journal_bytes": 224644,
+      "ordinary_commit_ms": {
+        "median": 3.002567,
+        "p95": 4.594907,
+        "samples": 100
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 69.865496,
+        "historical_verifications": 6
+      },
+      "strict_cold_open": {
+        "ms": 69.975832,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 108,
+      "journal_bytes": 224644,
+      "ordinary_commit_ms": {
+        "median": 3.142553,
+        "p95": 4.103619,
+        "samples": 100
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 101.897639,
+        "historical_verifications": 6
+      },
+      "strict_cold_open": {
+        "ms": 70.966636,
+        "historical_verifications": 6
+      }
+    }
+  ],
+  "policy_transition": []
+}

@@ -233,10 +233,12 @@ export type GmWaitTransactionAuthority = z.infer<typeof GmWaitTransactionAuthori
 
 /**
  * The strict GM variant of the sealed ResolutionTransaction (`resolution_transaction`, discriminated by `origin`). It applies the
- * very rules of the legacy schema (by running that schema over a projection of this value) and is narrower in exactly one respect: its outcome is
- * TARGET_REACHED with no remainder and no unresolved dependent. HELD, PAUSED, INTERRUPTED and FRONTIER_CLOSED are S4 stop
- * dispositions that this build does not lower, so a GM seal that would leave a remainder REFUSES rather than being stored as a
- * transaction nothing could continue.
+ * very rules of the legacy schema (by running that schema over a projection of this value) and is narrower in two respects. Its outcome is
+ * TARGET_REACHED with no remainder and no unresolved dependent: HELD, PAUSED, INTERRUPTED and FRONTIER_CLOSED are S4 stop dispositions that
+ * this build does not lower, so a GM seal that would leave a remainder REFUSES rather than being stored as a transaction nothing could continue.
+ * And it is the ZERO-STAGE seal: no engaged owner, no crossed boundary, no credited stage and no rule version. An owner stage of a GM wait needs a
+ * source witness (a due StageKey of this X declared by its owner) that no ratified source supplies to this build (BLUE F-1), so none is lowered and
+ * none can be cited; a seal that names one REFUSES.
  */
 export const GmWaitResolutionTransactionSchema = z
   .strictObject({
@@ -249,10 +251,10 @@ export const GmWaitResolutionTransactionSchema = z
     opening: ResolutionTransactionSchema.shape.opening,
     requested: GmWaitRequestedSchema,
     context: GmWaitTransactionContextSchema,
-    engaged: ResolutionTransactionSchema.shape.engaged,
-    boundaries_crossed: ResolutionTransactionSchema.shape.boundaries_crossed,
-    stages: ResolutionTransactionSchema.shape.stages,
-    rule_versions: ResolutionTransactionSchema.shape.rule_versions,
+    engaged: z.tuple([]),
+    boundaries_crossed: z.tuple([]),
+    stages: z.tuple([]),
+    rule_versions: z.tuple([]),
     outcome: z.strictObject({
       actual_stop: CanonicalTimeSchema,
       stop_reason: z.literal("TARGET_REACHED"),

@@ -2,7 +2,7 @@
 // F-014B B2-T04 — crash boundaries, same-root retry and the terminal NO_OPEN. SCRIPTED TESTKIT MECHANISM ONLY.
 //
 // Two kinds of boundary are exercised:
-//   A. the LOGICAL joins of the lifecycle: before the marker, after the marker and before OPEN, after OPEN and before any stage, after a stage, after the
+//   A. the LOGICAL joins of the lifecycle: before the marker, after the marker and before OPEN, after OPEN and before the seal, after a REFUSED stage claim, after the
 //      seal and before the reconciliation. At each, the campaign is closed and reopened cold, the PREVIOUS step is re-presented as a lost reply would
 //      (same root: the exact original ids) and the NEXT step proceeds. Time is never credited twice and there is never a second transaction.
 //   B. EVERY durable filesystem step of each custody commit: the testkit fault filesystem fails the n-th mutating operation, before or after it takes
@@ -24,8 +24,6 @@ import {
   fixtureCanonicalAdmission,
   gmWaitX,
   nodeFs,
-  stageGroupId,
-  stageIntentId,
   verifyTemporalIntegrity,
   type CampaignStore,
   type FsOps,
@@ -34,11 +32,9 @@ import { instrumentFs } from "@immortalis/testkit";
 import {
   FIXTURE_PC_ID,
   SYNTH_EXTENSION,
-  SYNTH_FACET,
-  SYNTH_OWNER,
-  SYNTH_RULE,
   TARGET,
   authorityGroupOf,
+  stageClaim,
   custodyPolicy,
   foreignGroup,
   lifecycle,
@@ -105,56 +101,24 @@ describe("B2-T04 A: the logical crash boundaries and same-root retry", () => {
     await re.campaign.close();
   });
 
-  it("after a stage: the committed stage is adopted by the seal that cites it; it is never recreated and the time is credited once", async () => {
+  it("a stage claim is refused before and after a crash (no source witness): nothing is written, and the zero-stage seal then credits the time once", async () => {
     const rig = await seededRig(tempDir());
     const { x } = await lifecycle(rig, "open");
-    const key = {
-      causal_process_id: "b2-process-1",
-      owner_operation: { owner: SYNTH_OWNER, operation: "b2-stage-op" },
-      prospective_result_id: "b2-result-1",
-    };
-    const stage: CommitGroup = {
-      campaign_id: rig.store.head().campaign_id,
-      group_id: stageGroupId(key),
-      intent_id: stageIntentId(key),
-      owner: SYNTH_OWNER,
-      facet: SYNTH_FACET,
-      cause: `transaction:${txOf(x)}`,
-      rule: SYNTH_RULE,
-      authority: { role: "role.archivist", permission: "permission.canon.write" },
-      reads: [],
-      depends_on: [authorityGroupOf(rig.store, x)],
-      writes: [
-        {
-          key: "synthetic/stage/crash",
-          owner: SYNTH_OWNER,
-          facet: SYNTH_FACET,
-          unit: null,
-          basis: "synthetic-basis",
-          secrecy: "synthetic-secrecy",
-          expected_version: 0,
-          value: "result" as never,
-        },
-      ],
-    };
-    const staged = await must(rig.store.commit(stage));
+    const claim = stageClaim(x, authorityGroupOf(rig.store, x), 1, "synthetic/stage/crash");
+    const head = rig.store.head();
+    const first = await rig.store.commit(claim);
+    expect(first.ok).toBe(false);
+    expect(((first as any).error.details ?? {}).reason).toBe("GM_WAIT_STAGE_CLAIM_UNSOURCED");
+    expect(rig.store.head()).toEqual(head);
     await rig.campaign.close();
     const re = await reopenRig(rig.dir);
-    // the lost stage reply: the same group is the same receipt
-    const again = await must(re.store.commit(stage));
-    expect(again.replayed).toBe(true);
-    expect(again.receipt).toEqual(staged.receipt);
-    const record = {
-      stage: key,
-      reads: [],
-      group_id: stage.group_id,
-      intent_id: stage.intent_id,
-      revision: staged.receipt.revision,
-      group_sha256: staged.receipt.group_sha256,
-      writes: [{ key: "synthetic/stage/crash", version: 1 }],
-      validation: { invariants: staged.receipt.invariants.map((i) => i.name) },
-    };
-    await must(re.custody.sealOwn(x, [{ record, groupId: stage.group_id }]));
+    expect(deriveGmWaitFence(re.store.canonicalState!()).active?.x).toBe(x);
+    // the lost reply of the refused claim: the same group is refused again, on the same rule, and still writes nothing
+    const again = await re.store.commit(claim);
+    expect(again.ok).toBe(false);
+    expect(((again as any).error.details ?? {}).reason).toBe("GM_WAIT_STAGE_CLAIM_UNSOURCED");
+    expect(re.store.head()).toEqual(head);
+    await must(re.custody.sealOwn(x));
     expect(clock(re.store).version).toBe(2);
     expect([...re.campaign.verify(), ...verifyTemporalIntegrity(re.store)]).toEqual([]);
     await re.campaign.close();

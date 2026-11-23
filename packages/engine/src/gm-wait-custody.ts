@@ -36,7 +36,6 @@ import {
   type OwnerFact,
   type Result,
   type SourceRef,
-  type StageRecord,
 } from "@immortalis/contracts";
 import type { CampaignState, CommitErrorCode } from "./commit/campaign-core.ts";
 import {
@@ -137,6 +136,7 @@ export const GM_WAIT_REFUSALS = [
   "GM_WAIT_ADMISSION_ABSENT",
   "GM_WAIT_FENCE_UNKNOWN",
   "GM_WAIT_ACTIVE_FOREIGN",
+  "GM_WAIT_STAGE_CLAIM_UNSOURCED",
   "GM_WAIT_RESERVED_NAMESPACE",
   "GM_WAIT_GROUP_SHAPE",
   "GM_WAIT_VALUE_INVALID",
@@ -161,6 +161,38 @@ const SEAL_PREFIX = "temporal/transaction/";
 const GM_TRANSACTION_ID_PREFIX = "gm-wait:";
 
 const RESERVED_X_TRANSACTION_ID = /^gm-wait:[0-9a-f]{64}$/;
+
+// What a group's cause and dependencies may NAME. The causes and group ids below are the ones only the kernel's own X groups carry: the marker, OPEN,
+// NO_OPEN and reconciliation groups (cause `gm-wait:<x>`) and the OPEN and seal of the transaction (cause `transaction:gm-wait:<x>`). A LIVE
+// publication is refused for anything that merely begins with them; a REPLAYED entry only for the exact X-shaped identity this build derives (`gm-wait:`
+// + 64 lowercase hex), which no earlier valid history can carry, so older history is never reinterpreted.
+const X_CAUSE_PREFIXES = ["gm-wait:", "transaction:gm-wait:"] as const;
+const X_CAUSE_SHAPE = /^(?:transaction:)?gm-wait:[0-9a-f]{64}$/;
+const X_GROUP_ID_PREFIXES = [
+  "gm-wait-marker-group:",
+  "gm-wait-open-group:",
+  "gm-wait-no-open-group:",
+  "gm-wait-reconcile-group:",
+  "transaction-group:gm-wait:",
+] as const;
+const X_GROUP_ID_SHAPE =
+  /^(?:gm-wait-(?:marker|open|no-open|reconcile)-group:|transaction-group:gm-wait:)[0-9a-f]{64}$/;
+
+/**
+ * What, if anything, a group CLAIMS about a GM wait: a cause that names the wait, or a dependency on one of the wait's own kernel groups. These are the
+ * only two things that make a group look like a "stage of X" (the cause chain and the dependency on the opening). Only the kernel's own custody and
+ * seal groups may carry them: the caller exempts those, and judges them by the custody rules.
+ */
+function gmWaitClaimOf(group: CommitGroup, live: boolean): string | null {
+  const causeClaims = live
+    ? X_CAUSE_PREFIXES.some((p) => group.cause.startsWith(p))
+    : X_CAUSE_SHAPE.test(group.cause);
+  if (causeClaims) return `cause ${group.cause}`;
+  const dependency = group.depends_on.find((d) =>
+    live ? X_GROUP_ID_PREFIXES.some((p) => d.startsWith(p)) : X_GROUP_ID_SHAPE.test(d),
+  );
+  return dependency === undefined ? null : `dependency ${dependency}`;
+}
 /** The transaction identity a kernel key addresses (an authority or a seal), or null for any other key. */
 const transactionIdOfKey = (key: string): string | null =>
   key.startsWith(AUTHORITY_PREFIX)
@@ -355,11 +387,12 @@ export const gmWaitCheckpointNeedsStrictReplay = (state: CampaignState): boolean
  *  - a group that writes a custody fact, or a GM-variant authority / seal, must be a Temporal-kernel group published under an
  *    admission that carries the W2 verifier (a missing or foreign admission fails CLOSED);
  *  - a state whose custody facts are inconsistent publishes nothing (HELD);
- *  - while a wait is ACTIVE, every novel group of the campaign is refused except an owner stage of that exact X (cause
- *    `transaction:<id>` that depends on X's durable authority) and X's own seal. A replay of an identical committed group never
+ *  - no group other than the kernel's own custody and seal groups may NAME a GM wait (a cause that names it, a dependency on its kernel groups): an owner
+ *    "stage of X" has no source witness in this build, so a claim to be one is refused at every moment (BLUE F-1 / F-2);
+ *  - while a wait is ACTIVE, every novel group of the campaign is refused except X's own seal. A replay of an identical committed group never
  *    reaches here: the core answers it from the receipt before validating.
  *
- * It judges NOTHING else. Whether a stage is actually due, and every owner rule, is the owner's own admission, which still runs.
+ * It judges NOTHING else: every owner rule is still the owner's own admission, which still runs.
  */
 export function gmWaitFenceViolation(
   group: CommitGroup,
@@ -401,6 +434,21 @@ export function gmWaitFenceViolation(
         { key: w.key },
       );
   }
+  // BLUE F-1 / F-2 (the one common predicate): the opening of a wait is the kernel's, and so is everything that names it. NO other group may claim to be
+  // a stage of X, or to hang from X's marker or opening, at ANY time: before OPEN (so a NO_OPEN can certify that no stage of X exists, by construction and
+  // with no scan), while ACTIVE, and after the seal. B2 has no source witness for an owner stage of a GM wait (no due roster, no B3 writer), so a stage
+  // that merely carries the right cause and dependency is stage-shaped metadata, never evidence: it is refused here, ahead of every owner rule and every
+  // extension early return, live and in original-policy historical verification.
+  if (!custody) {
+    const claim = gmWaitClaimOf(group, live);
+    if (claim !== null)
+      return refuse(
+        "KEY_NOT_ADMITTED",
+        "GM_WAIT_STAGE_CLAIM_UNSOURCED",
+        "only the Temporal kernel's own custody and seal groups may name a GM wait: an owner stage of a GM wait has no source witness in this build",
+        { claim },
+      );
+  }
   if (fence.unknown !== null)
     return refuse(
       "REFERENCE_INVALID",
@@ -410,17 +458,14 @@ export function gmWaitFenceViolation(
     );
   const active = fence.active;
   if (!active) return null;
+  // While ACTIVE the ONLY novel group published is that transaction's own seal (judged by the custody rules). There is no stage branch: see above.
   const isSeal =
     group.owner === OWNER_TEMPORAL_KERNEL && group.writes.some((w) => w.key === active.sealKey);
-  const isStage =
-    group.owner !== OWNER_TEMPORAL_KERNEL &&
-    group.cause === transactionCause(active.transactionId) &&
-    group.depends_on.includes(active.authorityGroupId);
-  if (isSeal || isStage) return null;
+  if (isSeal) return null;
   return refuse(
     "REFERENCE_INVALID",
     "GM_WAIT_ACTIVE_FOREIGN",
-    "a GM wait is ACTIVE: only an owner stage of that exact transaction or its own seal is published",
+    "a GM wait is ACTIVE: only that transaction's own seal is published",
   );
 }
 
@@ -1540,14 +1585,13 @@ export function buildReconcileGroup(
 }
 
 /**
- * X's own seal: the kernel group that advances canonical time to the target and records the GM transaction. With no `stages` it is
- * the zero-stage seal. A cited stage must already be committed (its group and record are supplied); nothing is invented.
+ * X's own seal: the kernel group that advances canonical time to the target and records the GM transaction. It is the ZERO-STAGE seal: this build
+ * has no source witness for an owner stage of a GM wait (BLUE F-1), so the strict contract admits no engaged owner, no crossed boundary and no stage.
  */
 export function buildSealGroup(
   facts: GmWaitFactView,
   x: string,
   kernelRule: SourceRef,
-  stages: readonly { readonly record: StageRecord; readonly groupId: string }[] = [],
 ): Result<CommitGroup, GmWaitErrorCode> {
   const o = openedOf(facts, x);
   if (!o.ok) return o;
@@ -1577,7 +1621,7 @@ export function buildSealGroup(
     context: a.context,
     engaged: [],
     boundaries_crossed: [],
-    stages: stages.map((s) => s.record),
+    stages: [],
     rule_versions: [],
     outcome: {
       actual_stop: target,
@@ -1606,11 +1650,7 @@ export function buildSealGroup(
         { key: TEMPORAL_STATE_KEY, version: clockFact.version },
         { key: authorityFact.key, version: 1 },
       ],
-      [
-        clockFact.provenance.group_id,
-        authorityFact.provenance.group_id,
-        ...stages.map((s) => s.groupId),
-      ],
+      [clockFact.provenance.group_id, authorityFact.provenance.group_id],
       [
         stampWrite(pub, TEMPORAL_STATE_KEY, state, clockFact.version),
         stampWrite(pub, temporalTransactionKey(tx), transaction, 0),
@@ -1740,19 +1780,11 @@ export class GmWaitCustody {
     return committed.ok ? ok(this.#result(committed.value, d.x)) : committed;
   }
 
-  /** X's own seal. `stages` are already-committed owner stages of exactly this transaction; none for the zero-stage seal. */
-  async sealOwn(
-    x: string,
-    stages: readonly { readonly record: StageRecord; readonly groupId: string }[] = [],
-  ): Promise<Result<GmWaitCommitted, GmWaitWriteError>> {
+  /** X's own zero-stage seal (no owner stage of a GM wait has a source witness in this build). */
+  async sealOwn(x: string): Promise<Result<GmWaitCommitted, GmWaitWriteError>> {
     const done = this.#original(transactionIntentId(gmWaitTransactionId(x)), x);
     if (done) return done;
-    const group = buildSealGroup(
-      { get: (k) => this.#store.getFact(k) },
-      x,
-      this.#kernelRule,
-      stages,
-    );
+    const group = buildSealGroup({ get: (k) => this.#store.getFact(k) }, x, this.#kernelRule);
     if (!group.ok) return group;
     const committed = await this.#publish(group.value, undefined);
     return committed.ok ? ok(this.#result(committed.value, x)) : committed;

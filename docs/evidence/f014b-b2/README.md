@@ -25,9 +25,11 @@ acceptance of any production provider, no §10 disposition and no PASS for anyth
    protected waiting, the seal (the only `TARGET_REACHED` seal) and the sealed reconciliation are separate commit groups. `NO_OPEN` carries a
    negative certificate and is terminal for that `X`.
 4. **One common W2 fence.** ACTIVE is derived from durable facts (a GM opening authority and the absence of its seal), never from a label, a
-   snapshot or a rule-checked id set. While ACTIVE only an owner stage of that exact transaction, or that transaction's own seal, is admitted.
-   The same function is applied by the commit core, by the base owner admission and by the extension binding, live and in original-policy
-   historical replay at the actual incremental prestate.
+   snapshot or a rule-checked id set. While ACTIVE **only that transaction's own seal** is admitted: this build has no source witness for an owner stage
+   of a GM wait, so the stage branch is closed (BLUE F-1) and positive owner stages are `UNRUN`. Independently, no group other than the kernel's own
+   custody and seal groups may name a GM wait at any moment, so no stage of X can exist before OPEN and a NO_OPEN certifies absence by construction
+   (BLUE F-2). The same function is applied by the commit core, by the base owner admission and by the extension binding, live and in original-policy
+   historical replay at the actual incremental prestate. See `repair-1.md`.
 5. **Crash and replay safety.** Cold strict replay, warm-checkpoint equivalence, forced strict replay of a checkpoint that crosses an ACTIVE
    interval, refusal to open a protected package under an admission that lacks the verifier, and same-root retry.
 6. **Contracts, registration and catalogue.** Strict contracts in `packages/contracts/src/temporal-custody.ts` (the legacy
@@ -51,6 +53,7 @@ holds every production surface away from the writer.
 | T03 identity `X`, key grammar, retry safety                                                                                                                                                        | `tests/integration/b2-identity.test.ts`                                                                                                                                                                                                             |
 | T04 crash boundaries, same-root retry, terminal `NO_OPEN`                                                                                                                                          | `tests/integration/b2-crash-recovery.test.ts`, `b2-custody-negatives.test.ts`                                                                                                                                                                       |
 | T05 two actual OS processes on one campaign directory                                                                                                                                              | `tests/integration/b2-two-process.test.ts`, `tests/integration/fixtures/b2-custody-process.ts`                                                                                                                                                      |
+| BLUE F-1 / F-2 adversarial twins (live and forged historical, MARKED and ACTIVE)                                                                                                                   | `tests/integration/b2-stage-claims.test.ts`                                                                                                                                                                                                         |
 | T06 cold replay, warm checkpoint, overwritten-index equivalence, older-history preservation (incl. the declared one-time strict replay of the frozen packages); T09 forgery and tamper fail closed | `tests/integration/b2-history-replay.test.ts`, `b2-custody-negatives.test.ts` (legacy-loader and downgrade opens)                                                                                                                                   |
 | T07 no positive production path (behaviour) and T10 pre-OPEN reads nothing about the hidden future                                                                                                 | `tests/integration/b2-production-denial.test.ts`, `tests/security/b2-static-boundary.test.ts`                                                                                                                                                       |
 | T08 deterministic catalogue regeneration, default-deny                                                                                                                                             | `tests/conformance/b2-catalogue-conformance.test.ts`                                                                                                                                                                                                |
@@ -61,6 +64,7 @@ holds every production surface away from the writer.
 ## What was NOT run, and what is therefore not claimed
 
 - `UNRUN` a genuine AI GM, a named client, a live first interruption of a real wait.
+- `UNRUN` a positive owner stage of a GM wait (a true source-declared, due StageKey of X): no source witness exists in this build, none is fabricated, and the stage branch is closed.
 - `UNRUN` a production file provider: `provider_acceptance` stays `NONE`; the H-07 matched job is skipped by CI as before.
 - `UNRUN` an executable AM-3.P engine: only the non-interference of the new keys with the AM-3.P pending clause is claimed.
 - Not adopted, and nothing here assumes them: D3(b), R-DUTY, R-H.
@@ -69,6 +73,6 @@ holds every production surface away from the writer.
 
 ## Other documents here
 
-`custody.md` (baseline custody, toolchain, new-file identities), `collisions.md` (every older suite edited and why),
+`repair-1.md` (BLUE AMEND F-1/F-2/F-3), `custody.md` (baseline custody, toolchain, new-file identities), `collisions.md` (every older suite edited and why),
 `modelling-choices.md` (choices BLUE should confirm), `measurements.md` + `measurements-summary.json` + `measurements-raw/` (T11),
 `mutation.md` + `mutation-results.jsonl` + `mutate.py` / `run-mutants.py` (T12), `custody-baseline.sh` / `custody-baseline.tsv` (base-byte manifest), `custody-files.sh` / `custody-files.tsv` (bytes this slice adds or changes).

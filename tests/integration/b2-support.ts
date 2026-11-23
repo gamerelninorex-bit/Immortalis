@@ -270,8 +270,12 @@ export const authorityGroupOf = (store: CampaignStore, x: string) =>
 export const sealFactOf = (store: CampaignStore, x: string) =>
   store.getFact(temporalTransactionKey(txOf(x)));
 
-/** An owner-stage-shaped group of a synthetic extension owner: the cause every stage of `tx` carries and a dependency on its opening. */
-export function stageGroup(
+/**
+ * A group that CLAIMS to be an owner stage of X: the cause every stage of a transaction carries and a dependency on its opening, from a synthetic
+ * extension owner, at a fresh key of that owner's space. It is stage-shaped metadata and nothing else: this build has no source witness for an owner
+ * stage of a GM wait, so the fence refuses it at every moment (BLUE F-1 / F-2). It is what a spoofer would send.
+ */
+export function stageClaim(
   x: string,
   authorityGroupId: string,
   n: number,

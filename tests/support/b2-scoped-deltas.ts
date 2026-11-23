@@ -20,7 +20,7 @@ export const B2_SCOPED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "0b41407ae20f67e2a4a274ee2bee636f45ff65a7cdff8f1feb4b46282a8927bd",
-    head: "8c6d4ba33f6d0ec2681c7082a53bb62e10f67a50d089e661c57a8425e9079210",
+    head: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
   },
   "packages/engine/src/initial-setup/sunset-guard.ts": {
     base: "dd6924704b3da251d34cc709ceebefc103d6614faf657678f3aa2eb9a1139866",
@@ -67,7 +67,7 @@ export const B2_PRESENT_DAY_FILES: readonly string[] = [
 /** The new package files of this slice (production modules and the generated catalogue manifest). */
 export const B2_NEW_MODULES: readonly string[] = [
   "packages/contracts/src/temporal-custody.ts",
-  "packages/engine/gm-wait-catalogue/manifests/340f7ef7ef04dafa83b53b2fef9596c1fca4fc61ee126ad2f67147785dd03cb4.json",
+  "packages/engine/gm-wait-catalogue/manifests/7707ff8ec86a9564dae2b026e730386f26fadfd4011c2934d0cc19dd5a6f09ed.json",
   "packages/engine/src/gm-wait-custody.ts",
   "packages/engine/src/gm-wait-identity.ts",
 ];

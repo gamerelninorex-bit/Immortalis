@@ -2,45 +2,46 @@
   "runs_per_tree": 6,
   "interleaved": true,
   "node": "v22.23.5",
+  "head": "repair 1 of PR #135",
   "rows": [
     {
       "dormant_facts": 0,
       "history_groups": 0,
       "ordinary_commit_median_ms": {
-        "base_runs": [3.51, 3.78, 3.52, 3.07, 3.23, 5.41],
-        "head_runs": [4.03, 3.77, 3.23, 3.53, 3.44, 4.58],
-        "base_median": 3.52,
-        "head_median": 3.65,
-        "head_over_base": 1.038,
-        "base_spread": [3.07, 5.41],
-        "head_spread": [3.23, 4.58]
+        "base_runs": [2.53, 3.13, 3.52, 3.12, 2.82, 3.73],
+        "head_runs": [3.6, 3.75, 3.56, 2.7, 4.03, 3.28],
+        "base_median": 3.12,
+        "head_median": 3.58,
+        "head_over_base": 1.146,
+        "base_spread": [2.53, 3.73],
+        "head_spread": [2.7, 4.03]
       },
       "ordinary_commit_p95_ms": {
-        "base_runs": [4.6, 6.79, 4.43, 4.56, 5.76, 8.37],
-        "head_runs": [5.93, 13.02, 5.35, 4.58, 5.59, 8.04],
-        "base_median": 5.18,
-        "head_median": 5.76,
-        "head_over_base": 1.112,
-        "base_spread": [4.43, 8.37],
-        "head_spread": [4.58, 13.02]
+        "base_runs": [3.41, 4.25, 6.24, 24.76, 4.1, 5.01],
+        "head_runs": [5.34, 4.89, 4.54, 5.16, 5.73, 4.48],
+        "base_median": 4.63,
+        "head_median": 5.03,
+        "head_over_base": 1.086,
+        "base_spread": [3.41, 24.76],
+        "head_spread": [4.48, 5.73]
       },
       "warm_checkpoint_open_ms": {
-        "base_runs": [52.25, 49.88, 52.51, 48.91, 49.84, 66.1],
-        "head_runs": [84.77, 59.27, 60.45, 53.38, 52.2, 75.17],
-        "base_median": 51.06,
-        "head_median": 59.86,
-        "head_over_base": 1.172,
-        "base_spread": [48.91, 66.1],
-        "head_spread": [52.2, 84.77]
+        "base_runs": [54.66, 55.86, 55.12, 53.91, 57.22, 54.32],
+        "head_runs": [74.31, 84.87, 68.44, 58.18, 90.58, 85.41],
+        "base_median": 54.89,
+        "head_median": 79.59,
+        "head_over_base": 1.45,
+        "base_spread": [53.91, 57.22],
+        "head_spread": [58.18, 90.58]
       },
       "strict_cold_open_ms": {
-        "base_runs": [37.03, 35.05, 35.42, 32.95, 31.68, 34.45],
-        "head_runs": [32.09, 38.7, 38.41, 34.3, 44.94, 34.18],
-        "base_median": 34.75,
-        "head_median": 36.35,
-        "head_over_base": 1.046,
-        "base_spread": [31.68, 37.03],
-        "head_spread": [32.09, 44.94]
+        "base_runs": [35.21, 34.83, 41.89, 48.48, 36.43, 49.79],
+        "head_runs": [34.66, 48.8, 44.54, 38.94, 55.04, 55.64],
+        "base_median": 39.16,
+        "head_median": 46.67,
+        "head_over_base": 1.192,
+        "base_spread": [34.83, 49.79],
+        "head_spread": [34.66, 55.64]
       },
       "fence_work_head": {
         "derivations": 0,
@@ -49,50 +50,46 @@
         "keyInspections": 80,
         "advances": 40,
         "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [6, 6],
-        "cold": [6, 6]
       }
     },
     {
       "dormant_facts": 0,
       "history_groups": 130,
       "ordinary_commit_median_ms": {
-        "base_runs": [5.19, 4.95, 3.89, 4.54, 5.31, 4.58],
-        "head_runs": [5.88, 5.2, 5.29, 5.54, 4.49, 5.42],
-        "base_median": 4.76,
-        "head_median": 5.36,
-        "head_over_base": 1.125,
-        "base_spread": [3.89, 5.31],
-        "head_spread": [4.49, 5.88]
+        "base_runs": [5.03, 4.64, 5.47, 3.92, 4.35, 5.3],
+        "head_runs": [4.27, 5.75, 5.67, 4.47, 5.46, 4.04],
+        "base_median": 4.84,
+        "head_median": 4.96,
+        "head_over_base": 1.027,
+        "base_spread": [3.92, 5.47],
+        "head_spread": [4.04, 5.75]
       },
       "ordinary_commit_p95_ms": {
-        "base_runs": [9.03, 7.01, 5.59, 6.77, 6.61, 7.82],
-        "head_runs": [8.41, 7.25, 7.15, 6.82, 7.47, 9.33],
-        "base_median": 6.89,
-        "head_median": 7.36,
-        "head_over_base": 1.068,
-        "base_spread": [5.59, 9.03],
-        "head_spread": [6.82, 9.33]
+        "base_runs": [7.46, 6.86, 7.45, 5.62, 8.96, 6.49],
+        "head_runs": [5.4, 7.31, 7.17, 6.3, 6.96, 5.53],
+        "base_median": 7.15,
+        "head_median": 6.63,
+        "head_over_base": 0.927,
+        "base_spread": [5.62, 8.96],
+        "head_spread": [5.4, 7.31]
       },
       "warm_checkpoint_open_ms": {
-        "base_runs": [131.76, 119.79, 117.93, 130.58, 117.21, 131.69],
-        "head_runs": [127.78, 117.2, 122.03, 119.97, 122.91, 123.05],
-        "base_median": 125.18,
-        "head_median": 122.47,
-        "head_over_base": 0.978,
-        "base_spread": [117.21, 131.76],
-        "head_spread": [117.2, 127.78]
+        "base_runs": [191.92, 122.38, 132.93, 132.45, 124.66, 137.92],
+        "head_runs": [129.13, 130.24, 192.27, 129.83, 143.15, 169.58],
+        "base_median": 132.69,
+        "head_median": 136.69,
+        "head_over_base": 1.03,
+        "base_spread": [122.38, 191.92],
+        "head_spread": [129.13, 192.27]
       },
       "strict_cold_open_ms": {
-        "base_runs": [150.82, 151.54, 150.17, 187.67, 149.19, 163.4],
-        "head_runs": [168.98, 152.61, 168.36, 155.86, 149.42, 179.96],
-        "base_median": 151.18,
-        "head_median": 162.11,
-        "head_over_base": 1.072,
-        "base_spread": [149.19, 187.67],
-        "head_spread": [149.42, 179.96]
+        "base_runs": [184.01, 160.67, 165.19, 172.77, 165.57, 183.96],
+        "head_runs": [164.74, 181.04, 198.22, 174.62, 182.85, 178.53],
+        "base_median": 169.17,
+        "head_median": 179.78,
+        "head_over_base": 1.063,
+        "base_spread": [160.67, 184.01],
+        "head_spread": [164.74, 198.22]
       },
       "fence_work_head": {
         "derivations": 0,
@@ -101,154 +98,46 @@
         "keyInspections": 80,
         "advances": 40,
         "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [0, 0],
-        "cold": [6, 6]
       }
     },
     {
       "dormant_facts": 0,
       "history_groups": 300,
       "ordinary_commit_median_ms": {
-        "base_runs": [5.98, 7.01, 6.41, 5.88, 6.89, 6.92],
-        "head_runs": [6.63, 6.4, 5.58, 7.05, 7.28, 6.33],
-        "base_median": 6.65,
-        "head_median": 6.52,
-        "head_over_base": 0.98,
-        "base_spread": [5.88, 7.01],
-        "head_spread": [5.58, 7.28]
-      },
-      "ordinary_commit_p95_ms": {
-        "base_runs": [8.0, 8.62, 9.41, 6.99, 9.23, 9.47],
-        "head_runs": [9.38, 7.61, 7.45, 9.26, 17.17, 8.69],
-        "base_median": 8.93,
-        "head_median": 8.97,
-        "head_over_base": 1.005,
-        "base_spread": [6.99, 9.47],
-        "head_spread": [7.45, 17.17]
-      },
-      "warm_checkpoint_open_ms": {
-        "base_runs": [192.59, 224.35, 214.52, 195.44, 207.59, 196.21],
-        "head_runs": [195.0, 201.42, 194.32, 190.09, 200.14, 196.28],
-        "base_median": 201.9,
-        "head_median": 195.64,
-        "head_over_base": 0.969,
-        "base_spread": [192.59, 224.35],
-        "head_spread": [190.09, 201.42]
-      },
-      "strict_cold_open_ms": {
-        "base_runs": [277.91, 325.89, 291.91, 288.34, 292.66, 297.58],
-        "head_runs": [313.82, 314.29, 287.14, 295.58, 327.04, 305.16],
-        "base_median": 292.29,
-        "head_median": 309.49,
-        "head_over_base": 1.059,
-        "base_spread": [277.91, 325.89],
-        "head_spread": [287.14, 327.04]
-      },
-      "fence_work_head": {
-        "derivations": 0,
-        "scannedFacts": 0,
-        "checks": 80,
-        "keyInspections": 80,
-        "advances": 40,
-        "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [0, 0],
-        "cold": [6, 6]
-      }
-    },
-    {
-      "dormant_facts": 1,
-      "history_groups": 0,
-      "ordinary_commit_median_ms": {
-        "base_runs": [3.14, 3.85, 4.22, 3.43, 2.6, 3.52],
-        "head_runs": [3.34, 3.65, 3.78, 3.3, 3.05, 4.75],
-        "base_median": 3.47,
-        "head_median": 3.5,
-        "head_over_base": 1.007,
-        "base_spread": [2.6, 4.22],
-        "head_spread": [3.05, 4.75]
-      },
-      "ordinary_commit_p95_ms": {
-        "base_runs": [4.5, 7.69, 6.74, 5.32, 3.51, 6.07],
-        "head_runs": [4.99, 5.36, 5.24, 4.79, 5.23, 6.47],
-        "base_median": 5.7,
-        "head_median": 5.24,
-        "head_over_base": 0.919,
-        "base_spread": [3.51, 7.69],
-        "head_spread": [4.79, 6.47]
-      },
-      "warm_checkpoint_open_ms": {
-        "base_runs": [30.07, 30.28, 33.76, 37.27, 32.31, 54.59],
-        "head_runs": [37.6, 33.08, 32.36, 30.72, 34.09, 39.44],
-        "base_median": 33.04,
-        "head_median": 33.58,
-        "head_over_base": 1.017,
-        "base_spread": [30.07, 54.59],
-        "head_spread": [30.72, 39.44]
-      },
-      "strict_cold_open_ms": {
-        "base_runs": [32.5, 31.27, 32.03, 32.81, 35.04, 34.14],
-        "head_runs": [30.72, 32.37, 30.18, 32.63, 31.4, 35.86],
-        "base_median": 32.65,
-        "head_median": 31.88,
-        "head_over_base": 0.976,
-        "base_spread": [31.27, 35.04],
-        "head_spread": [30.18, 35.86]
-      },
-      "fence_work_head": {
-        "derivations": 0,
-        "scannedFacts": 0,
-        "checks": 80,
-        "keyInspections": 80,
-        "advances": 40,
-        "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [6, 6],
-        "cold": [6, 6]
-      }
-    },
-    {
-      "dormant_facts": 1,
-      "history_groups": 130,
-      "ordinary_commit_median_ms": {
-        "base_runs": [5.14, 4.79, 5.31, 5.68, 5.36, 5.45],
-        "head_runs": [4.8, 4.34, 4.2, 6.09, 4.83, 4.81],
-        "base_median": 5.34,
-        "head_median": 4.8,
-        "head_over_base": 0.9,
-        "base_spread": [4.79, 5.68],
-        "head_spread": [4.2, 6.09]
-      },
-      "ordinary_commit_p95_ms": {
-        "base_runs": [6.79, 6.6, 8.2, 7.87, 7.75, 9.39],
-        "head_runs": [6.87, 5.89, 6.33, 8.84, 6.09, 6.31],
-        "base_median": 7.81,
+        "base_runs": [7.42, 5.58, 6.95, 7.45, 6.31, 7.77],
+        "head_runs": [6.17, 7.2, 6.39, 7.72, 5.72, 6.25],
+        "base_median": 7.18,
         "head_median": 6.32,
-        "head_over_base": 0.809,
-        "base_spread": [6.6, 9.39],
-        "head_spread": [5.89, 8.84]
+        "head_over_base": 0.88,
+        "base_spread": [5.58, 7.77],
+        "head_spread": [5.72, 7.72]
+      },
+      "ordinary_commit_p95_ms": {
+        "base_runs": [8.93, 6.64, 9.8, 9.9, 7.67, 10.04],
+        "head_runs": [9.43, 14.52, 8.57, 13.05, 8.24, 8.24],
+        "base_median": 9.36,
+        "head_median": 9.0,
+        "head_over_base": 0.961,
+        "base_spread": [6.64, 10.04],
+        "head_spread": [8.24, 14.52]
       },
       "warm_checkpoint_open_ms": {
-        "base_runs": [103.17, 108.61, 109.07, 106.73, 115.48, 106.12],
-        "head_runs": [110.76, 121.28, 114.66, 132.26, 106.41, 108.92],
-        "base_median": 107.67,
-        "head_median": 112.71,
-        "head_over_base": 1.047,
-        "base_spread": [103.17, 115.48],
-        "head_spread": [106.41, 132.26]
+        "base_runs": [273.72, 217.44, 317.11, 234.73, 245.4, 225.11],
+        "head_runs": [213.85, 217.25, 230.79, 299.97, 213.57, 349.57],
+        "base_median": 240.07,
+        "head_median": 224.02,
+        "head_over_base": 0.933,
+        "base_spread": [217.44, 317.11],
+        "head_spread": [213.57, 349.57]
       },
       "strict_cold_open_ms": {
-        "base_runs": [140.06, 144.78, 148.86, 145.61, 154.33, 172.93],
-        "head_runs": [167.94, 153.6, 154.67, 159.77, 162.52, 155.03],
-        "base_median": 147.23,
-        "head_median": 157.4,
+        "base_runs": [326.96, 320.59, 426.42, 325.99, 325.57, 372.7],
+        "head_runs": [338.38, 391.39, 330.94, 310.29, 359.34, 383.89],
+        "base_median": 326.47,
+        "head_median": 348.86,
         "head_over_base": 1.069,
-        "base_spread": [140.06, 172.93],
-        "head_spread": [153.6, 167.94]
+        "base_spread": [320.59, 426.42],
+        "head_spread": [310.29, 391.39]
       },
       "fence_work_head": {
         "derivations": 0,
@@ -257,50 +146,142 @@
         "keyInspections": 80,
         "advances": 40,
         "rederivations": 0
+      }
+    },
+    {
+      "dormant_facts": 1,
+      "history_groups": 0,
+      "ordinary_commit_median_ms": {
+        "base_runs": [3.21, 3.68, 4.09, 3.1, 3.41, 2.71],
+        "head_runs": [3.18, 2.74, 2.68, 2.95, 3.32, 3.76],
+        "base_median": 3.31,
+        "head_median": 3.06,
+        "head_over_base": 0.925,
+        "base_spread": [2.71, 4.09],
+        "head_spread": [2.68, 3.76]
       },
-      "historical_verifications": {
-        "warm": [0, 0],
-        "cold": [6, 6]
+      "ordinary_commit_p95_ms": {
+        "base_runs": [4.84, 4.82, 6.26, 4.75, 4.45, 4.24],
+        "head_runs": [4.34, 4.03, 5.53, 3.98, 4.29, 9.33],
+        "base_median": 4.79,
+        "head_median": 4.32,
+        "head_over_base": 0.902,
+        "base_spread": [4.24, 6.26],
+        "head_spread": [3.98, 9.33]
+      },
+      "warm_checkpoint_open_ms": {
+        "base_runs": [34.27, 44.31, 54.66, 34.6, 32.88, 32.62],
+        "head_runs": [34.4, 34.1, 37.07, 34.4, 36.04, 52.85],
+        "base_median": 34.43,
+        "head_median": 35.22,
+        "head_over_base": 1.023,
+        "base_spread": [32.62, 54.66],
+        "head_spread": [34.1, 52.85]
+      },
+      "strict_cold_open_ms": {
+        "base_runs": [33.35, 40.65, 55.43, 33.14, 31.35, 32.33],
+        "head_runs": [49.29, 33.89, 36.11, 32.08, 47.87, 50.4],
+        "base_median": 33.25,
+        "head_median": 41.99,
+        "head_over_base": 1.263,
+        "base_spread": [31.35, 55.43],
+        "head_spread": [32.08, 50.4]
+      },
+      "fence_work_head": {
+        "derivations": 0,
+        "scannedFacts": 0,
+        "checks": 80,
+        "keyInspections": 80,
+        "advances": 40,
+        "rederivations": 0
+      }
+    },
+    {
+      "dormant_facts": 1,
+      "history_groups": 130,
+      "ordinary_commit_median_ms": {
+        "base_runs": [4.81, 5.08, 5.65, 5.29, 4.34, 4.43],
+        "head_runs": [5.02, 4.64, 5.44, 3.98, 4.28, 5.1],
+        "base_median": 4.94,
+        "head_median": 4.83,
+        "head_over_base": 0.976,
+        "base_spread": [4.34, 5.65],
+        "head_spread": [3.98, 5.44]
+      },
+      "ordinary_commit_p95_ms": {
+        "base_runs": [7.57, 6.95, 7.49, 6.94, 5.81, 6.12],
+        "head_runs": [6.19, 7.0, 6.91, 5.05, 6.17, 7.78],
+        "base_median": 6.95,
+        "head_median": 6.55,
+        "head_over_base": 0.943,
+        "base_spread": [5.81, 7.57],
+        "head_spread": [5.05, 7.78]
+      },
+      "warm_checkpoint_open_ms": {
+        "base_runs": [118.98, 138.69, 143.43, 125.08, 180.32, 119.26],
+        "head_runs": [136.68, 118.82, 181.53, 129.36, 124.46, 112.42],
+        "base_median": 131.89,
+        "head_median": 126.91,
+        "head_over_base": 0.962,
+        "base_spread": [118.98, 180.32],
+        "head_spread": [112.42, 181.53]
+      },
+      "strict_cold_open_ms": {
+        "base_runs": [151.31, 151.53, 200.91, 159.09, 192.99, 160.9],
+        "head_runs": [183.95, 161.89, 252.15, 167.45, 186.83, 152.23],
+        "base_median": 159.99,
+        "head_median": 175.7,
+        "head_over_base": 1.098,
+        "base_spread": [151.31, 200.91],
+        "head_spread": [152.23, 252.15]
+      },
+      "fence_work_head": {
+        "derivations": 0,
+        "scannedFacts": 0,
+        "checks": 80,
+        "keyInspections": 80,
+        "advances": 40,
+        "rederivations": 0
       }
     },
     {
       "dormant_facts": 1,
       "history_groups": 300,
       "ordinary_commit_median_ms": {
-        "base_runs": [6.3, 5.66, 6.39, 6.03, 5.6, 7.95],
-        "head_runs": [6.77, 7.12, 6.89, 6.3, 5.52, 5.69],
-        "base_median": 6.17,
-        "head_median": 6.54,
-        "head_over_base": 1.06,
-        "base_spread": [5.6, 7.95],
-        "head_spread": [5.52, 7.12]
+        "base_runs": [6.13, 7.04, 7.88, 5.84, 6.86, 6.91],
+        "head_runs": [6.03, 7.03, 8.06, 5.98, 7.48, 5.94],
+        "base_median": 6.89,
+        "head_median": 6.53,
+        "head_over_base": 0.948,
+        "base_spread": [5.84, 7.88],
+        "head_spread": [5.94, 8.06]
       },
       "ordinary_commit_p95_ms": {
-        "base_runs": [7.05, 9.04, 9.44, 8.68, 7.22, 10.59],
-        "head_runs": [8.44, 9.11, 10.14, 8.59, 7.26, 6.82],
-        "base_median": 8.86,
-        "head_median": 8.52,
-        "head_over_base": 0.961,
-        "base_spread": [7.05, 10.59],
-        "head_spread": [6.82, 10.14]
+        "base_runs": [7.31, 8.65, 9.56, 8.06, 8.74, 12.49],
+        "head_runs": [6.96, 8.38, 9.31, 9.07, 8.95, 8.42],
+        "base_median": 8.69,
+        "head_median": 8.68,
+        "head_over_base": 0.999,
+        "base_spread": [7.31, 12.49],
+        "head_spread": [6.96, 9.31]
       },
       "warm_checkpoint_open_ms": {
-        "base_runs": [191.07, 250.19, 202.17, 183.5, 187.19, 191.93],
-        "head_runs": [218.67, 189.14, 231.05, 203.69, 193.96, 186.98],
-        "base_median": 191.5,
-        "head_median": 198.82,
-        "head_over_base": 1.038,
-        "base_spread": [183.5, 250.19],
-        "head_spread": [186.98, 231.05]
+        "base_runs": [213.14, 219.57, 272.25, 224.13, 203.67, 237.08],
+        "head_runs": [225.79, 343.5, 232.8, 226.17, 266.85, 235.23],
+        "base_median": 221.85,
+        "head_median": 234.02,
+        "head_over_base": 1.055,
+        "base_spread": [203.67, 272.25],
+        "head_spread": [225.79, 343.5]
       },
       "strict_cold_open_ms": {
-        "base_runs": [299.03, 290.59, 277.59, 307.82, 304.61, 307.24],
-        "head_runs": [284.89, 285.4, 336.42, 303.73, 285.08, 289.74],
-        "base_median": 301.82,
-        "head_median": 287.57,
-        "head_over_base": 0.953,
-        "base_spread": [277.59, 307.82],
-        "head_spread": [284.89, 336.42]
+        "base_runs": [338.7, 332.28, 297.63, 350.06, 325.13, 317.52],
+        "head_runs": [341.17, 341.33, 309.61, 304.13, 324.64, 359.61],
+        "base_median": 328.71,
+        "head_median": 332.91,
+        "head_over_base": 1.013,
+        "base_spread": [297.63, 350.06],
+        "head_spread": [304.13, 359.61]
       },
       "fence_work_head": {
         "derivations": 0,
@@ -309,50 +290,46 @@
         "keyInspections": 80,
         "advances": 40,
         "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [0, 0],
-        "cold": [6, 6]
       }
     },
     {
       "dormant_facts": 100,
       "history_groups": 0,
       "ordinary_commit_median_ms": {
-        "base_runs": [3.71, 4.11, 5.25, 4.93, 4.09, 4.69],
-        "head_runs": [5.1, 5.55, 5.48, 5.13, 3.9, 5.48],
-        "base_median": 4.4,
-        "head_median": 5.31,
-        "head_over_base": 1.206,
-        "base_spread": [3.71, 5.25],
-        "head_spread": [3.9, 5.55]
+        "base_runs": [3.9, 4.61, 4.29, 5.37, 4.78, 4.23],
+        "head_runs": [3.47, 5.33, 4.68, 4.03, 4.7, 4.94],
+        "base_median": 4.45,
+        "head_median": 4.69,
+        "head_over_base": 1.054,
+        "base_spread": [3.9, 5.37],
+        "head_spread": [3.47, 5.33]
       },
       "ordinary_commit_p95_ms": {
-        "base_runs": [6.16, 6.44, 7.37, 8.23, 7.05, 6.41],
-        "head_runs": [6.86, 9.34, 16.11, 9.74, 9.15, 7.87],
-        "base_median": 6.75,
-        "head_median": 9.25,
-        "head_over_base": 1.371,
-        "base_spread": [6.16, 8.23],
-        "head_spread": [6.86, 16.11]
+        "base_runs": [6.64, 13.75, 6.46, 7.37, 6.77, 5.92],
+        "head_runs": [5.54, 10.0, 6.91, 6.35, 7.54, 7.17],
+        "base_median": 6.71,
+        "head_median": 7.04,
+        "head_over_base": 1.05,
+        "base_spread": [5.92, 13.75],
+        "head_spread": [5.54, 10.0]
       },
       "warm_checkpoint_open_ms": {
-        "base_runs": [80.15, 77.19, 89.88, 76.72, 114.61, 80.45],
-        "head_runs": [100.65, 83.85, 87.51, 84.41, 79.16, 82.91],
-        "base_median": 80.3,
-        "head_median": 84.13,
-        "head_over_base": 1.048,
-        "base_spread": [76.72, 114.61],
-        "head_spread": [79.16, 100.65]
+        "base_runs": [86.6, 85.37, 91.51, 119.32, 90.05, 88.09],
+        "head_runs": [84.0, 90.99, 135.57, 92.92, 90.71, 127.04],
+        "base_median": 89.07,
+        "head_median": 91.95,
+        "head_over_base": 1.032,
+        "base_spread": [85.37, 119.32],
+        "head_spread": [84.0, 135.57]
       },
       "strict_cold_open_ms": {
-        "base_runs": [129.38, 159.39, 119.69, 120.49, 139.52, 136.36],
-        "head_runs": [150.48, 148.84, 128.61, 120.39, 122.57, 131.4],
-        "base_median": 132.87,
-        "head_median": 130.01,
-        "head_over_base": 0.978,
-        "base_spread": [119.69, 159.39],
-        "head_spread": [120.39, 150.48]
+        "base_runs": [135.24, 140.95, 134.35, 140.05, 131.11, 157.53],
+        "head_runs": [152.53, 139.28, 176.8, 142.64, 145.15, 175.13],
+        "base_median": 137.64,
+        "head_median": 148.84,
+        "head_over_base": 1.081,
+        "base_spread": [131.11, 157.53],
+        "head_spread": [139.28, 176.8]
       },
       "fence_work_head": {
         "derivations": 0,
@@ -361,50 +338,46 @@
         "keyInspections": 80,
         "advances": 40,
         "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [0, 0],
-        "cold": [6, 6]
       }
     },
     {
       "dormant_facts": 100,
       "history_groups": 130,
       "ordinary_commit_median_ms": {
-        "base_runs": [5.71, 6.76, 5.72, 6.44, 5.17, 6.16],
-        "head_runs": [5.81, 6.28, 5.69, 5.43, 6.37, 6.82],
-        "base_median": 5.94,
-        "head_median": 6.05,
-        "head_over_base": 1.018,
-        "base_spread": [5.17, 6.76],
-        "head_spread": [5.43, 6.82]
+        "base_runs": [5.84, 5.98, 5.53, 4.49, 4.88, 6.94],
+        "head_runs": [5.87, 6.05, 5.21, 5.45, 5.35, 6.04],
+        "base_median": 5.69,
+        "head_median": 5.66,
+        "head_over_base": 0.995,
+        "base_spread": [4.49, 6.94],
+        "head_spread": [5.21, 6.05]
       },
       "ordinary_commit_p95_ms": {
-        "base_runs": [10.34, 8.85, 8.22, 8.82, 9.06, 13.72],
-        "head_runs": [10.6, 8.67, 7.59, 8.13, 9.09, 9.35],
-        "base_median": 8.95,
-        "head_median": 8.88,
-        "head_over_base": 0.992,
-        "base_spread": [8.22, 13.72],
-        "head_spread": [7.59, 10.6]
+        "base_runs": [10.72, 10.89, 8.12, 7.03, 12.15, 9.5],
+        "head_runs": [10.11, 9.89, 7.37, 8.76, 8.01, 10.46],
+        "base_median": 10.11,
+        "head_median": 9.32,
+        "head_over_base": 0.922,
+        "base_spread": [7.03, 12.15],
+        "head_spread": [7.37, 10.46]
       },
       "warm_checkpoint_open_ms": {
-        "base_runs": [127.96, 171.26, 126.64, 131.18, 203.9, 129.74],
-        "head_runs": [151.01, 133.71, 126.93, 128.81, 155.18, 136.12],
-        "base_median": 130.46,
-        "head_median": 134.91,
-        "head_over_base": 1.034,
-        "base_spread": [126.64, 203.9],
-        "head_spread": [126.93, 155.18]
+        "base_runs": [160.44, 166.92, 146.51, 138.25, 142.19, 153.67],
+        "head_runs": [157.31, 168.1, 148.52, 227.22, 178.54, 144.25],
+        "base_median": 150.09,
+        "head_median": 162.71,
+        "head_over_base": 1.084,
+        "base_spread": [138.25, 166.92],
+        "head_spread": [144.25, 227.22]
       },
       "strict_cold_open_ms": {
-        "base_runs": [237.91, 236.35, 267.25, 243.03, 266.48, 252.68],
-        "head_runs": [262.57, 255.67, 241.18, 263.29, 251.92, 257.78],
-        "base_median": 247.86,
-        "head_median": 256.73,
-        "head_over_base": 1.036,
-        "base_spread": [236.35, 267.25],
-        "head_spread": [241.18, 263.29]
+        "base_runs": [284.65, 268.6, 272.81, 302.68, 372.62, 278.74],
+        "head_runs": [410.43, 282.0, 281.37, 295.81, 328.66, 382.43],
+        "base_median": 281.7,
+        "head_median": 312.23,
+        "head_over_base": 1.108,
+        "base_spread": [268.6, 372.62],
+        "head_spread": [281.37, 410.43]
       },
       "fence_work_head": {
         "derivations": 0,
@@ -413,50 +386,46 @@
         "keyInspections": 80,
         "advances": 40,
         "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [0, 0],
-        "cold": [6, 6]
       }
     },
     {
       "dormant_facts": 100,
       "history_groups": 300,
       "ordinary_commit_median_ms": {
-        "base_runs": [7.07, 7.83, 7.52, 6.79, 6.78, 7.06],
-        "head_runs": [6.55, 8.23, 7.6, 6.64, 9.68, 7.82],
-        "base_median": 7.07,
-        "head_median": 7.71,
-        "head_over_base": 1.091,
-        "base_spread": [6.78, 7.83],
-        "head_spread": [6.55, 9.68]
+        "base_runs": [6.63, 7.28, 6.67, 6.37, 7.97, 8.17],
+        "head_runs": [6.45, 6.75, 7.14, 7.11, 5.88, 7.17],
+        "base_median": 6.98,
+        "head_median": 6.93,
+        "head_over_base": 0.993,
+        "base_spread": [6.37, 8.17],
+        "head_spread": [5.88, 7.17]
       },
       "ordinary_commit_p95_ms": {
-        "base_runs": [10.56, 11.28, 10.22, 9.85, 12.13, 8.48],
-        "head_runs": [7.92, 12.3, 11.49, 8.03, 11.83, 10.25],
-        "base_median": 10.39,
-        "head_median": 10.87,
-        "head_over_base": 1.046,
-        "base_spread": [8.48, 12.13],
-        "head_spread": [7.92, 12.3]
+        "base_runs": [8.22, 9.59, 8.17, 7.53, 11.29, 9.65],
+        "head_runs": [8.39, 8.06, 10.2, 8.09, 8.47, 9.34],
+        "base_median": 8.91,
+        "head_median": 8.43,
+        "head_over_base": 0.946,
+        "base_spread": [7.53, 11.29],
+        "head_spread": [8.06, 10.2]
       },
       "warm_checkpoint_open_ms": {
-        "base_runs": [214.88, 226.02, 212.72, 256.45, 211.09, 229.01],
-        "head_runs": [217.04, 223.86, 219.31, 218.54, 229.22, 252.18],
-        "base_median": 220.45,
-        "head_median": 221.58,
-        "head_over_base": 1.005,
-        "base_spread": [211.09, 256.45],
-        "head_spread": [217.04, 252.18]
+        "base_runs": [281.11, 247.55, 236.55, 243.51, 275.02, 299.25],
+        "head_runs": [237.07, 259.18, 243.23, 241.46, 401.68, 246.1],
+        "base_median": 261.29,
+        "head_median": 244.66,
+        "head_over_base": 0.936,
+        "base_spread": [236.55, 299.25],
+        "head_spread": [237.07, 401.68]
       },
       "strict_cold_open_ms": {
-        "base_runs": [406.17, 397.6, 430.81, 395.76, 383.27, 395.47],
-        "head_runs": [404.4, 467.32, 392.51, 382.82, 423.41, 409.06],
-        "base_median": 396.68,
-        "head_median": 406.73,
-        "head_over_base": 1.025,
-        "base_spread": [383.27, 430.81],
-        "head_spread": [382.82, 467.32]
+        "base_runs": [534.44, 437.61, 551.39, 460.71, 424.85, 429.03],
+        "head_runs": [441.25, 483.33, 411.77, 439.52, 413.73, 440.67],
+        "base_median": 449.16,
+        "head_median": 440.09,
+        "head_over_base": 0.98,
+        "base_spread": [424.85, 551.39],
+        "head_spread": [411.77, 483.33]
       },
       "fence_work_head": {
         "derivations": 0,
@@ -465,41 +434,37 @@
         "keyInspections": 80,
         "advances": 40,
         "rederivations": 0
-      },
-      "historical_verifications": {
-        "warm": [0, 0],
-        "cold": [6, 6]
       }
     }
   ],
   "policy_transition": [
     {
       "history_groups": 0,
-      "base_runs_ms": [31.8, 32.9, 41.8, 34.4, 32.3, 35.9],
-      "head_runs_ms": [36.9, 35.1, 31.7, 36.6, 30.9, 38.4],
-      "base_median_ms": 33.6,
-      "head_median_ms": 35.8,
-      "head_over_base": 1.064,
+      "base_runs_ms": [33.0, 34.7, 36.0, 34.9, 32.2, 36.4],
+      "head_runs_ms": [32.2, 33.6, 32.9, 32.3, 51.8, 33.7],
+      "base_median_ms": 34.8,
+      "head_median_ms": 33.2,
+      "head_over_base": 0.955,
       "first_open_verifications_base_head": [6, 6],
       "next_open_verifications_base_head": [0, 0]
     },
     {
       "history_groups": 130,
-      "base_runs_ms": [259.1, 260.6, 246.2, 254.1, 260.1, 304.6],
-      "head_runs_ms": [255.9, 265.7, 260.4, 264.5, 269.9, 265.1],
-      "base_median_ms": 259.6,
-      "head_median_ms": 264.8,
-      "head_over_base": 1.02,
+      "base_runs_ms": [290.4, 333.5, 297.8, 331.8, 340.0, 281.2],
+      "head_runs_ms": [305.7, 302.2, 282.7, 341.1, 279.1, 342.4],
+      "base_median_ms": 314.8,
+      "head_median_ms": 303.9,
+      "head_over_base": 0.966,
       "first_open_verifications_base_head": [6, 6],
       "next_open_verifications_base_head": [0, 0]
     },
     {
       "history_groups": 300,
-      "base_runs_ms": [554.4, 553.0, 562.0, 544.5, 608.5, 571.1],
-      "head_runs_ms": [554.1, 584.3, 596.3, 548.7, 592.1, 566.0],
-      "base_median_ms": 558.2,
-      "head_median_ms": 575.1,
-      "head_over_base": 1.03,
+      "base_runs_ms": [623.1, 613.1, 656.2, 702.6, 599.8, 636.8],
+      "head_runs_ms": [628.5, 655.2, 648.3, 721.0, 619.3, 622.1],
+      "base_median_ms": 629.9,
+      "head_median_ms": 638.4,
+      "head_over_base": 1.013,
       "first_open_verifications_base_head": [6, 6],
       "next_open_verifications_base_head": [0, 0]
     }

@@ -433,6 +433,36 @@ describe("the GM variants of the opening authority and the seal", () => {
         },
       }),
     ],
+    // BLUE F-1 (PR #135): this build has no source witness for an owner stage of a GM wait, so the strict seal is the ZERO-STAGE seal and nothing can cite
+    // a stage, an engaged owner, a crossed boundary or a rule version
+    [
+      "a credited stage (no source witness for an owner stage of a GM wait exists in this build)",
+      (s) => ({
+        ...s,
+        stages: [
+          {
+            stage: {
+              causal_process_id: "p",
+              owner_operation: { owner: "o", operation: "op" },
+              prospective_result_id: "r",
+            },
+            reads: [],
+            group_id: "g",
+            intent_id: "i",
+            revision: 9,
+            group_sha256: "a".repeat(64),
+            writes: [{ key: "k", version: 1 }],
+            validation: { invariants: ["inv"] },
+          },
+        ],
+      }),
+    ],
+    ["an engaged owner object", (s) => ({ ...s, engaged: [{ object_id: "o1" }] })],
+    [
+      "a crossed boundary",
+      (s) => ({ ...s, boundaries_crossed: [{ object_id: "o1", boundary_id: "b1" }] }),
+    ],
+    ["a rule version", (s) => ({ ...s, rule_versions: [{ owner: "o", rule: "r" }] })],
     [
       "an unspent remainder",
       (s) => ({

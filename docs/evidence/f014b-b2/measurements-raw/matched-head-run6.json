@@ -1,5 +1,5 @@
 {
-  "label": "head-b2-run6",
+  "label": "head-repair1-run6",
   "node": "v22.23.5",
   "has_fence_counters": true,
   "measurements": [
@@ -9,8 +9,8 @@
       "revision": 48,
       "journal_bytes": 108228,
       "ordinary_commit_ms": {
-        "median": 4.580527,
-        "p95": 8.040768,
+        "median": 3.280447,
+        "p95": 4.479916,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -22,11 +22,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 75.173562,
+        "ms": 85.411539,
         "historical_verifications": 6
       },
       "strict_cold_open": {
-        "ms": 34.179747,
+        "ms": 55.643494,
         "historical_verifications": 6
       }
     },
@@ -36,8 +36,8 @@
       "revision": 178,
       "journal_bytes": 359714,
       "ordinary_commit_ms": {
-        "median": 5.423478,
-        "p95": 9.332472,
+        "median": 4.039107,
+        "p95": 5.530578,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -49,11 +49,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 123.053493,
+        "ms": 169.581597,
         "historical_verifications": 0
       },
       "strict_cold_open": {
-        "ms": 179.959467,
+        "ms": 178.526458,
         "historical_verifications": 6
       }
     },
@@ -63,8 +63,8 @@
       "revision": 348,
       "journal_bytes": 689004,
       "ordinary_commit_ms": {
-        "median": 6.331744,
-        "p95": 8.688746,
+        "median": 6.247497,
+        "p95": 8.23927,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -76,11 +76,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 196.282355,
+        "ms": 349.567852,
         "historical_verifications": 0
       },
       "strict_cold_open": {
-        "ms": 305.164839,
+        "ms": 383.892882,
         "historical_verifications": 6
       }
     },
@@ -90,8 +90,8 @@
       "revision": 49,
       "journal_bytes": 110165,
       "ordinary_commit_ms": {
-        "median": 4.750742,
-        "p95": 6.466315,
+        "median": 3.759663,
+        "p95": 9.331932,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -103,11 +103,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 39.440391,
+        "ms": 52.846524,
         "historical_verifications": 6
       },
       "strict_cold_open": {
-        "ms": 35.863469,
+        "ms": 50.40159,
         "historical_verifications": 6
       }
     },
@@ -117,8 +117,8 @@
       "revision": 179,
       "journal_bytes": 361653,
       "ordinary_commit_ms": {
-        "median": 4.806894,
-        "p95": 6.307204,
+        "median": 5.096559,
+        "p95": 7.781882,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -130,11 +130,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 108.915561,
+        "ms": 112.424394,
         "historical_verifications": 0
       },
       "strict_cold_open": {
-        "ms": 155.032323,
+        "ms": 152.228597,
         "historical_verifications": 6
       }
     },
@@ -144,8 +144,8 @@
       "revision": 349,
       "journal_bytes": 690943,
       "ordinary_commit_ms": {
-        "median": 5.687412,
-        "p95": 6.823082,
+        "median": 5.939977,
+        "p95": 8.415811,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -157,11 +157,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 186.98035,
+        "ms": 235.230589,
         "historical_verifications": 0
       },
       "strict_cold_open": {
-        "ms": 289.743314,
+        "ms": 359.612596,
         "historical_verifications": 6
       }
     },
@@ -171,8 +171,8 @@
       "revision": 148,
       "journal_bytes": 302204,
       "ordinary_commit_ms": {
-        "median": 5.477769,
-        "p95": 7.874516,
+        "median": 4.9403,
+        "p95": 7.168072,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -184,11 +184,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 82.910369,
+        "ms": 127.036182,
         "historical_verifications": 0
       },
       "strict_cold_open": {
-        "ms": 131.398824,
+        "ms": 175.129539,
         "historical_verifications": 6
       }
     },
@@ -198,8 +198,8 @@
       "revision": 278,
       "journal_bytes": 553794,
       "ordinary_commit_ms": {
-        "median": 6.822691,
-        "p95": 9.351839,
+        "median": 6.040506,
+        "p95": 10.464206,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -211,11 +211,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 136.117218,
+        "ms": 144.251109,
         "historical_verifications": 0
       },
       "strict_cold_open": {
-        "ms": 257.782692,
+        "ms": 382.428029,
         "historical_verifications": 6
       }
     },
@@ -225,8 +225,8 @@
       "revision": 448,
       "journal_bytes": 883084,
       "ordinary_commit_ms": {
-        "median": 7.815692,
-        "p95": 10.248369,
+        "median": 7.168531,
+        "p95": 9.337935,
         "samples": 40
       },
       "fence_work_during_the_commits": {
@@ -238,11 +238,11 @@
         "rederivations": 0
       },
       "warm_checkpoint_open": {
-        "ms": 252.178709,
+        "ms": 246.096797,
         "historical_verifications": 0
       },
       "strict_cold_open": {
-        "ms": 409.056693,
+        "ms": 440.672177,
         "historical_verifications": 6
       }
     }
@@ -251,33 +251,33 @@
     {
       "history_groups": 0,
       "first_open_policy_transition": {
-        "ms": 38.422125,
+        "ms": 33.705536,
         "historical_verifications": 6
       },
       "next_open_warm": {
-        "ms": 15.026351,
+        "ms": 13.300352,
         "historical_verifications": 0
       }
     },
     {
       "history_groups": 130,
       "first_open_policy_transition": {
-        "ms": 265.143943,
+        "ms": 342.377964,
         "historical_verifications": 6
       },
       "next_open_warm": {
-        "ms": 67.829275,
+        "ms": 98.13455,
         "historical_verifications": 0
       }
     },
     {
       "history_groups": 300,
       "first_open_policy_transition": {
-        "ms": 566.021439,
+        "ms": 622.126943,
         "historical_verifications": 6
       },
       "next_open_warm": {
-        "ms": 129.751109,
+        "ms": 196.933437,
         "historical_verifications": 0
       }
     }

@@ -24,16 +24,10 @@ import {
   canonicalAdmission,
   deriveGmWaitFence,
   factKind,
-  stageGroupId,
-  stageIntentId,
   verifyTemporalIntegrity,
 } from "@immortalis/engine";
 import {
   FIXTURE_ADMISSION,
-  SYNTH_FACET,
-  SYNTH_OWNER,
-  SYNTH_RULE,
-  authorityGroupOf,
   copyPackage,
   forgeAppend,
   foreignGroup,
@@ -47,7 +41,6 @@ import {
   seededRig,
   tempDir,
   txOf,
-  type Rig,
 } from "./b2-support.ts";
 import { copyOf, openUnder, reopenMatrix, thaw } from "../support/b1-s1-rigs.ts";
 
@@ -71,43 +64,17 @@ function activeFromJournal(entries: readonly JournalEntry[]): (string | null)[] 
   return out;
 }
 
-const stageGroupN = (rig: Rig, x: string, n: number): CommitGroup => {
-  const key = {
-    causal_process_id: "b2-bulk",
-    owner_operation: { owner: SYNTH_OWNER, operation: "b2-bulk-op" },
-    prospective_result_id: `r-${n}`,
-  };
-  return {
-    campaign_id: rig.store.head().campaign_id,
-    group_id: stageGroupId(key),
-    intent_id: stageIntentId(key),
-    owner: SYNTH_OWNER,
-    facet: SYNTH_FACET,
-    cause: `transaction:${txOf(x)}`,
-    rule: SYNTH_RULE,
-    authority: { role: "role.archivist", permission: "permission.canon.write" },
-    reads: [],
-    depends_on: [authorityGroupOf(rig.store, x)],
-    writes: [
-      {
-        key: `synthetic/bulk/${n}`,
-        owner: SYNTH_OWNER,
-        facet: SYNTH_FACET,
-        unit: null,
-        basis: "synthetic-basis",
-        secrecy: "synthetic-secrecy",
-        expected_version: 0,
-        value: n as never,
-      },
-    ],
-  };
-};
-
-/** A wait opened and left ACTIVE across the revision-128 checkpoint by `stages` genuine owner stages. */
-async function activeAcrossCheckpoint(stages = 130) {
+/**
+ * A wait opened and left ACTIVE exactly AT the revision-128 checkpoint: the marker is the 127th commit and the OPEN the 128th. No owner stage can be
+ * credited while a GM wait is ACTIVE (BLUE F-1: there is no source witness for one), so the campaign cannot be advanced INSIDE the interval; the padding
+ * goes BEFORE the opening, with ordinary traffic the fence does not touch until a wait is open.
+ */
+async function activeAcrossCheckpoint() {
   const rig = await seededRig(tempDir());
+  for (let n = rig.store.head().revision; n < 126; n++)
+    await must(rig.store.commit(foreignGroup(1000 + n)));
   const { x } = await lifecycle(rig, "open");
-  for (let n = 0; n < stages; n++) await must(rig.store.commit(stageGroupN(rig, x, n)));
+  expect(rig.store.head().revision, "the OPEN is the 128th commit").toBe(128);
   return { rig, x };
 }
 
@@ -115,7 +82,6 @@ describe("B2-T06 the protected interval is rebuilt from the journal, cold, warm 
   it("the derived fence equals the INDEPENDENT journal reconstruction at EVERY revision of a strict replay, including after the index was overwritten to its terminal state", async () => {
     const rig = await seededRig(tempDir());
     const { x } = await lifecycle(rig, "open");
-    for (let n = 0; n < 3; n++) await must(rig.store.commit(stageGroupN(rig, x, n)));
     await must(rig.custody.sealOwn(x));
     await must(rig.custody.reconcile(rig.proof)); // the index, once OPEN, is now overwritten: SEALED_RECONCILED
     expect((rig.store.getFact(temporalGmWaitByPcKey("pc-fixture-1"))!.value as any).state).toBe(
@@ -127,8 +93,8 @@ describe("B2-T06 the protected interval is rebuilt from the journal, cold, warm 
     const independent = activeFromJournal(entries);
     expect(
       independent.filter(Boolean).length,
-      "the interval is non-empty and ends at the seal",
-    ).toBeGreaterThanOrEqual(4);
+      "the interval is non-empty (the OPEN) and ends at the seal",
+    ).toBeGreaterThanOrEqual(1);
     const manifest = manifestOf(rig.dir);
     const core = new CampaignCore({
       campaignId: manifest.campaign_id,
@@ -171,7 +137,8 @@ describe("B2-T06 the protected interval is rebuilt from the journal, cold, warm 
     const cp = manifestOf(rig.dir).head.checkpoint;
     const head = manifestOf(rig.dir).head.revision;
     expect(cp.revision).toBe(128);
-    expect(head).toBeGreaterThan(cp.revision);
+    // the OPEN is the checkpoint's own revision, so the checkpoint STATE holds the ACTIVE wait and no entry follows it (nothing but the seal can be published)
+    expect(head).toBe(cp.revision);
     const c = await openCounting(rig.dir);
     if (!c.opened.ok) throw new Error(JSON.stringify(c.opened.error));
     const store = c.opened.value;
@@ -183,7 +150,7 @@ describe("B2-T06 the protected interval is rebuilt from the journal, cold, warm 
   }, 300_000);
 
   it("the strict cold replay and the warm-checkpoint path agree on the whole campaign (the equivalence of the checkpoint to the journal)", async () => {
-    const { rig } = await activeAcrossCheckpoint(131);
+    const { rig } = await activeAcrossCheckpoint();
     await rig.campaign.close();
     const warm = await must(reopen(copyPackage(rig.dir)));
     const cold = await must(reopen(copyPackage(rig.dir), FIXTURE_ADMISSION, { audit: true }));
@@ -330,7 +297,7 @@ describe("B2-T06 / B2-T09 tamper and forgery fail CLOSED (structurally perfect, 
   });
 
   it("a truncated journal, a flipped byte inside the interval, a missing state file and a corrupted index value each fail closed and never open writable", async () => {
-    const { rig } = await activeAcrossCheckpoint(8);
+    const { rig } = await activeAcrossCheckpoint();
     await rig.campaign.close();
     const m = manifestOf(rig.dir);
 
