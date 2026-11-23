@@ -104,7 +104,10 @@ export const WorkshopDutySchema = z.strictObject({
   pc_binding: ref,
   issued: basis,
   admitted: basis,
-  lifetime: z.strictObject({ consumption: z.literal("ONE_MATCHING_OCCURRENCE"), source_terms: ref }),
+  lifetime: z.strictObject({
+    consumption: z.literal("ONE_MATCHING_OCCURRENCE"),
+    source_terms: ref,
+  }),
   acceptance_basis: z.literal("SEEDED_STANDING_POST_DUTY"),
   profile_pin_sha256: Sha256,
 });
@@ -129,7 +132,10 @@ export const WorkshopConditionSchema = z.strictObject({
   source_inputs: z.array(ref),
   previous_version: Version,
   state: z.discriminatedUnion("status", [
-    z.strictObject({ status: z.literal("ACTIVE"), effect: z.literal("HEARING_FUNCTION_LIMITATION") }),
+    z.strictObject({
+      status: z.literal("ACTIVE"),
+      effect: z.literal("HEARING_FUNCTION_LIMITATION"),
+    }),
     z.strictObject({ status: z.literal("RETIRED"), recovery_at: CanonicalTimeSchema }),
   ]),
 });
@@ -256,14 +262,19 @@ export type WorkshopGlassbellExposure = z.infer<typeof WorkshopGlassbellExposure
 export type WorkshopNoticeBinding = z.infer<typeof WorkshopNoticeBindingSchema>;
 export type WorkshopNoticeEnrolment = z.infer<typeof WorkshopNoticeEnrolmentSchema>;
 
-export const workshopCharterKey = (campaign: string) => `gip/local-completion-notice/campaign/${campaign}/charter`;
+export const workshopCharterKey = (campaign: string) =>
+  `gip/local-completion-notice/campaign/${campaign}/charter`;
 export const workshopInstructionKey = (campaign: string, id: string) =>
   `gip/local-completion-notice/campaign/${campaign}/instruction/${id}`;
-export const workshopDutyKey = (actor: string, id: string) => `actor/${actor}/local-notice-duty/${id}`;
-export const workshopExposureKey = (world: string, pc: string) => `world/${world}/opening-glassbell-exposure/${pc}`;
+export const workshopDutyKey = (actor: string, id: string) =>
+  `actor/${actor}/local-notice-duty/${id}`;
+export const workshopExposureKey = (world: string, pc: string) =>
+  `world/${world}/opening-glassbell-exposure/${pc}`;
 export const workshopConditionKey = (pc: string, id: string) => `health/pc/${pc}/condition/${id}`;
-export const workshopAnchorKey = (pc: string, id: string) => `health/pc/${pc}/auditory/coverage/${id}`;
-export const workshopCloseKey = (pc: string, id: string) => `health/pc/${pc}/auditory/sensory-close/${id}`;
+export const workshopAnchorKey = (pc: string, id: string) =>
+  `health/pc/${pc}/auditory/coverage/${id}`;
+export const workshopCloseKey = (pc: string, id: string) =>
+  `health/pc/${pc}/auditory/sensory-close/${id}`;
 export const workshopEnrolmentKey = (world: string, locus: string, x: string) =>
   `world/${world}/locus/${locus}/addressed-notice/enrolment/${x}`;
 export const workshopReservationKey = (campaign: string, pc: string) =>
