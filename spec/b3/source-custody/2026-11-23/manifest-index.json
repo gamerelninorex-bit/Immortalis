@@ -1,0 +1,24 @@
+{
+  "artifact_kind": "B3 QO source-authored input and bounded source/collision proof; no executable owner writer claimed",
+  "files": {
+    "source-correction-matrix.md": {
+      "bytes": 7427,
+      "sha256": "e3640c3ce0aeb40c832ab598f36fc0e4e715e86979b92aae3e13d822de6374b1"
+    },
+    "verify-authored-contracts.py": {
+      "bytes": 7569,
+      "sha256": "1822c2fed3444fbd9d79d42129a3086615baea374eb44cc424eb77bd66023968"
+    },
+    "workshop-opening-glassbell-v1.json": {
+      "bytes": 52410,
+      "sha256": "02dcbc20d2c0cc073c5417340bfcb527adbd7d5b0b2abe9853ad0cc19aa7b7dc"
+    },
+    "workshop-opening-quiet-v1.json": {
+      "bytes": 47931,
+      "sha256": "513a93263713d1df82a17b9462eac1a04d93698b4bb86f69b0086edc8b726da5"
+    }
+  },
+  "profile_ratification": "NOT YET: Sovereign design approval only in principle",
+  "repository_baseline": "940a1ca29b34af8488c9ea3ea2f1903aeba52660",
+  "source_status": "EXACT_BYTES_ENGINEERING_CANDIDATES_NOT_EFFECTIVE_GRANTS"
+}
