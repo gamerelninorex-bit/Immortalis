@@ -25,6 +25,7 @@ import {
   A1_2A_UNTOUCHED,
 } from "../support/a1-2a-scoped-deltas.ts";
 import { B1_V2_PACKAGE_PATHS, B1_V2_WORKFLOW_PATH } from "../support/b1-s2s3-scoped-deltas.ts";
+import { B2_PACKAGE_PATHS, unionPaths } from "../support/b2-scoped-deltas.ts";
 
 const git = (...args: string[]): Buffer | null => {
   try {
@@ -80,8 +81,9 @@ describe("[A1-2a] [mechanism only] [scope] declared scope", () => {
     "[A1-2a] [mechanism only] [scope] the declared paths are the only source change under apps/ or packages/ (tracked or not), and each new one really is new",
     () => {
       const touched = [...changedSince("apps", "packages"), ...untrackedIn("apps", "packages")];
+      // (and the F-014B B2 slice's recorded paths, which that slice's own table and suite police)
       expect([...new Set(touched)].sort()).toEqual(
-        [...A1_2A_PACKAGE_PATHS, ...B1_V2_PACKAGE_PATHS].sort(),
+        unionPaths(A1_2A_PACKAGE_PATHS, B1_V2_PACKAGE_PATHS, B2_PACKAGE_PATHS),
       );
       for (const p of A1_2A_NEW_PRODUCTION_PATHS)
         expect(git("cat-file", "-e", `${A1_2A_BASE_COMMIT}:${p}`), `${p} is new`).toBeNull();
@@ -93,7 +95,12 @@ describe("[A1-2a] [mechanism only] [scope] declared scope", () => {
   it.skipIf(!baseReachable)(
     "[A1-2a] [mechanism only] [scope] every file and tree the brief forbids is byte-identical to the base commit",
     () => {
-      const successorPaths = new Set([...B1_V2_PACKAGE_PATHS, B1_V2_WORKFLOW_PATH]);
+      // (the F-014B B2 slice's recorded paths are declared by its own table and suite, like the B1 v2 successor's)
+      const successorPaths = new Set([
+        ...B1_V2_PACKAGE_PATHS,
+        B1_V2_WORKFLOW_PATH,
+        ...B2_PACKAGE_PATHS,
+      ]);
       for (const p of A1_2A_UNTOUCHED) {
         expect(
           changedSince(p).filter((x) => !successorPaths.has(x)),

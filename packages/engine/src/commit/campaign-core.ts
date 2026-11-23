@@ -12,6 +12,13 @@ import {
   type StateFile,
 } from "@immortalis/contracts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
+import {
+  advanceGmWaitFence,
+  deriveGmWaitFence,
+  gmWaitFenceViolation,
+  registerGmWaitFence,
+  type GmWaitFence,
+} from "../gm-wait-custody.ts";
 import { IncrementalStateDigest } from "./state-digest.ts";
 
 /**
@@ -221,11 +228,28 @@ export class CampaignCore {
    * committed entry at a time. Derived and ephemeral: dropped when the replay ends (`endReplay`) or a live commit is accepted.
    */
   #replayDigest: IncrementalStateDigest | null = null;
+  /**
+   * F-014B B2: the common W2 fence, DERIVED from the committed facts of the current state and carried forward by each adopted
+   * group. It lives in the core, not in the pluggable admission, so no admission wrapper, extension binding or missing admission can
+   * route a group around it. A checkpoint state that already holds an ACTIVE interval carries no ordered interval proof: the view
+   * is then HELD (it publishes nothing) until a strict replay from genesis has rebuilt it.
+   */
+  #fence: GmWaitFence;
 
   constructor(params: CoreParams) {
     this.#params = params;
     this.#state = params.state;
     this.#headSha256 = params.headSha256;
+    const derived = deriveGmWaitFence(params.state);
+    this.#fence =
+      params.history !== undefined && derived.active !== null && derived.unknown === null
+        ? {
+            ...derived,
+            unknown:
+              "an ACTIVE interval in a checkpoint has no ordered original-interval proof: a strict replay is required before any write",
+          }
+        : derived;
+    registerGmWaitFence(params.state, this.#fence);
     // Only genesis or the existing policy-bound verified checkpoint history can seed a view.
     // A caller's detached non-genesis state is not verified-open evidence.
     if (params.state.revision === 0 || params.history !== undefined)
@@ -240,6 +264,10 @@ export class CampaignCore {
   }
   get headSha256(): string {
     return this.#headSha256;
+  }
+  /** The derived W2 custody view of the current state (read-only). */
+  get gmWaitFence(): GmWaitFence {
+    return this.#fence;
   }
 
   lookupReceipt(intentId: string): CommitReceipt | null {
@@ -270,6 +298,8 @@ export class CampaignCore {
     this.#state = nextState;
     this.#headSha256 = entry.entry_sha256;
     this.#register(entry.group, entry.receipt);
+    this.#fence = advanceGmWaitFence(this.#fence, entry.group, nextState);
+    registerGmWaitFence(nextState, this.#fence);
   }
 
   /**
@@ -555,6 +585,9 @@ export class CampaignCore {
         "canonical publication requires role.archivist + permission.canon.write",
       );
     }
+    // F-014B B2 W2: the common fence precedes every owner, registry and admission rule, for a live publication AND for a replayed entry.
+    const fenced = gmWaitFenceViolation(group, this.#fence, this.#params.admission, checkRegistry);
+    if (fenced) return fenced;
     if (checkRegistry && !this.#params.owners.get(group.owner)?.has(group.facet)) {
       return bad("OWNER_NOT_REGISTERED", "no registered owner/facet; there is no fallback owner", {
         owner: group.owner,

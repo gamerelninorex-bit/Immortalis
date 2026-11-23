@@ -36,6 +36,7 @@ import {
 import { COMPATIBLE_RUNTIME_CONTRACT_SHA256S } from "../compat.ts";
 import { ENGINE_PACKAGE, ENGINE_VERSION } from "../version.ts";
 import { sha256Canonical } from "../hash.ts";
+import { gmWaitAdmissionInstalled, gmWaitIsCustodyGroup } from "../gm-wait-custody.ts";
 import { nodeFs, type FsOps } from "./fs-ops.ts";
 import type {
   CampaignHead,
@@ -84,7 +85,9 @@ export type OpenErrorCode =
   | "JOURNAL_TRUNCATED"
   | "INTEGRITY_JOURNAL"
   | "REPLAY_MISMATCH"
-  | "CANON_INTEGRITY";
+  | "CANON_INTEGRITY"
+  /** F-014B B2 (RED T93): a package that holds GM-wait custody opens only under an admission that carries the W2 custody verifier */
+  | "PROTECTED_STORE_REQUIRES_ADMISSION";
 
 export interface FileCampaignOptions {
   /** Owner verification before exceptional format/policy activation; the canonical caller supplies its existing validators. */
@@ -664,6 +667,13 @@ async function load(
     if (entry.data.group.campaign_id !== manifest.campaign_id) {
       return fail("INTEGRITY_JOURNAL", `journal line ${i + 1} belongs to a different campaign`);
     }
+    // F-014B B2 (RED T93): a journal that holds GM-wait custody is replayed only under an admission that carries the W2 custody verifier
+    if (gmWaitIsCustodyGroup(entry.data.group) && !gmWaitAdmissionInstalled(options.admission)) {
+      return fail(
+        "PROTECTED_STORE_REQUIRES_ADMISSION",
+        "this campaign holds GM-wait custody and opens only under an admission that carries the W2 custody verifier",
+      );
+    }
     const replayed = core.replay(entry.data);
     if (!replayed.ok) return replayed;
   }
@@ -675,6 +685,13 @@ async function load(
   }
   if (core.state.revision !== head.revision || stateSha256(core.state) !== head.state_sha256) {
     return fail("INTEGRITY_STATE", "state derived from the journal differs from the manifest head");
+  }
+  // F-014B B2 (RED T93): a protected store never opens writable without the admission hook that carries the W2 custody verifier
+  if (core.gmWaitFence.protected && !gmWaitAdmissionInstalled(options.admission)) {
+    return fail(
+      "PROTECTED_STORE_REQUIRES_ADMISSION",
+      "this campaign holds GM-wait custody and opens only under an admission that carries the W2 custody verifier",
+    );
   }
 
   // --- materialized state file must agree with the replayed state --------------------------------

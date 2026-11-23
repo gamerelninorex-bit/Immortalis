@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import { A26_ADMISSION_DELTAS } from "../support/a26-scoped-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 import { A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
+import { B2_SCOPED_DELTAS, bytesNowGiven } from "../support/b2-scoped-deltas.ts";
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 // F-014B A0 (CAL-TIME T-1) changed temporal/bootstrap.ts and temporal/captured-chronology.ts after the M-S slice: their pins were replaced by this
 // comment, as the freight slice did for admission.ts and coordinator.ts, and the two paths are pinned instead as scoped deltas in
@@ -26,8 +27,7 @@ const unchanged: Record<string, string> = {
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
     "8319d33aa9a5e0f15055600ec9aad3d9422adfe31e84a5c6d9c71cbfbc777c34",
-  "packages/engine/src/temporal/integrity.ts":
-    "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
+  // F-014B B2: packages/engine/src/temporal/integrity.ts is a recorded scoped delta of the GM-wait custody slice (tests/support/b2-scoped-deltas.ts)
   "packages/engine/src/temporal/partition.ts":
     "000880a1d0daab2a3d994b80cbd76f75ecfc9edd7108273b321129ce7ea7d84a",
   "packages/engine/src/temporal/providers.ts":
@@ -42,6 +42,7 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
         "packages/engine/src/world/actor-presence-integrity.ts",
       ])
       .sort();
+    // (F-014B B2 added no file to either directory: its custody modules live at the engine source root)
     // ROADBED R3-T25 freight changed two further temporal files (admission.ts, coordinator.ts): they are scoped deltas pinned in
     // tests/support/freight-scoped-deltas.ts (and no longer "unchanged siblings"), so the coverage has no hole.
     const freightDeltas = Object.keys(FREIGHT_SCOPED_DELTAS).filter(
@@ -54,7 +55,8 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
       "packages/engine/src/temporal/coordinator.ts",
     ]);
     const a26Delta = "packages/engine/src/commit/campaign-core.ts";
-    expect(sha(a26Delta)).toBe(A26_ADMISSION_DELTAS[a26Delta].head);
+    // (F-014B B2, a later slice, changed the commit core again: its head is then exactly B2's base, tests/conformance/b2-scope-conformance.test.ts)
+    expect(sha(a26Delta)).toBe(bytesNowGiven(a26Delta, A26_ADMISSION_DELTAS[a26Delta].head));
     // F-014B A0 changed two more temporal files (bootstrap.ts, captured-chronology.ts): pinned in tests/support/a0-scoped-deltas.ts
     const a0Only = Object.keys(A0_SCOPED_DELTAS).filter(
       (p) =>
@@ -66,16 +68,33 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
       "packages/engine/src/temporal/bootstrap.ts",
       "packages/engine/src/temporal/captured-chronology.ts",
     ]);
+    // F-014B B2 changed one more temporal file (integrity.ts): pinned in tests/support/b2-scoped-deltas.ts (the others it changed are the
+    // freight, A0 and commit-core deltas above, whose heads chain to its bases)
+    const b2Only = Object.keys(B2_SCOPED_DELTAS).filter(
+      (p) =>
+        (p.startsWith("packages/engine/src/temporal/") ||
+          p.startsWith("packages/engine/src/commit/")) &&
+        !freightDeltas.includes(p) &&
+        !a0Only.includes(p) &&
+        p !== a26Delta,
+    );
+    expect(b2Only).toEqual(["packages/engine/src/temporal/integrity.ts"]);
     expect(Object.keys(composed)).toHaveLength(2);
-    expect(Object.keys(unchanged)).toHaveLength(6);
+    expect(Object.keys(unchanged)).toHaveLength(5);
     expect(
-      [...Object.keys({ ...composed, ...unchanged }), ...freightDeltas, ...a0Only, a26Delta].sort(),
+      [
+        ...Object.keys({ ...composed, ...unchanged }),
+        ...freightDeltas,
+        ...a0Only,
+        ...b2Only,
+        a26Delta,
+      ].sort(),
     ).toEqual(actual);
   });
   it("pins the two remaining unaffected integration files at the composed head bytes", () => {
     for (const [path, expected] of Object.entries(composed)) expect(sha(path), path).toBe(expected);
   });
-  it("retains all six remaining unmodified siblings at the original main bytes", () => {
+  it("retains the five remaining unmodified siblings at the original main bytes", () => {
     for (const [path, expected] of Object.entries(unchanged))
       expect(sha(path), path).toBe(expected);
   });

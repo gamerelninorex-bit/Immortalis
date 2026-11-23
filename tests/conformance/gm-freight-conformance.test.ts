@@ -35,6 +35,7 @@ import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
 import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 import { A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
+import { B2_PACKAGE_PATHS } from "../support/b2-scoped-deltas.ts";
 import { RP1_STAGE2_PACKAGE_PATHS } from "../support/rp1-stage2-deltas.ts";
 import { RP2_PACKAGE_PATHS } from "../support/rp2-source-deltas.ts";
 import { A0_PACKAGE_PATHS } from "../support/a0-scoped-deltas.ts";
@@ -207,6 +208,8 @@ describe("the slice is one scoped delta over the freight F+I base", () => {
       ...A1_1_PACKAGE_PATHS,
       ...B1_S2S3_PACKAGE_PATHS,
       ...A1_2A_PACKAGE_PATHS,
+      // and the F-014B B2 slice's recorded paths (its own table and conformance suite police them)
+      ...B2_PACKAGE_PATHS,
     ]);
     for (const p of [...changed, ...untracked]) expect(allowed.has(p), p).toBe(true);
     // the two export lines are the whole change to the two index files (measured to the S-4 base, main after this slice merged: S-4

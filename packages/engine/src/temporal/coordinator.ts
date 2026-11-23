@@ -215,7 +215,11 @@ export class TemporalCoordinator {
   }
   transaction(transactionId: string): Typed<ResolutionTransaction> | undefined {
     const fact = this.#store.getFact(temporalTransactionKey(transactionId));
-    return fact ? { fact, value: ResolutionTransactionSchema.parse(fact.value) } : undefined;
+    if (!fact) return undefined;
+    // F-014B B2: a stored GM-origin transaction is the strict prospective variant, not a legacy one. This reader is the legacy
+    // player-origin reader, so it does not return one; every legacy value is parsed exactly as before (a corrupt one still throws).
+    if ((fact.value as { origin?: unknown } | null)?.origin !== undefined) return undefined;
+    return { fact, value: ResolutionTransactionSchema.parse(fact.value) };
   }
 
   // -- establishment and registration (explicit authored publications) --------------------------

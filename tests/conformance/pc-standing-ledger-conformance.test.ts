@@ -39,6 +39,7 @@ import { A05_SOURCE_DELTAS } from "../support/a05-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
 import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 import { A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
+import { B2_PACKAGE_PATHS } from "../support/b2-scoped-deltas.ts";
 import { RP1_STAGE2_PACKAGE_PATHS } from "../support/rp1-stage2-deltas.ts";
 import { RP2_PACKAGE_PATHS } from "../support/rp2-source-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
@@ -261,9 +262,9 @@ describe("historical verification identity: checkpoint evidence earned before S-
     const BEFORE =
       "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z";
     const id = canonicalAdmission.historyVerificationId!;
-    // F-014B A0 appended two additive segments after the A01 suffix (declared; the S-4 suffix and its position are unchanged)
+    // F-014B A0 appended two additive segments after the A01 suffix, and F-014B B2 one more after them (declared; the S-4 suffix and its position are unchanged)
     expect(id).toBe(
-      `${BEFORE}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN`,
+      `${BEFORE}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z`,
     );
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_LEDGER_SOURCE.native_pin);
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX).toContain(S4_RATIFICATION_SOURCE.native_pin);
@@ -275,7 +276,13 @@ describe("historical verification identity: checkpoint evidence earned before S-
 describe("reviewed sunset policy: the two ledger kinds have rows, and no existing row changed", () => {
   it("the S-4 table is the freight table plus the two ledger rows, and covers exactly ALL_FACT_KINDS", () => {
     // F-014B A0 registered the Temporal origin witness after this table (its row is the clock-origin delta)
-    const atS4 = ALL_FACT_KINDS.filter((k) => k.id !== "temporal_origin");
+    // and the two F-014B B2 GM-wait custody kinds after it (the GM-wait custody delta)
+    const atS4 = ALL_FACT_KINDS.filter(
+      (k) =>
+        k.id !== "temporal_origin" &&
+        k.id !== "temporal_gm_wait_marker" &&
+        k.id !== "temporal_gm_wait_pc_index",
+    );
     expect(BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1).toHaveLength(atS4.length);
     expect(
       BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1.slice(0, BOOTSTRAP_SUNSET_POLICY_FREIGHT_V1.length),
@@ -419,6 +426,8 @@ describe("scope: this slice changed exactly the predecessor files it records", (
       ...A1_1_PACKAGE_PATHS,
       ...B1_S2S3_PACKAGE_PATHS,
       ...A1_2A_PACKAGE_PATHS,
+      // and the F-014B B2 slice's recorded paths (its own table and conformance suite police them)
+      ...B2_PACKAGE_PATHS,
     ]);
     for (const p of [...changed, ...untracked]) expect(combinedAllowed.has(p), p).toBe(true);
     // ... and every recorded file really did change (the allow-list is not a place to park files that did not)

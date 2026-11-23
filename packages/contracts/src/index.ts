@@ -86,6 +86,7 @@ export * from "./source-ref.ts";
 export * from "./spec-identity-schema.ts";
 export * from "./temporal.ts";
 export * from "./temporal-origin.ts";
+export * from "./temporal-custody.ts";
 export * from "./world-corridor.ts";
 export * from "./world-foundation.ts";
 export { BUILD_SPEC_IDENTITY } from "./spec-identity.ts";

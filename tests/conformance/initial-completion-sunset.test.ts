@@ -134,6 +134,9 @@ const ids = ALL_FACT_KINDS.map((k) => k.id).filter(
       ...PC_STANDING_LEDGER_FACT_KIND_IDS,
       // and the F-014B A0 Temporal origin witness (its OWNER_CHECKS_ONLY row is the clock-origin delta)
       "temporal_origin",
+      // and the two F-014B B2 GM-wait custody kinds (their OWNER_CHECKS_ONLY rows are the GM-wait custody delta)
+      "temporal_gm_wait_marker",
+      "temporal_gm_wait_pc_index",
     ].includes(k),
 );
 

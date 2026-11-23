@@ -130,6 +130,8 @@ export * from "./owners/registry.ts";
 export * from "./temporal/admission.ts";
 export * from "./temporal/coordinator.ts";
 export * from "./temporal/graph.ts";
+export * from "./gm-wait-custody.ts";
+export * from "./gm-wait-identity.ts";
 export * from "./temporal/identity.ts";
 export * from "./temporal/integrity.ts";
 export * from "./temporal/partition.ts";

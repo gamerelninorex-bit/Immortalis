@@ -5,6 +5,7 @@ import { isLegacyRuntimeContract } from "../compat.ts";
 import { CANONICAL_OWNER_REGISTRY, resolveKey } from "./registry.ts";
 import { reject } from "./rejection.ts";
 import { msFenceCheck } from "../ms-setup/fence.ts";
+import { gmWaitFenceOf, gmWaitFenceViolation } from "../gm-wait-custody.ts";
 
 /**
  * Additional owner/facet pairs a build registers beside the canonical and IM-02 kernel ones — the
@@ -74,6 +75,10 @@ export function storeBindings(
     check(group, state, history) {
       const fence = msFenceCheck(group, state);
       if (fence) return fence;
+      // F-014B B2 W2: the common fence PRECEDES the extension branch below. An extension owner's group is a novel canonical
+      // publication like any other: while a GM wait is ACTIVE it is refused unless it is a stage of that exact transaction.
+      const w2 = gmWaitFenceViolation(group, gmWaitFenceOf(state), base, true);
+      if (w2) return w2;
       if (!extension.owners.has(group.owner)) return base.check(group, state, history);
       for (const w of group.writes) {
         if (resolveKey(w.key)) {
@@ -90,6 +95,10 @@ export function storeBindings(
     verifyHistorical(group, state) {
       const fence = msFenceCheck(group, state);
       if (fence) return fence;
+      // F-014B B2 W2: ahead of the extension early return, in original-policy historical verification too, judged at the ACTUAL
+      // incremental prestate. Only the owner-specific verification of an extension group stays skipped (as the census records).
+      const w2 = gmWaitFenceViolation(group, gmWaitFenceOf(state), base, false);
+      if (w2) return w2;
       if (extension.owners.has(group.owner)) return null;
       return base.verifyHistorical?.(group, state) ?? null;
     },

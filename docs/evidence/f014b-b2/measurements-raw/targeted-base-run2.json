@@ -1,0 +1,88 @@
+{
+  "label": "b",
+  "node": "v22.23.5",
+  "has_fence_counters": false,
+  "measurements": [
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 308,
+      "journal_bytes": 613444,
+      "ordinary_commit_ms": {
+        "median": 5.589834,
+        "p95": 7.765294,
+        "samples": 300
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 186.036539,
+        "historical_verifications": 0
+      },
+      "strict_cold_open": {
+        "ms": 280.288386,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 100,
+      "history_groups": 0,
+      "revision": 408,
+      "journal_bytes": 807524,
+      "ordinary_commit_ms": {
+        "median": 6.384269,
+        "p95": 10.045295,
+        "samples": 300
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 264.363424,
+        "historical_verifications": 0
+      },
+      "strict_cold_open": {
+        "ms": 473.464511,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 100,
+      "history_groups": 0,
+      "revision": 408,
+      "journal_bytes": 807524,
+      "ordinary_commit_ms": {
+        "median": 5.981196,
+        "p95": 8.678175,
+        "samples": 300
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 264.298578,
+        "historical_verifications": 0
+      },
+      "strict_cold_open": {
+        "ms": 398.382814,
+        "historical_verifications": 6
+      }
+    },
+    {
+      "dormant_facts": 0,
+      "history_groups": 0,
+      "revision": 308,
+      "journal_bytes": 613444,
+      "ordinary_commit_ms": {
+        "median": 5.439064,
+        "p95": 8.672454,
+        "samples": 300
+      },
+      "fence_work_during_the_commits": null,
+      "warm_checkpoint_open": {
+        "ms": 178.040022,
+        "historical_verifications": 0
+      },
+      "strict_cold_open": {
+        "ms": 279.96812,
+        "historical_verifications": 6
+      }
+    }
+  ],
+  "policy_transition": []
+}

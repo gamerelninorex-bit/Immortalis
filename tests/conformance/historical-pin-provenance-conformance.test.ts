@@ -23,6 +23,7 @@ import {
 import { RP2_BASE, RP2_BASE_TREE, RP2_SOURCE_DELTAS } from "../support/rp2-source-deltas.ts";
 import { A0_BASE_COMMIT, A0_PACKAGE_PATHS } from "../support/a0-scoped-deltas.ts";
 import { A1_1_PACKAGE_PATHS } from "../support/a1-1-scoped-deltas.ts";
+import { B2_PACKAGE_PATHS, bytesNowGiven, unionPaths } from "../support/b2-scoped-deltas.ts";
 import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 import { A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
 import { A24_ADAPTER_DELTA } from "../support/a24-scoped-delta.ts";
@@ -136,7 +137,7 @@ describe("census of the examined suites as they stand: changed paths hold only h
     pinsIn(readFileSync(suite, "utf8")).map((pin) => ({ suite, ...pin })),
   );
 
-  it("scans every pin of every examined suite: 510 pins, 40 on changed paths (history kept), 470 on unchanged paths (exempted, still true)", () => {
+  it("scans every pin of every examined suite: 505 pins, 40 on changed paths (history kept), 465 on unchanged paths (exempted, still true)", () => {
     const onChanged = rows.filter((r) => isChanged(r.path));
     const exempt = rows.filter((r) => !isChanged(r.path));
     // 578 = 581 less the three byte-identity pins of packages/operator/src/player-view.ts that the observe-request, advance-request and
@@ -152,6 +153,9 @@ describe("census of the examined suites as they stand: changed paths hold only h
     // and integrity pins. That suite preserves the original digests in comments, never new source identities.
     // 513 = 516 less A26's three former live pins: the commit directory and two source-drawdown admission pins.
     // The original digests are verified against the exact A26 base below.
+    // 505 = 510 (the count before F-014B B2) less F-014B B2's five pins of packages/engine/src/temporal/integrity.ts, which the
+    // GM-wait custody slice changed: the observation suite and the four protocol suites each replaced that pin with a comment (ms-setup-regression-pins did the same, but it is not an examined suite), and the path
+    // is pinned instead as a scoped delta in tests/support/b2-scoped-deltas.ts. All five were on unchanged-since-main paths, so the 40 history pins are untouched.
     for (const [path, count] of [
       ["packages/engine/src/temporal", 0],
       ["packages/engine/src/commit", 0],
@@ -164,9 +168,9 @@ describe("census of the examined suites as they stand: changed paths hold only h
       ).toHaveLength(count);
     // RP-1 Stage 2 retains the two former live Observe Exchange pins in the Stage 2 baseline.
     // RP-2 retains the former live Population derivation pin at the initial Population suite's base below.
-    expect(rows).toHaveLength(510);
+    expect(rows).toHaveLength(505);
     expect(onChanged).toHaveLength(40);
-    expect(exempt).toHaveLength(470);
+    expect(exempt).toHaveLength(465);
     // the exempted unchanged paths are exactly that: not touched by PR #94, and the pin is still what the working tree holds
     for (const r of exempt) {
       expect(existsSync(r.path), `${r.suite} ${r.path}`).toBe(true);
@@ -219,7 +223,8 @@ describe("census of the examined suites as they stand: changed paths hold only h
 describe("A26-CB1 preserves the historical identities and pins the current admission delta", () => {
   it("pins each current file of the admission delta", () => {
     for (const [path, identity] of Object.entries(A26_ADMISSION_DELTAS))
-      expect(identityOf(path), path).toBe(identity.head);
+      // (F-014B B2, a later slice, changed the commit core again: the A26 head is then exactly B2's base, tests/conformance/b2-scope-conformance.test.ts)
+      expect(identityOf(path), path).toBe(bytesNowGiven(path, identity.head));
   });
 
   it.skipIf(!reachable(A26_BASE_COMMIT) || !reachable(A24_ADAPTER_DELTA.baseCommit))(
@@ -350,15 +355,17 @@ describe("RP-2 pins the four authorized production repairs", () => {
     // Declared inclusion (F-014B B0, PR #117): the one new pure GM waiting request module. It is not exported from the package index and changes no existing file.
     // Declared inclusion (F-014B A1-1): the two existing operator files in tests/support/a1-1-scoped-deltas.ts (the strict version 2 capture and the
     // widened intake type); no new file. That slice's own table and tests/conformance/a1-1-scope-conformance.test.ts police them.
-    expect(changed.sort()).toEqual(
-      [
-        ...Object.keys(RP2_SOURCE_DELTAS),
-        ...A0_PACKAGE_PATHS,
-        "packages/contracts/src/temporal-gm-wait.ts",
-        ...A1_1_PACKAGE_PATHS,
-        ...B1_S2S3_PACKAGE_PATHS,
-        ...A1_2A_PACKAGE_PATHS,
-      ].sort(),
+    // Declared inclusion (F-014B B2, a later slice): its recorded paths, policed by its own table and tests/conformance/b2-scope-conformance.test.ts.
+    expect([...new Set(changed)].sort()).toEqual(
+      unionPaths(
+        Object.keys(RP2_SOURCE_DELTAS),
+        A0_PACKAGE_PATHS,
+        ["packages/contracts/src/temporal-gm-wait.ts"],
+        A1_1_PACKAGE_PATHS,
+        B1_S2S3_PACKAGE_PATHS,
+        A1_2A_PACKAGE_PATHS,
+        B2_PACKAGE_PATHS,
+      ),
     );
     const lockPath = "spec/f027/spec-lock.json";
     const baselineLock = git("rev-parse", `${RP2_BASE_TREE}:${lockPath}`)?.toString("utf8").trim();

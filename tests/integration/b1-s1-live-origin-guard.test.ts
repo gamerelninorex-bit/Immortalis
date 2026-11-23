@@ -52,6 +52,7 @@ import {
   copyOf,
   gatewayRig,
   gatewayTemplate,
+  identityBeforeB2,
   literalTransaction,
   log,
   manifestOf,
@@ -584,10 +585,10 @@ async function rigStage(admission: WriteAdmission | undefined): Promise<Check[]>
 }
 
 describe("e. [s1 guard] the production admission refuses a NEW player+literal write at BOTH placements and preserves every old record", () => {
-  it("[s1 guard] the verifier identity is the one the frozen packages were saved under, so a warm reopen still trusts their checkpoints", () => {
+  it("[s1 guard] the verifier identity is the one the frozen packages were saved under, less the one segment F-014B B2 appended: their first open under the current identity is the declared strict replay", () => {
     for (const j of [ZERO, STAGE, INTERRUPTED, AUTHORITY_ONLY, AUTHORITY_THEN_SEAL])
       expect(manifestOf(j.dir).head.checkpoint.verification_policy).toBe(
-        canonicalAdmission.historyVerificationId,
+        identityBeforeB2(canonicalAdmission.historyVerificationId!),
       );
   });
 

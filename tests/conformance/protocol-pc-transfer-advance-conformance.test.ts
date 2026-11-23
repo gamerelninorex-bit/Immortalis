@@ -54,8 +54,7 @@ const UNCHANGED: Record<string, string> = {
     "0c1eea854f40f176de165d8f62979fe3f4c8c87055b6def6996aa1b01dd8b124",
   "packages/engine/src/temporal/identity.ts":
     "8319d33aa9a5e0f15055600ec9aad3d9422adfe31e84a5c6d9c71cbfbc777c34",
-  "packages/engine/src/temporal/integrity.ts":
-    "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
+  // F-014B B2: packages/engine/src/temporal/integrity.ts is a recorded scoped delta of the GM-wait custody slice (pinned in tests/support/b2-scoped-deltas.ts)
   "packages/engine/src/temporal/partition.ts":
     "000880a1d0daab2a3d994b80cbd76f75ecfc9edd7108273b321129ce7ea7d84a",
   "packages/engine/src/temporal/providers.ts":

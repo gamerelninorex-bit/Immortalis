@@ -47,6 +47,7 @@ import {
   B1_S2S3_TOOLS_PATHS,
 } from "../support/b1-s2s3-scoped-deltas.ts";
 import { A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
+import { B2_PACKAGE_PATHS, bytesNowGiven, unionPaths } from "../support/b2-scoped-deltas.ts";
 import { v1Capture, v2Capture } from "../support/clock-origin.ts";
 
 const git = (...args: string[]): Buffer | null => {
@@ -69,7 +70,8 @@ const lines = (b: Buffer | null): string[] =>
 describe("the A0 scoped-delta table: every pin is a real byte change, recorded once, chained to the earlier slices", () => {
   it("each recorded head is the file's bytes now, and differs from its base", () => {
     for (const [path, d] of Object.entries(A0_SCOPED_DELTAS)) {
-      expect(fileSha(path), path).toBe(d.head);
+      // F-014B B2 (a later slice) changed four of these files again: A0's head is then exactly B2's base (tests/conformance/b2-scope-conformance.test.ts)
+      expect(fileSha(path), path).toBe(bytesNowGiven(path, d.head));
       expect(d.base, path).not.toBe(d.head);
     }
     expect(Object.keys(A0_SCOPED_DELTAS)).toHaveLength(15);
@@ -127,14 +129,16 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
     // the difference is exactly the A0 paths plus that declared inclusion, and against the integrated main (below) it is the A0 paths alone.
     // Declared inclusion (F-014B A1-1, a later slice): the two existing operator files in tests/support/a1-1-scoped-deltas.ts, which that
     // slice's own table and scope conformance suite police; A0 itself still changes none of them.
+    // (and the F-014B B2 slice's recorded paths, which that slice's own table and suite police; B2 re-changes four A0 files)
     expect([...changed, ...untracked].sort()).toEqual(
-      [
-        ...A0_PACKAGE_PATHS,
-        ...A0_DECLARED_MAIN_INCLUSIONS,
-        ...A1_1_PACKAGE_PATHS,
-        ...B1_S2S3_PACKAGE_PATHS,
-        ...A1_2A_PACKAGE_PATHS,
-      ].sort(),
+      unionPaths(
+        A0_PACKAGE_PATHS,
+        A0_DECLARED_MAIN_INCLUSIONS,
+        A1_1_PACKAGE_PATHS,
+        B1_S2S3_PACKAGE_PATHS,
+        A1_2A_PACKAGE_PATHS,
+        B2_PACKAGE_PATHS,
+      ),
     );
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
     for (const p of [...Object.keys(A0_SCOPED_DELTAS), ...A0_PRESENT_DAY_FILES])
@@ -182,13 +186,15 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
       git("ls-files", "--others", "--exclude-standard", "--", "apps", "packages"),
     );
     // (and the F-014B A1-1 slice's two declared operator files, which that slice's own table and suite police)
+    // (and the F-014B B2 slice's recorded paths, which that slice's own table and suite police)
     expect([...changed, ...untracked].sort()).toEqual(
-      [
-        ...A0_PACKAGE_PATHS,
-        ...A1_1_PACKAGE_PATHS,
-        ...B1_S2S3_PACKAGE_PATHS,
-        ...A1_2A_PACKAGE_PATHS,
-      ].sort(),
+      unionPaths(
+        A0_PACKAGE_PATHS,
+        A1_1_PACKAGE_PATHS,
+        B1_S2S3_PACKAGE_PATHS,
+        A1_2A_PACKAGE_PATHS,
+        B2_PACKAGE_PATHS,
+      ),
     );
     // the declared main inclusions are in main already: this slice does not change them
     for (const p of A0_DECLARED_MAIN_INCLUSIONS) {
@@ -248,7 +254,8 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     for (const p of FORBIDDEN) {
       // a forbidden path moves by nothing, except the declared A1-1 and A1-2a inclusions that lie inside it
-      const declared = [...A1_1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS]
+      // (F-014B B2, a later slice, also changes files inside the temporal, persistence and commit trees: its table polices them)
+      const declared = [...A1_1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS, ...B2_PACKAGE_PATHS]
         .filter((a) => a === p || a.startsWith(`${p}/`))
         .sort();
       expect(
@@ -334,7 +341,8 @@ describe("the accepted source-lock artifacts are the immutable bytes BLUE passed
 
 describe("the registry, rules and sunset row are exactly what the lock declares", () => {
   it("temporal_origin joins the Temporal kinds as the last, SEALED, under the same owner and facet; the base kinds carry no alternate", () => {
-    expect(TEMPORAL_FACT_KINDS.map((k) => k.id).at(-1)).toBe("temporal_origin");
+    // (F-014B B2 later appended the two GM-wait custody kinds after it)
+    expect(TEMPORAL_FACT_KINDS.map((k) => k.id).at(-3)).toBe("temporal_origin");
     for (const k of TEMPORAL_FACT_KINDS) expect(k.alternateRules, k.id).toBeUndefined();
     const origin = factKind("temporal_origin");
     expect([origin.owner, origin.facet, origin.lifecycle, origin.im]).toEqual([
@@ -438,15 +446,19 @@ describe("the registry, rules and sunset row are exactly what the lock declares"
     expect(
       BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1.slice(0, BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1.length),
     ).toEqual(BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1);
-    expect(BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1).toHaveLength(ALL_FACT_KINDS.length);
+    // F-014B B2 registered two further kinds after this table (their rows are the GM-wait custody delta)
+    const atA0 = ALL_FACT_KINDS.filter(
+      (k) => k.id !== "temporal_gm_wait_marker" && k.id !== "temporal_gm_wait_pc_index",
+    );
+    expect(BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1).toHaveLength(atA0.length);
     expect(
       policyCoverageViolations(
         BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1,
-        ALL_FACT_KINDS.map((k) => k.id),
+        atA0.map((k) => k.id),
         Object.fromEntries(BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1.map((r) => [r.kind, r.policy])),
       ),
     ).toEqual([]);
-    expect(ALL_FACT_KINDS).toHaveLength(122);
+    expect(atA0).toHaveLength(122);
   });
 });
 

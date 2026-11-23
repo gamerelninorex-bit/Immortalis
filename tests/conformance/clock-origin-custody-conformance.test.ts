@@ -17,6 +17,7 @@ import {
   CAL_TIME_T1_LOWERING_ID,
   CAL_TIME_T1_RATIFICATION,
   CAL_TIME_T1_SOURCE,
+  GM_WAIT_W2_HISTORY_POLICY_SEGMENT,
   INITIAL_SETUP_INPUT_MS_V3_CHRONOLOGY_V2_RULE,
   INITIAL_SETUP_INPUT_V9_CHRONOLOGY_V2_RULE,
   MS_HISTORY_POLICY_SUFFIX,
@@ -257,7 +258,12 @@ describe("the checker asserts EXACT equality, so each tampering of the custody i
     expect(
       checkClockOriginLowering(
         rows,
-        patched(admission, "${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}`", "`"),
+        // (F-014B B2, a later slice, appended its own segment after these: the composed A0 identity is a prefix, and dropping the MS segment is still reported)
+        patched(
+          admission,
+          "${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}${GM_WAIT_W2_HISTORY_POLICY_SEGMENT}`",
+          "${GM_WAIT_W2_HISTORY_POLICY_SEGMENT}`",
+        ),
       ),
     ).not.toEqual([]);
     expect(
@@ -298,9 +304,12 @@ describe("the checker's custody values are the values the engine carries", () =>
       CLOCK_ORIGIN.segments,
     );
     expect(MS_HISTORY_POLICY_SUFFIX).toBe(CLOCK_ORIGIN.retained_ms_suffix);
-    expect(canonicalAdmission.historyVerificationId!.endsWith(CLOCK_ORIGIN.segments.join(""))).toBe(
-      true,
-    );
+    // (F-014B B2, a later slice, appends its own segment last: the A0 segments are the exact run before it)
+    expect(
+      canonicalAdmission.historyVerificationId!.endsWith(
+        CLOCK_ORIGIN.segments.join("") + GM_WAIT_W2_HISTORY_POLICY_SEGMENT,
+      ),
+    ).toBe(true);
   });
 
   it("each of the three rules cites the adopted T-1 source at its pin (never an MS_SOURCE clause), pinned-by-spec-lock, superseding nothing", () => {

@@ -1,5 +1,7 @@
 import {
   BoundaryIndexSchema,
+  GmWaitResolutionTransactionSchema,
+  GmWaitTransactionAuthoritySchema,
   OBSERVATION_TRIGGER_KIND,
   accessEventKey,
   OWNER_POPULATION,
@@ -22,6 +24,7 @@ import {
   type CanonicalTime,
   type CommitGroup,
   type Failure,
+  type GmWaitResolutionTransaction,
   type ResolutionTransaction,
   type PendingConsequenceBarrier,
   type TemporalObject,
@@ -29,6 +32,12 @@ import {
 } from "@immortalis/contracts";
 import type { CampaignState, CommitErrorCode } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
+import {
+  gmWaitCustodyCheck,
+  gmWaitIsCustodyGroup,
+  gmWaitSealDepartsFromAuthority,
+  type GmWaitCheckContext,
+} from "../gm-wait-custody.ts";
 import { pcb01EvidenceViolation } from "../population/barrier.ts";
 import { namedActorObjectViolation } from "../actor/declaration.ts";
 import { pcCapabilityObjectViolation } from "../pc-capability/declaration.ts";
@@ -105,9 +114,28 @@ function livePlayerPairTriggerViolation(
  *  5. The stop/remainder continuation recorded in the state is exactly the transaction's outcome, and
  *     a continuing transaction consumes exactly the remainder the state holds.
  */
-export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Rejection | null {
+export function temporalGroupCheck(
+  group: CommitGroup,
+  state: CampaignState,
+  custody?: GmWaitCheckContext,
+): Rejection | null {
   const classify = (key: string) => resolveKey(key)?.kind.id;
   const writes = group.writes;
+  // F-014B B2: GM-wait custody. A marker, an OPEN, a NO_OPEN and a reconciliation are judged entirely by the custody rules. The GM
+  // variant of the seal is judged by them for its custody half (the same X's own durable opening, repeated exactly) and then by the
+  // generic transaction law below, which is the very law a player-origin seal is judged by.
+  const isGmCustody = gmWaitIsCustodyGroup(group);
+  if (isGmCustody) {
+    if (!custody)
+      return reject(
+        "KEY_NOT_ADMITTED",
+        "GM-wait custody is judged only under an admission that carries the W2 custody verifier",
+        { reason: "GM_WAIT_ADMISSION_ABSENT" },
+      );
+    const verdict = gmWaitCustodyCheck(group, state, custody);
+    if (verdict) return verdict;
+    if (!writes.some((w) => classify(w.key) === "resolution_transaction")) return null;
+  }
   const stateW = writes.find((w) => classify(w.key) === "temporal_state");
   const idxW = writes.find((w) => classify(w.key) === "temporal_boundary_index");
   const objWs = writes.filter((w) => classify(w.key) === "temporal_object");
@@ -175,7 +203,10 @@ export function temporalGroupCheck(group: CommitGroup, state: CampaignState): Re
   }
 
   if (stateW && txW && prior && newState) {
-    const r = checkTransaction(group, state, prior, newState, txW.key, txW.value, objWs, idxW);
+    const stored = isGmCustody
+      ? GmWaitResolutionTransactionSchema.parse(txW.value)
+      : ResolutionTransactionSchema.parse(txW.value);
+    const r = checkTransaction(group, state, prior, newState, txW.key, stored, objWs, idxW);
     if (r) return r;
   } else {
     // Registration: new objects (and their index entries) against the current basis.
@@ -371,17 +402,21 @@ function checkTransaction(
   prior: TemporalState,
   newState: TemporalState,
   txKey: string,
-  txValue: unknown,
+  stored: ResolutionTransaction | GmWaitResolutionTransaction,
   objWs: CommitGroup["writes"],
   idxW: CommitGroup["writes"][number] | undefined,
 ): Rejection | null {
-  const tx: ResolutionTransaction = ResolutionTransactionSchema.parse(txValue);
+  // F-014B B2: a GM-origin seal is the strict prospective variant. It is judged by every rule below, and ADDITIONALLY always requires
+  // its own durable opening (even with no stage): `tx` is the shared view, `legacy` the player-origin transaction or undefined.
+  const tx: ResolutionTransaction | GmWaitResolutionTransaction = stored;
+  const legacy: ResolutionTransaction | undefined = "origin" in stored ? undefined : stored;
+  const isGm = legacy === undefined;
   // B1 S1: placement two of two. A stage-free transaction commits its state and its seal and NO authority record, so this
   // seal is the only group that can judge it. A stage-bearing seal is not judged here: its authority group already was.
   // The one exception is the completion of a transaction whose OWN authority was durably opened before S1 (see below).
-  if (tx.stages.length === 0) {
+  if (legacy && tx.stages.length === 0) {
     const pairing = livePlayerPairTriggerViolation(tx.context, tx.trigger);
-    if (pairing && !completesItsOwnOpenedAuthority(group, state, tx, txKey)) {
+    if (pairing && !completesItsOwnOpenedAuthority(group, state, legacy, txKey)) {
       return reject("VALUE_INVALID", pairing, { key: txKey });
     }
   }
@@ -460,21 +495,30 @@ function checkTransaction(
   }
   // The transaction was genuinely opened before its owner stages: its durable authority exists, is pinned and
   // depended upon, and the sealed record repeats exactly what was opened (F-014B §6 step 1; RC-05).
-  if (tx.stages.length > 0) {
+  if (tx.stages.length > 0 || isGm) {
     const authKey = temporalTransactionAuthorityKey(tx.transaction_id);
     const auth = requirePrerequisite(group, state, authKey, "the transaction authority");
     if (isRejection(auth)) return auth;
     const txWrite = group.writes.find((x) => x.key === txKey);
-    if (departsFromItsAuthority(tx, auth.fact.value, txWrite)) {
+    const departs = legacy
+      ? departsFromItsAuthority(legacy, auth.fact.value, txWrite)
+      : (() => {
+          const a = GmWaitTransactionAuthoritySchema.safeParse(auth.fact.value);
+          return (
+            !a.success ||
+            gmWaitSealDepartsFromAuthority(stored as GmWaitResolutionTransaction, a.data, txWrite)
+          );
+        })();
+    if (departs) {
       return bad("a transaction repeats exactly what its durable authority opened", {
         authority: authKey,
       });
     }
   }
-  if (tx.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+  if (legacy && legacy.trigger.kind === OBSERVATION_TRIGGER_KIND) {
     const violation = observationTransactionViolation(
-      tx,
-      state.facts.get(accessEventKey(tx.trigger.ref)),
+      legacy,
+      state.facts.get(accessEventKey(legacy.trigger.ref)),
     );
     if (violation) return bad(violation);
   }
@@ -744,7 +788,7 @@ function checkDueEngaged(
     ResolutionTransaction["engaged"][number],
     { boundary: "DUE_RECONCILED" | "DUE_UNRESOLVED" }
   >,
-  tx: ResolutionTransaction,
+  tx: Pick<ResolutionTransaction | GmWaitResolutionTransaction, "engaged" | "stages" | "outcome">,
   state: CampaignState,
   objWs: CommitGroup["writes"],
   priorIndex: BoundaryIndex,

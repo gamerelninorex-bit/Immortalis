@@ -782,7 +782,7 @@ const ORIGINAL_MAIN_REGISTRY_SHA256 =
 /** CURRENT v0.8 HEAD expectations. NOT original-main pins and NOT PR #61 pins: a later change to either file must update them, here only. */
 const CURRENT_V08_LOCK_SHA256 = "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc";
 const CURRENT_V08_REGISTRY_SHA256 =
-  "2348ab6671678267a971e703bad14c4b17b3bc887739aa342445be89791b0588";
+  "d57633e3279caa5518238a74d09cc1f9ac4e400df20fd5905e8306e593d5363c";
 const gitBlobOf = (text: string): string => {
   const body = Buffer.from(text, "utf8");
   return createHash("sha1")

@@ -210,6 +210,9 @@ describe("IA-03 owner/key exclusivity: one owner, one facet, one more kind in on
     ).toEqual([
       "resolution_transaction",
       "temporal_boundary_index",
+      // F-014B B2 (D4(e) / SC-11): the prospective GM-wait marker and by-PC index, under the same owner and facet
+      "temporal_gm_wait_marker",
+      "temporal_gm_wait_pc_index",
       "temporal_object",
       // F-014B A0 (CAL-TIME T-1): the one sealed origin witness, under the same owner and facet
       "temporal_origin",

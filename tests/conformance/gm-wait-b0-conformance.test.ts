@@ -22,6 +22,12 @@ import { A0_BASE_COMMIT, A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts
 import { A1_1_PACKAGE_PATHS, A1_1_TRANSITION } from "../support/a1-1-scoped-deltas.ts";
 import { A1_2A_NEW_PRODUCTION_PATHS, A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
 import { B1_S1_TRANSITION } from "../support/b1-s1-scoped-deltas.ts";
+import {
+  B2_B0_SECTION_5_1_EDITS,
+  B2_BASE_COMMIT,
+  B2_SCOPED_DELTAS,
+  bytesNowGiven,
+} from "../support/b2-scoped-deltas.ts";
 import { code } from "../support/f027.ts";
 import { PRESENT_DAY_CODE_IDENTITIES, identityOf } from "../support/present-day-identities.ts";
 
@@ -143,15 +149,28 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
       ]);
       for (const path of A0_TRANSITION_PATHS)
         expect(SECTION_5_1_FILES as readonly string[], path).toContain(path);
-      const unchanged = SECTION_5_1_FILES.filter((p) => !A0_TRANSITION_PATHS.includes(p));
-      expect(unchanged.length).toBe(SECTION_5_1_FILES.length - 4);
+      // DECLARED B2 EDITS (F-014B B2, a later slice): one more section 5.1 source file and the three protocol conformance suites that carried a byte pin of
+      // it, each with its reason in tests/support/b2-scoped-deltas.ts and policed by tests/conformance/b2-scope-conformance.test.ts. The exemption is exactly
+      // these four paths, every one of them a section 5.1 file; it cannot be widened without editing that table and this list.
+      const b2Edits = Object.keys(B2_B0_SECTION_5_1_EDITS).sort();
+      expect(b2Edits).toEqual([
+        "packages/engine/src/temporal/integrity.ts",
+        "tests/conformance/protocol-null-pc-ooc-advance-conformance.test.ts",
+        "tests/conformance/protocol-null-pc-ooc-held-continuation-conformance.test.ts",
+        "tests/conformance/protocol-pc-target-advance-conformance.test.ts",
+      ]);
+      for (const path of b2Edits)
+        expect(SECTION_5_1_FILES as readonly string[], path).toContain(path);
+      const unchanged = SECTION_5_1_FILES.filter(
+        (p) => !A0_TRANSITION_PATHS.includes(p) && !b2Edits.includes(p),
+      );
+      expect(unchanged.length).toBe(SECTION_5_1_FILES.length - 8);
       // the three D-3 gateways, their contracts, the integrity module and the provider set are among the files that must not change
       for (const path of [
         "packages/protocol/src/active-pc-target-advance.ts",
         "packages/protocol/src/null-pc-ooc-advance.ts",
         "packages/protocol/src/null-pc-ooc-held-continuation.ts",
         "packages/contracts/src/temporal.ts",
-        "packages/engine/src/temporal/integrity.ts",
         "packages/engine/src/temporal/providers.ts",
       ])
         expect(unchanged, path).toContain(path);
@@ -160,6 +179,22 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const atBase = atRef(BASE, path);
         expect(atBase, `${path} exists at the base`).not.toBeNull();
         expect(sameBytes(atBase, readFileSync(path)), path).toBe(true);
+      }
+      // the four declared B2 edits: the integrity verifier is bound to the B2 table (its base IS this contract's base, its head the bytes now), and each
+      // of the three protocol suites differs from the base by exactly the replacement of one two-line pin by one comment line
+      const integrity = "packages/engine/src/temporal/integrity.ts";
+      expect(sha256(atRef(BASE, integrity)!), integrity).toBe(B2_SCOPED_DELTAS[integrity]!.base);
+      expect(sha256(readFileSync(integrity)), integrity).toBe(B2_SCOPED_DELTAS[integrity]!.head);
+      for (const path of b2Edits.filter((p) => p.startsWith("tests/"))) {
+        const stat = lines(git("diff", "--numstat", BASE, "--", path)).map((l) => l.split("\t"));
+        expect(stat, `${path} numstat`).toEqual([["1", "2", path]]);
+        const removed = lines(git("diff", "-U0", BASE, "--", path))
+          .filter((l) => /^-[^-]/.test(l))
+          .map((l) => l.slice(1).trim());
+        expect(removed, path).toEqual([
+          '"packages/engine/src/temporal/integrity.ts":',
+          expect.stringMatching(/^"[0-9a-f]{64}",$/),
+        ]);
       }
       // the comparison is not vacuous: the same file with one byte changed is told apart from the base
       const sample = atRef(BASE, SECTION_5_1_FILES[0])!;
@@ -177,6 +212,11 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const atBase = atRef(BASE, path);
         expect(atBase, `${path} exists at the base`).not.toBeNull();
         const now = readFileSync(path);
+        // F-014B B2 (a later slice) changes all four of these files once more: A0's and S1's end state, which this test judges, is the file at the B2
+        // base commit; the bytes now are B2's head, bound to the B2 table (tests/conformance/b2-scope-conformance.test.ts polices that transition)
+        const prior = atRef(B2_BASE_COMMIT, path);
+        expect(prior, `${path} exists at the B2 base`).not.toBeNull();
+        expect(sameBytes(prior, now), `${path} really did change under B2`).toBe(false);
         // original content and A0 content, by length
         expect(atBase!.length, `${path} original length`).toBe(t.baseBytes);
         // DECLARED S1 RE-BASELINE (F-014B S1, a later slice): it changes the first of these files once more. Its transition in
@@ -186,10 +226,12 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const s1 = B1_S1_TRANSITION[path];
         if (s1 !== undefined)
           expect(s1.baseBytes, `${path} S1 starts at the A0 end state`).toBe(t.a0Bytes);
-        expect(now.length, `${path} current length`).toBe(s1?.s1Bytes ?? t.a0Bytes);
+        expect(prior!.length, `${path} length before B2`).toBe(s1?.s1Bytes ?? t.a0Bytes);
         expect(sameBytes(atBase, now), `${path} really did change`).toBe(false);
         // diff scope: lines added and deleted against the base, nothing renamed, nothing binary
-        const stat = lines(git("diff", "--numstat", BASE, "--", path)).map((l) => l.split("\t"));
+        const stat = lines(git("diff", "--numstat", BASE, B2_BASE_COMMIT, "--", path)).map((l) =>
+          l.split("\t"),
+        );
         expect(stat, `${path} numstat`).toEqual([
           [String(t.added + (s1?.added ?? 0)), String(t.deleted + (s1?.deleted ?? 0)), path],
         ]);
@@ -200,7 +242,7 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const delta = A0_SCOPED_DELTAS[path];
         if (delta !== undefined) {
           expect(sha256(atBase!), `${path} original identity`).toBe(delta.base);
-          expect(sha256(now), `${path} present-day identity`).toBe(delta.head);
+          expect(sha256(now), `${path} present-day identity`).toBe(bytesNowGiven(path, delta.head));
         }
       }
       expect(identityOf("packages/engine/src/owners/admission.ts")).toBe(

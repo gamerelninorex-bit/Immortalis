@@ -1,0 +1,217 @@
+// F-014B B2-T11 matched benchmark. ONE file, run unchanged in two trees: the immutable base (940a1ca, before any B2 change) and this branch.
+//   node --experimental-strip-types --no-warnings b2-bench.ts <out.json> <label>
+// It uses only APIs that exist in BOTH trees (the production canonical admission, the file package, the synthetic extension owner), and reads
+// the B2 work counters only when the tree has them. Nothing here is a target: it records what was measured, for a reviewer to read.
+//
+// Axes: the number of unrelated dormant owner facts (0 / 1 / 100) and the length of the verified history (0 / 130 / 300 committed groups) around
+// (a) an ORDINARY commit (the common path: it touches no GM-wait custody), (b) a strict cold restart, (c) a warm checkpoint restart, and (d) the
+// explicit POLICY-TRANSITION cost: the first open of a package earned under another verifier identity, which replays every entry once.
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import * as engine from "@immortalis/engine";
+import {
+  FIXTURE_CAMPAIGN,
+  FIXTURE_LOCUS_ID,
+  FIXTURE_PC_ID,
+  FIXTURE_WORLD_ID,
+  SYNTH_EXTENSION,
+  T0,
+  fixtureContract,
+  fixtureInsertionFact,
+  fixtureLocus,
+  fixtureWorld,
+  publication,
+  syntheticSourceGroup,
+  temporalPublication,
+} from "@immortalis/testkit";
+
+const [outPath, label] = process.argv.slice(2) as [string, string];
+const { CanonicalCampaign, StageProviderRegistry, TemporalCoordinator, canonicalAdmission } =
+  engine;
+const metrics = (engine as unknown as { gmWaitFenceMetrics?: Record<string, number> })
+  .gmWaitFenceMetrics;
+const snap = () => (metrics ? { ...metrics } : null);
+const delta = (a: Record<string, number> | null, b: Record<string, number> | null) =>
+  a && b ? Object.fromEntries(Object.keys(b).map((k) => [k, (b[k] ?? 0) - (a[k] ?? 0)])) : null;
+const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
+const p95 = (xs: number[]) =>
+  [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * 0.95))]!;
+
+/** a production-admission wrapper that counts the historical verifications (a strict replay judges every entry) and keeps the very same identity */
+const counting = (idSuffix = "") => {
+  let calls = 0;
+  const admission = {
+    ...canonicalAdmission,
+    ...(idSuffix
+      ? { historyVerificationId: `${canonicalAdmission.historyVerificationId}${idSuffix}` }
+      : {}),
+    verifyHistorical: (g: never, s: never) => {
+      calls++;
+      return canonicalAdmission.verifyHistorical!(g, s);
+    },
+  };
+  return { admission, calls: () => calls };
+};
+
+const must = async <T>(
+  p: Promise<{ ok: true; value: T } | { ok: false; error: unknown }>,
+): Promise<T> => {
+  const r = await p;
+  if (!r.ok) throw new Error(JSON.stringify(r.error));
+  return r.value;
+};
+
+async function build(dir: string, dormant: number, history: number, idSuffix = "") {
+  const c = counting(idSuffix);
+  const campaign = await must(
+    CanonicalCampaign.create(dir, {
+      campaignId: FIXTURE_CAMPAIGN,
+      buildId: "bench",
+      extension: SYNTH_EXTENSION,
+      testkitFixtureAdmission: c.admission as never,
+    }),
+  );
+  await must(campaign.establishWorld({ ...publication(1), world: fixtureWorld() }));
+  await must(campaign.establishLocus({ ...publication(2), locus: fixtureLocus() }));
+  await must(campaign.releasePlayerCharacter({ ...publication(3), contract: fixtureContract() }));
+  await must(
+    campaign.initializePcStandingInstructionLedger({
+      pc_id: FIXTURE_PC_ID,
+      world_id: FIXTURE_WORLD_ID,
+      locus_id: FIXTURE_LOCUS_ID,
+    }),
+  );
+  await must(
+    campaign.bindPlayerCharacter({
+      ...publication(4),
+      pc_id: FIXTURE_PC_ID,
+      world_id: FIXTURE_WORLD_ID,
+      locus_id: FIXTURE_LOCUS_ID,
+      insertion: fixtureInsertionFact(),
+    }),
+  );
+  await must(campaign.store.commit(syntheticSourceGroup(FIXTURE_CAMPAIGN, 1, "source-v1", 0)));
+  await must(
+    new TemporalCoordinator(campaign.store, new StageProviderRegistry()).establishCanonicalTime({
+      ...temporalPublication(1),
+      time: T0,
+    }),
+  );
+  for (let i = 0; i < dormant; i++)
+    await must(
+      campaign.store.commit(
+        syntheticSourceGroup(
+          FIXTURE_CAMPAIGN,
+          1000 + i,
+          `dormant-${i}`,
+          0,
+          `synthetic/dormant/${i}`,
+        ),
+      ),
+    );
+  for (let i = 0; i < history; i++)
+    await must(
+      campaign.store.commit(
+        syntheticSourceGroup(FIXTURE_CAMPAIGN, 5000 + i, `h-${i}`, 0, `synthetic/history/${i}`),
+      ),
+    );
+  return { campaign, ...c };
+}
+
+async function measure(dormant: number, history: number) {
+  const dir = mkdtempSync(join(tmpdir(), "b2-bench-"));
+  try {
+    const b = await build(dir, dormant, history);
+    const K = 40;
+    const times: number[] = [];
+    const before = snap();
+    for (let i = 0; i < K; i++) {
+      const g = syntheticSourceGroup(
+        FIXTURE_CAMPAIGN,
+        90000 + i,
+        `probe-${i}`,
+        0,
+        `synthetic/probe/${i}`,
+      );
+      const t = process.hrtime.bigint();
+      await must(b.campaign.store.commit(g));
+      times.push(Number(process.hrtime.bigint() - t) / 1e6);
+    }
+    const work = delta(before, snap());
+    await b.campaign.close();
+    const journalBytes = statSync(join(dir, "journal.jsonl")).size;
+    const revision = history + dormant + 8 + K;
+
+    const timeOpen = async (audit: boolean) => {
+      const c = counting();
+      const t = process.hrtime.bigint();
+      const r = await must(
+        CanonicalCampaign.open(dir, {
+          buildId: "bench-open",
+          extension: SYNTH_EXTENSION,
+          testkitFixtureAdmission: c.admission as never,
+          ...(audit ? { audit: true } : {}),
+        }),
+      );
+      const ms = Number(process.hrtime.bigint() - t) / 1e6;
+      await r.close();
+      return { ms, historical_verifications: c.calls() };
+    };
+    const warm = await timeOpen(false);
+    const cold = await timeOpen(true);
+    return {
+      dormant_facts: dormant,
+      history_groups: history,
+      revision,
+      journal_bytes: journalBytes,
+      ordinary_commit_ms: { median: median(times), p95: p95(times), samples: K },
+      fence_work_during_the_commits: work,
+      warm_checkpoint_open: warm,
+      strict_cold_open: cold,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function transition(history: number) {
+  const dir = mkdtempSync(join(tmpdir(), "b2-bench-transition-"));
+  try {
+    // a package earned under ANOTHER verifier identity, then opened under the build's own: the first open replays every entry once
+    const b = await build(dir, 0, history, "+EARNED-UNDER-ANOTHER-VERIFIER");
+    await b.campaign.close();
+    const open = async () => {
+      const c = counting();
+      const t = process.hrtime.bigint();
+      const r = await must(
+        CanonicalCampaign.open(dir, {
+          buildId: "bench-transition",
+          extension: SYNTH_EXTENSION,
+          testkitFixtureAdmission: c.admission as never,
+        }),
+      );
+      const ms = Number(process.hrtime.bigint() - t) / 1e6;
+      await r.close();
+      return { ms, historical_verifications: c.calls() };
+    };
+    const first = await open();
+    const second = await open();
+    return { history_groups: history, first_open_policy_transition: first, next_open_warm: second };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const out = {
+  label,
+  node: process.version,
+  has_fence_counters: metrics !== undefined,
+  measurements: [] as unknown[],
+  policy_transition: [] as unknown[],
+};
+for (const dormant of [0, 1, 100])
+  for (const history of [0, 130, 300]) out.measurements.push(await measure(dormant, history));
+for (const history of [0, 130, 300]) out.policy_transition.push(await transition(history));
+writeFileSync(outPath, `${JSON.stringify(out, null, 2)}\n`);
+console.log(`wrote ${outPath}`);

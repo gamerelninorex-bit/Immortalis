@@ -5,9 +5,10 @@
 // The "old" journals (a player-pair transaction that states the trigger kind named by the B0 module) are FROZEN packages written once by the
 // build that preceded S1 (tests/fixtures/b1-s1-frozen, custody in ./b1-s1-frozen-fixtures.ts). A test never opens a frozen package itself:
 // every use takes a private copy (`copyOf`), because opening rewrites the manifest.
-import { appendFileSync, cpSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  canonicalJson,
   PLAYER_CHOICE_AUTHORITY,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
@@ -36,6 +37,7 @@ import {
   worldFallbackAcceptanceProvider,
   worldSourceDeliveryProvider,
   canonicalAdmission,
+  sha256Canonical,
   type CampaignStore,
   type WriteAdmission,
 } from "@immortalis/engine";
@@ -134,6 +136,30 @@ export function capture(store: CampaignStore, id: string) {
 
 export const manifestOf = (dir: string) =>
   JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
+/**
+ * F-014B B2 (a later slice) appended one segment to the composed historical-verifier identity. The frozen packages are retained canonical bytes
+ * saved under the identity BEFORE it, so a first open under the current identity is the declared policy transition: one strict replay of every
+ * entry, then a fresh checkpoint (asserted by tests/integration/b2-history-replay.test.ts and clock-origin-identity.test.ts). The matrix below
+ * measures what these older suites exist to measure, the warm / cold / invalidated behaviour of an open whose checkpoint evidence IS trusted, on a
+ * private copy whose checkpoint is re-stamped with the identity under test (exactly what a build of that identity would have left).
+ */
+export const B2_HISTORY_SEGMENT = "+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z";
+export const identityBeforeB2 = (id: string): string => {
+  if (!id.endsWith(B2_HISTORY_SEGMENT))
+    throw new Error("the identity does not end with the B2 segment");
+  return id.slice(0, -B2_HISTORY_SEGMENT.length);
+};
+/** Re-stamps a PRIVATE COPY's checkpoint with `policy` and re-seals the manifest, as an earlier build of that identity would have left it. */
+export function stampCheckpointPolicy(dir: string, policy: string): void {
+  const m = manifestOf(dir);
+  m.head.checkpoint.verification_policy = policy;
+  const { self_sha256: old, ...body } = m;
+  void old;
+  writeFileSync(
+    join(dir, "manifest.json"),
+    `${canonicalJson({ ...body, self_sha256: sha256Canonical(body) })}\n`,
+  );
+}
 export const copyOf = (dir: string): string => {
   const out = tempDir();
   cpSync(dir, out, { recursive: true });
@@ -244,6 +270,7 @@ export async function reopenMatrix(
   const out: Partial<Record<ModeName, ReopenObservation>> = {};
   for (const mode of modes) {
     const copy = copyOf(dir);
+    stampCheckpointPolicy(copy, admission.historyVerificationId!);
     const r = await openUnder(copy, admission, {
       ...MODES[mode],
       ...(extension ? { extension } : {}),
