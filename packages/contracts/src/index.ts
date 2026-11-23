@@ -97,3 +97,4 @@ export { BUILD_SPEC_IDENTITY } from "./spec-identity.ts";
  */
 export { z } from "zod";
 export * from "./ms-setup.ts";
+export * from "./workshop-opening.ts";

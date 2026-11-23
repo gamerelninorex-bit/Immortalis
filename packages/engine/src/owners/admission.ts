@@ -1,3 +1,6 @@
+import type { WorkshopNoticeSource } from "../world/addressed-notice/publication.ts";
+import { workshopGroupCheck, workshopTemporalHistoryCheck } from "../workshop/admission.ts";
+import { workshopFixtureIdentity, type WorkshopFixtureIdentity } from "../workshop/source.ts";
 import {
   FACET_WORLD_INITIAL_SETUP,
   INITIAL_SETUP_FACT_KIND_IDS,
@@ -532,11 +535,16 @@ function checkBindingBase(group: CommitGroup, state: CampaignState, value: unkno
  *
  * Pure: a function of (group, state) only.
  */
-function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): WriteAdmission {
+function buildCanonicalAdmission(
+  policy: InitialSetupPolicy,
+  idSuffix: string,
+  workshop?: WorkshopFixtureIdentity,
+  noticeSource?: WorkshopNoticeSource,
+): WriteAdmission {
   // Compose the merged S-4 policy first, then A01, then CAL-TIME T-1 and the MS clock-origin segments, then F-014B B2: the GM-wait
   // custody / W2 verifier. Each is a new historical validator, so each is a separately distinguishable appended segment, and any
   // checkpoint earned before one is replayed strictly once.
-  const historyVerificationId = `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2${CAL_TIME_T1_HISTORY_POLICY_SEGMENT}${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}${GM_WAIT_W2_HISTORY_POLICY_SEGMENT}`;
+  const historyVerificationId = `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2${CAL_TIME_T1_HISTORY_POLICY_SEGMENT}${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}${GM_WAIT_W2_HISTORY_POLICY_SEGMENT}${workshop ? `+B3-WORKSHOP-OWNER-V1:${workshop.sha256}${noticeSource ? `:${noticeSource.verificationId}` : ""}` : ""}`;
   // F-014B B2: what qualifies a marker's original-owner preparation. The production admission qualifies NONE (D3(b) is not adopted, so
   // no pending enrolment and no authorized quiet variant can exist); only the TESTKIT-ONLY fixture admission qualifies a synthetic one.
   const custody: GmWaitCustodyPolicy = {
@@ -565,6 +573,8 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         // canonical dispatch. A group that touches no custody fact and meets no ACTIVE wait returns null here at once.
         gmWaitFenceViolation(group, gmWaitFenceOf(state), { historyVerificationId }, false) ??
         gmWaitCustodyCheck(group, state, { policy: custody, live: false }) ??
+        workshopGroupCheck(group, state, workshop, historyVerificationId, noticeSource) ??
+        workshopTemporalHistoryCheck(group, state, workshop) ??
         msActorGroupCheck(group, state) ??
         // A01: every close, including an earlier one later overwritten, earns authority at its actual pre-state.
         populationHistoricalCheck(group, state) ??
@@ -632,6 +642,10 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         if (dependent) return dependent;
       }
       // v0.9 active-Input freeze: no group may write the frozen genesis basis while an initial-setup session is active.
+      const b3 = workshopGroupCheck(group, state, workshop, historyVerificationId, noticeSource);
+      if (b3 !== undefined) return b3;
+      const b3Temporal = workshopTemporalHistoryCheck(group, state, workshop);
+      if (b3Temporal) return b3Temporal;
       const frozen = frozenBasisViolation(group, state);
       if (frozen) return frozen;
       const ms = msActorGroupCheck(group, state);
@@ -806,10 +820,14 @@ export function msCanonicalAdmission(
 /** TESTKIT ONLY: same source semantics, wholly synthetic evidence and distinct history policy. */
 export function fixtureMsCanonicalAdmission(
   binding: NonNullable<InitialSetupPolicy["msActorBinding"]>,
+  workshopProfileBytes?: Uint8Array,
+  noticeSource?: WorkshopNoticeSource,
 ): WriteAdmission {
   return buildCanonicalAdmission(
     { syntheticEvidence: "REQUIRE", msActorBinding: Object.freeze({ ...binding }) },
     "+fixture-evidence-t1",
+    workshopProfileBytes === undefined ? undefined : workshopFixtureIdentity(workshopProfileBytes),
+    noticeSource,
   );
 }
 
@@ -885,6 +903,18 @@ export function identityMismatch(
   const freight = freightIdentityMismatch(kind.id, ids, value);
   if (freight !== undefined) return freight;
   switch (kind.id) {
+    case "gip_local_completion_notice_charter":
+    case "gip_local_completion_notice_instruction":
+    case "named_actor_local_notice_duty":
+    case "world_opening_glassbell_exposure":
+    case "health_pc_relevant_condition":
+    case "health_pc_sensory_coverage_anchor":
+    case "health_pc_sensory_function_close":
+    case "world_addressed_notice_enrolment":
+    case "world_addressed_notice_pc_reservation":
+    case "world_addressed_notice_occurrence":
+      return null; // Workshop admission binds each exact native key by derivation.
+
     case "world_profile":
       return v["world_id"] === ids[0] ? null : "world_id does not match the key";
     case "world_locus":

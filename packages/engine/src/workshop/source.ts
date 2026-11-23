@@ -1,20 +1,68 @@
-import { z } from "zod";
-import type { SourceRef } from "@immortalis/contracts";
-import { sha256Bytes } from "../hash.ts";
+import {
+  ChronologyDocumentV2Schema,
+  EstablishLedgerInputSchema,
+  EstablishReserveInputSchema,
+  EstablishSourceConditionInputSchema,
+  InstitutionIdentitySchema,
+  IssueDemandInputSchema,
+  OfficeAuthorityLocusHolderSchema,
+  ScopeBindingSchema,
+  Sha256,
+  StartOperationInputSchema,
+  WorldLocusSchema,
+  WorldProfileSchema,
+  z,
+  type SourceRef,
+} from "@immortalis/contracts";
+import { sha256Bytes } from "../initial-setup/identity.ts";
 
 export const WORKSHOP_PRODUCTION_PROFILES: readonly string[] = Object.freeze([]);
 
-const identity = z.object({
+export const WorkshopOpeningProfileSchema = z.strictObject({
+  schema: z.literal("immortalis-workshop-opening-v4"),
   id: z.enum(["workshop-opening-quiet-v4", "workshop-opening-glassbell-v4"]),
   campaign_class: z.literal("QUALIFICATION"),
   disposable_only: z.literal(true),
+  lineage: z.strictObject({ profile: z.string(), commit: z.string(), raw_sha256: Sha256 }),
+  world: WorldProfileSchema,
+  locus: WorldLocusSchema,
+  finite_source: EstablishSourceConditionInputSchema,
+  chronology: ChronologyDocumentV2Schema,
+  setup_message: z.string(),
+  attendant_leaf: z.string(),
+  pc: z.strictObject({
+    id: z.string(),
+    identity: z.string(),
+    contact: z.string(),
+    embodiment: z.string(),
+    continuity: z.string(),
+    presence: z.string(),
+  }),
+  institution: z.strictObject({
+    ...InstitutionIdentitySchema.shape,
+    constitutive_source_ref: z.never().optional(),
+  }),
+  supervisor_office: OfficeAuthorityLocusHolderSchema.omit({ authority_source_ref: true }),
+  attendant_post: OfficeAuthorityLocusHolderSchema.omit({
+    authority_source_ref: true,
+    holder_ref: true,
+  }),
+  local_scope: ScopeBindingSchema,
+  population_ledger: EstablishLedgerInputSchema,
+  demand: IssueDemandInputSchema,
+  reserve: EstablishReserveInputSchema,
+  production_start: StartOperationInputSchema.omit({ request_key: true }),
+  native_publication_order: z.array(z.string()),
 });
 
 export function workshopFixtureIdentity(bytes: Uint8Array) {
-  const parsed = identity.parse(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)));
+  const parsed = WorkshopOpeningProfileSchema.parse(
+    JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+  );
   const sha256 = sha256Bytes(bytes);
   return Object.freeze({
     id: parsed.id,
+    definition: parsed,
     sha256,
     campaignId: `fixture:${parsed.id}:${sha256}`,
     glassbell: parsed.id === "workshop-opening-glassbell-v4",

@@ -36,6 +36,13 @@ export async function msHarness(
     priorScopeSessions?: number;
     extension?: StageOwnerExtension;
     sourceOver?: Record<string, unknown>;
+    workshop?: {
+      profileBytes: Uint8Array;
+      campaignId: string;
+      open(
+        admission: ReturnType<typeof fixtureMsCanonicalAdmission>,
+      ): ReturnType<typeof openFixtureCampaign>;
+    };
     doc?: ChronologyDocument;
     /**
      * F-014B A0: the MS Input carries a strict v2 captured chronology (CAL-TIME T-1). The intake parsed captures with the strict v1
@@ -88,7 +95,7 @@ export async function msHarness(
     },
   };
   const actorRunner = new MsActorRunner({ ...keys, driver: actorDriver, outboxDir, macKey });
-  const base = fixtureMsCanonicalAdmission(actorRunner.binding);
+  const base = fixtureMsCanonicalAdmission(actorRunner.binding, options.workshop?.profileBytes);
   let latest: CampaignState;
   const trace: { before: CampaignState; after: CampaignState; group: CommitGroup }[] = [];
   const admission = {
@@ -106,13 +113,17 @@ export async function msHarness(
       trace.push({ before, after, group });
     },
   };
-  const open = await openFixtureCampaign(
-    undefined,
-    options.sourceOver ?? {},
-    admission,
-    options.extension,
-  );
-  const h = await harness({ open, keys, macKey, outboxDir, driver, route: "MS" });
+  const open = await (options.workshop?.open(admission) ??
+    openFixtureCampaign(undefined, options.sourceOver ?? {}, admission, options.extension));
+  const h = await harness({
+    open,
+    keys,
+    macKey,
+    outboxDir,
+    driver,
+    route: "MS",
+    ...(options.workshop ? { campaignId: options.workshop.campaignId } : {}),
+  });
   const actorService = new MsInitialActorService(h.store, actorRunner, FIXTURE_POLICY);
   for (let n = 0; n < priorCount; n++) {
     const prior = await h.service.intake(
