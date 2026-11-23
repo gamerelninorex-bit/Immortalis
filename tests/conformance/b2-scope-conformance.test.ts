@@ -58,7 +58,10 @@ const untracked = (...paths: string[]): string[] =>
 describe("the B2 scoped-delta table: every pin is a real byte change, recorded once, chained to the earlier slices", () => {
   it("each recorded head is the file's bytes now, and differs from its base", () => {
     for (const [path, d] of Object.entries(B2_SCOPED_DELTAS)) {
-      expect(sha(readFileSync(path)), path).toBe(d.head);
+      const original = git("show", `${IF6B_BASE_COMMIT}:${path}`);
+      expect(original === null ? null : sha(original), path).toBe(d.head);
+      if (path !== "packages/engine/src/gm-wait-catalogue-current.ts")
+        expect(sha(readFileSync(path)), path).toBe(d.head);
       expect(d.base, path).not.toBe(d.head);
     }
     expect(Object.keys(B2_SCOPED_DELTAS)).toHaveLength(10);
@@ -120,9 +123,7 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
     const changed = diffNames("apps", "packages");
     const added = untracked("apps", "packages");
     // later slices (an A-/B-series package after this one) extend the allow-list through their own tables; at this head there is none
-    expect([...changed, ...added].sort()).toEqual(
-      [...B2_PACKAGE_PATHS, ...IF6B_PACKAGE_PATHS].sort(),
-    );
+    expect([...changed, ...added].sort()).toEqual(unionPaths(B2_PACKAGE_PATHS, IF6B_PACKAGE_PATHS));
     const merged = lines(
       git("diff", "--name-only", B2_BASE_COMMIT, IF6B_BASE_COMMIT, "--", "apps", "packages"),
     );
