@@ -1,0 +1,48 @@
+{
+  "b2_provisional_sha": "fa385951bde2f7887424b316efa496ad24c7695d",
+  "blue_incorporation_pin": "2026-11-23T06:01:48.720Z",
+  "blue_incorporation_url": "https://app.notion.com/p/42120af901e08155a60cc737b996ab02",
+  "hard_exclusions": [
+    "no effective source writer before exact QO bytes approved",
+    "no historical-world import",
+    "no S4 positive or §10 release",
+    "no PR merge/deploy absent explicit Sovereign authority"
+  ],
+  "main_sha": "940a1ca29b34af8488c9ea3ea2f1903aeba52660",
+  "red_review_pin": "2026-11-23T05:57:58.845Z",
+  "red_review_url": "https://app.notion.com/p/42120af901e08188b816facf08e088ba",
+  "source_binds": {
+    "IF-1": {
+      "contract": "named_actor_local_notice_duty strict shape; RD.2 ending",
+      "red": "§4.2 RD.2/RD.6",
+      "state": "prospective"
+    },
+    "IF-2": {
+      "contract": "GIP notice instruction strict authority and validity",
+      "red": "§4.2 RD.5/RD.5A",
+      "state": "prospective; kind reuse via disjoint variant"
+    },
+    "IF-3": {
+      "contract": "R-D.1 at-I accepted-output monitoring evidence",
+      "red": "§4.2 RD.4, prior RED R-D.1",
+      "state": "prospective"
+    },
+    "IF-4": {
+      "contract": "Health Close sensory conditions/coverage and Epistemic mapping",
+      "red": "§4.3 RH.5/RH.6",
+      "state": "prospective"
+    },
+    "IF-5": {
+      "contract": "two immutable QO profiles and nine-phase ordered owner opening",
+      "red": "§4.1 QO.1-QO.5",
+      "state": "source candidate not Sovereign-adopted"
+    },
+    "IF-6": {
+      "contract": "B2 by-PC index, marker and reservation-version pin",
+      "source": "B2 PR #135 head fa385951bde2f7887424b316efa496ad24c7695d",
+      "state": "draft/unmerged; re-pin after accepted B2 exact head"
+    }
+  },
+  "sovereign_design_in_principle_url": "https://app.notion.com/p/42120af901e0811cba77eaa53b9ed06d",
+  "status": "CONSTRUCTION_BINDING_CANDIDATE__NOT_SOURCE_ADOPTED"
+}
