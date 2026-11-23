@@ -1,0 +1,22 @@
+[
+  {
+    "id": "workshop-opening-quiet-v2",
+    "file": "workshop-opening-quiet-v2.json",
+    "bytes": 91758,
+    "sha256": "356470c2aa5ac57211df1fac25fef276a2f0a152960dd18c9f9aa6b3f00c5fbb",
+    "groups": 26,
+    "static": 4,
+    "original_producer": 22,
+    "group_writes": 29
+  },
+  {
+    "id": "workshop-opening-glassbell-v2",
+    "file": "workshop-opening-glassbell-v2.json",
+    "bytes": 103051,
+    "sha256": "a0f651201066e0b9036e5613b5b3a25542dfc467f597be2d7ff17013a1c3b8b3",
+    "groups": 29,
+    "static": 4,
+    "original_producer": 25,
+    "group_writes": 32
+  }
+]
