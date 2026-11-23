@@ -41,7 +41,14 @@ describe("IA-01 source/version fidelity (temporal kernel registration aspect)", 
     expect(F014B_SOURCE).toEqual({ artifact: f014b.url, native_pin: f014b.native_pin });
     for (const kind of TEMPORAL_FACT_KINDS) {
       // F-014B A0: the origin witness is governed by the adopted CAL-TIME T-1 source (its own rule); the five original kinds keep F-014B
-      if (kind.id === "temporal_origin") {
+      // F-014B B2: the two GM-wait custody kinds are governed by the Sovereign-ratified D4(e) / SC-11 source (their own rule), not by the frozen
+      // Temporal §2 citation: neither belongs to the original kind set
+      if (kind.id === "temporal_gm_wait_marker" || kind.id === "temporal_gm_wait_pc_index") {
+        expect(kind.rule.artifact).toBe(
+          "https://app.notion.com/p/42020af901e081f69ab3e6c32e4f19e7",
+        );
+        expect(kind.rule.native_pin).toBe("2026-11-22T13:06:43.623Z");
+      } else if (kind.id === "temporal_origin") {
         expect(kind.rule.artifact).not.toBe(f014b.url);
         expect(kind.rule.artifact).toBe(
           "https://app.notion.com/p/41c20af901e0817ca9e8dcb392e3b0d7",
@@ -95,6 +102,9 @@ describe("IA-03 owner exclusivity / no accidental subsystem (temporal kernel asp
       ["temporal_transaction_authority", "temporal_kernel", "temporal_coordination", "SEALED"],
       // F-014B A0 (CAL-TIME T-1): the sealed origin witness, same owner and facet (no new owner, no second clock)
       ["temporal_origin", "temporal_kernel", "temporal_coordination", "SEALED"],
+      // F-014B B2 (D4(e) / SC-11): the prospective GM-wait marker (sealed) and the authoritative by-PC index (advancing), same owner and facet
+      ["temporal_gm_wait_marker", "temporal_kernel", "temporal_coordination", "SEALED"],
+      ["temporal_gm_wait_pc_index", "temporal_kernel", "temporal_coordination", "ADVANCING"],
     ]);
     expect(FACT_KINDS.map((k) => k.owner).sort()).toEqual([
       "pc_existence",

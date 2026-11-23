@@ -101,6 +101,14 @@ import { productionGroupCheck } from "../production/admission.ts";
 import { isDrawdownProductionKey, sourceDrawdownGroupCheck } from "../source-drawdown/admission.ts";
 import { temporalGroupCheck } from "../temporal/admission.ts";
 import {
+  GM_WAIT_W2_HISTORY_POLICY_SEGMENT,
+  gmWaitCustodyCheck,
+  gmWaitFenceOf,
+  gmWaitFenceViolation,
+  gmWaitIsCustodyGroup,
+  type GmWaitCustodyPolicy,
+} from "../gm-wait-custody.ts";
+import {
   bootstrapInitialTimePrecondition,
   clockOriginGenesisViolation,
 } from "../temporal/bootstrap.ts";
@@ -119,6 +127,7 @@ import { worldCorridorViolation } from "../world/corridor.ts";
 import { worldEntityGroupCheck } from "../world/fallback-custody.ts";
 import { worldSourceGroupCheck } from "../world/source-condition.ts";
 import {
+  CANONICAL_OWNER_REGISTRY,
   PC_LEDGER_BINDING_RULE,
   resolveKey,
   type FactKind,
@@ -524,6 +533,17 @@ function checkBindingBase(group: CommitGroup, state: CampaignState, value: unkno
  * Pure: a function of (group, state) only.
  */
 function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): WriteAdmission {
+  // Compose the merged S-4 policy first, then A01, then CAL-TIME T-1 and the MS clock-origin segments, then F-014B B2: the GM-wait
+  // custody / W2 verifier. Each is a new historical validator, so each is a separately distinguishable appended segment, and any
+  // checkpoint earned before one is replayed strictly once.
+  const historyVerificationId = `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2${CAL_TIME_T1_HISTORY_POLICY_SEGMENT}${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}${GM_WAIT_W2_HISTORY_POLICY_SEGMENT}`;
+  // F-014B B2: what qualifies a marker's original-owner preparation. The production admission qualifies NONE (D3(b) is not adopted, so
+  // no pending enrolment and no authorized quiet variant can exist); only the TESTKIT-ONLY fixture admission qualifies a synthetic one.
+  const custody: GmWaitCustodyPolicy = {
+    preparation: policy.syntheticEvidence === "REQUIRE" ? "FIXTURE" : "NONE",
+    historyVerificationId,
+    isCanonicalOwner: (owner) => CANONICAL_OWNER_REGISTRY.has(owner),
+  };
   return {
     initializeView(state, checked) {
       initializeMsFence(state, checked);
@@ -535,16 +555,16 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
       advanceMsFence(before, after, group);
       advanceGipOwnerHead(before, after, group);
     },
-    // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic
-    // change to any composed historical verifier must change this identity (and force strict replay).
-    // Compose the merged S-4 policy first, then A01: neither predecessor checkpoint proves both checks ran.
-    // Then CAL-TIME T-1 (F-014B A0; BLUE S11 Q2): the paired-genesis, arm/route/rule and MS clock-step / B2 / SEALED-history checks are
-    // new historical validators, so two additive, separately distinguishable segments are appended in this same change. The old MS
-    // segment literal above is retained unchanged. Every composed identity (production, MS, fixture, legacy, extension) changes.
-    historyVerificationId: `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2${CAL_TIME_T1_HISTORY_POLICY_SEGMENT}${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}`,
+    // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic change to any composed historical
+    // verifier must change this identity (and force strict replay): see the composition above.
+    historyVerificationId,
     verifyHistorical(group, state) {
       return (
         msFenceCheck(group, state) ??
+        // F-014B B2 W2: the common fence and the custody transitions are judged at the ACTUAL incremental prestate, before any legacy
+        // canonical dispatch. A group that touches no custody fact and meets no ACTIVE wait returns null here at once.
+        gmWaitFenceViolation(group, gmWaitFenceOf(state), { historyVerificationId }, false) ??
+        gmWaitCustodyCheck(group, state, { policy: custody, live: false }) ??
         msActorGroupCheck(group, state) ??
         // A01: every close, including an earlier one later overwritten, earns authority at its actual pre-state.
         populationHistoricalCheck(group, state) ??
@@ -562,6 +582,9 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
     check(group, state, history) {
       const fence = msFenceCheck(group, state);
       if (fence) return fence;
+      // F-014B B2 W2: the common fence runs before every key, value and owner rule, for every owner including the extension owners.
+      const w2 = gmWaitFenceViolation(group, gmWaitFenceOf(state), { historyVerificationId }, true);
+      if (w2) return w2;
       for (const w of group.writes) {
         const resolved = resolveKey(w.key);
         if (!resolved) {
@@ -625,7 +648,8 @@ function buildCanonicalAdmission(policy: InitialSetupPolicy, idSuffix: string): 
         return initialSetupGroupCheck(group, state, policy);
       // IM-02 kernel groups: cross-fact rules over the whole group (a transaction with its state,
       // boundary-index and engaged-object updates).
-      if (group.owner === OWNER_TEMPORAL_KERNEL) return temporalGroupCheck(group, state);
+      if (group.owner === OWNER_TEMPORAL_KERNEL)
+        return temporalGroupCheck(group, state, { policy: custody, live: true });
       // IM-04 Population groups: conservation and Cohort derivation are re-derived over the whole group.
       if (group.owner === OWNER_POPULATION)
         return group.facet === FACET_POPULATION_PC_OCCUPANCY
@@ -813,6 +837,8 @@ function legacyContractSurface(group: CommitGroup): Rejection | null {
     );
   if (group.owner === OWNER_WORLD_STATE && group.facet === FACET_WORLD_INITIAL_SETUP)
     return refuse("the world_initial_setup facet");
+  // F-014B B2: GM-wait custody postdates every pre-v0.9 Runtime Contract: a package created under one does not accept it either
+  if (gmWaitIsCustodyGroup(group)) return refuse("a GM-wait custody fact");
   for (const w of group.writes) {
     const kind = resolveKey(w.key)?.kind.id;
     if (kind && (INITIAL_SETUP_FACT_KIND_IDS as readonly string[]).includes(kind))
@@ -882,6 +908,10 @@ export function identityMismatch(
       return null;
     case "temporal_object":
       return v["object_id"] === ids[0] ? null : "object_id does not match the key";
+    case "temporal_gm_wait_marker":
+      return v["x"] === ids[0] ? null : "x does not match the key";
+    case "temporal_gm_wait_pc_index":
+      return v["pc_id"] === ids[0] ? null : "pc_id does not match the key";
     case "resolution_transaction":
     case "temporal_transaction_authority":
       return v["transaction_id"] === ids[0] ? null : "transaction_id does not match the key";

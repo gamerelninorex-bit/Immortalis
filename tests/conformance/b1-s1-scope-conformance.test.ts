@@ -48,6 +48,13 @@ import {
   A1_2A_LITERAL_FILES,
   A1_2A_PACKAGE_PATHS,
 } from "../support/a1-2a-scoped-deltas.ts";
+import {
+  B2_BASE_COMMIT,
+  B2_EVIDENCE_PREFIX,
+  B2_LITERAL_FILES,
+  B2_PACKAGE_PATHS,
+  unionPaths,
+} from "../support/b2-scoped-deltas.ts";
 
 /** The lines the base commit carried inline in the stage-bearing arm and the production file no longer does: the moved comparison (see B1S1-C2). */
 const MOVED_BLOCK_DELETIONS = 13;
@@ -71,6 +78,12 @@ const lines = (b: Buffer | null): string[] =>
   (b?.toString("utf8") ?? "").split("\n").filter(Boolean);
 const baseReachable = git("cat-file", "-e", `${B1_S1_BASE_COMMIT}^{commit}`) !== null;
 const atBase = (path: string): Buffer | null => git("show", `${B1_S1_BASE_COMMIT}:${path}`);
+/**
+ * The S1 END STATE of a file: its bytes at the B2 base commit (main after S1, A1-2a and the B1 v2 successor, before F-014B B2). The F-014B B2
+ * slice, a later one, changes the admission file again; its own table and suite (tests/conformance/b2-scope-conformance.test.ts) police that
+ * transition, so S1's length and diff scope are asserted against S1's end state and not against whatever a later slice made of the file.
+ */
+const atS1End = (path: string): Buffer | null => git("show", `${B2_BASE_COMMIT}:${path}`);
 /** Content only: a package manager may mark bin scripts executable in a working tree, which is a mode change, not a change of this slice. */
 const changedSince = (...paths: string[]): string[] =>
   lines(git("-c", "core.fileMode=false", "diff", "--name-only", B1_S1_BASE_COMMIT, "--", ...paths));
@@ -183,18 +196,24 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
     () => {
       for (const [path, t] of Object.entries(B1_S1_TRANSITION)) {
         expect(atBase(path)!.length, `${path} original length`).toBe(t.baseBytes);
-        expect(readFileSync(path).length, `${path} S1 length`).toBe(t.s1Bytes);
-        const stat = lines(git("diff", "--numstat", B1_S1_BASE_COMMIT, "--", path)).map((l) =>
-          l.split("\t"),
-        );
+        expect(atS1End(path)!.length, `${path} S1 length`).toBe(t.s1Bytes);
+        const stat = lines(
+          git("diff", "--numstat", B1_S1_BASE_COMMIT, B2_BASE_COMMIT, "--", path),
+        ).map((l) => l.split("\t"));
         expect(stat, `${path} numstat`).toEqual([[String(t.added), String(t.deleted), path]]);
         // the only deletions are the stage-bearing arm's inline authority comparison, moved into one helper (see the next case)
         expect(t.deleted, `${path} deletions are the moved block`).toBe(MOVED_BLOCK_DELETIONS);
       }
       const changed = changedSince("apps", "packages");
       // Declared inclusion (F-014B B1 S2/S3, a later slice): its new package paths, policed by that slice's own table and suite.
+      // (and the F-014B B2 slice's recorded paths, which that slice's own table and suite police)
       expect([...changed, ...untrackedIn("apps", "packages")].sort()).toEqual(
-        [...B1_S1_PACKAGE_PATHS, ...B1_S2S3_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS].sort(),
+        unionPaths(
+          B1_S1_PACKAGE_PATHS,
+          B1_S2S3_PACKAGE_PATHS,
+          A1_2A_PACKAGE_PATHS,
+          B2_PACKAGE_PATHS,
+        ),
       );
       // the declared allow-list is not a place to park files that did not change
       expect(B1_S1_PACKAGE_PATHS.every((p) => changed.includes(p))).toBe(true);
@@ -212,13 +231,17 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
         ...B1_S2S3_PACKAGE_PATHS,
         ...A1_2A_PACKAGE_PATHS,
         ...B1_S2S3_OUTSIDE_PACKAGE_PATHS,
+        ...B2_PACKAGE_PATHS,
       ]);
       const expected = new Set([...B1_S1_PACKAGE_PATHS, ...B1_S1_NON_PACKAGE_PATHS, ...s2s3]);
       expect(
         [
           ...new Set(
             outside.filter(
-              (p) => !p.startsWith(B1_S2S3_EVIDENCE_PREFIX) && !p.startsWith(A1_2A_EVIDENCE_PREFIX),
+              (p) =>
+                !p.startsWith(B1_S2S3_EVIDENCE_PREFIX) &&
+                !p.startsWith(A1_2A_EVIDENCE_PREFIX) &&
+                !p.startsWith(B2_EVIDENCE_PREFIX),
             ),
           ),
         ].sort(),
@@ -229,10 +252,12 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
   it.skipIf(!baseReachable)(
     "B1S1-C2 every path the slice is forbidden to touch (the historical verifier's file and identity, the D-3 integrity, coordinator, owner registry, the typed contract, the gateways, the B0 module and its tests, the A0 and A1-1 modules, the spec lock) is byte-identical to the base commit, tracked or not",
     () => {
+      // (the F-014B B2 slice's recorded paths are declared by its own table and suite, like the later slices' above)
       const successorPaths = new Set([
         ...B1_S2S3_TOOLS_PATHS,
         ...A1_2A_PACKAGE_PATHS,
         B1_V2_WORKFLOW_PATH,
+        ...B2_PACKAGE_PATHS,
       ]);
       for (const p of B1_S1_UNTOUCHED) {
         expect(
@@ -253,7 +278,9 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
     "B1S1-C2 the diff of the changed file names no historical verifier and no verifier identity: it adds the live guard and nothing that replay can reach",
     () => {
       for (const p of B1_S1_PACKAGE_PATHS) {
-        const diff = git("diff", "-U0", B1_S1_BASE_COMMIT, "--", p)!.toString("utf8");
+        const diff = git("diff", "-U0", B1_S1_BASE_COMMIT, B2_BASE_COMMIT, "--", p)!.toString(
+          "utf8",
+        );
         // code lines only: the guard's comments say that replay runs the historical verifier, which is the point
         const touched = diff
           .split("\n")
@@ -270,7 +297,7 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
     "B1S1-C2 the deletions are a PURE MOVE: every compared field line the base carried inline in the stage-bearing arm now stands, verbatim and in order, in the one helper, and the law is written exactly once",
     () => {
       const ADMISSION = "packages/engine/src/temporal/admission.ts";
-      const removed = git("diff", "-U0", B1_S1_BASE_COMMIT, "--", ADMISSION)!
+      const removed = git("diff", "-U0", B1_S1_BASE_COMMIT, B2_BASE_COMMIT, "--", ADMISSION)!
         .toString("utf8")
         .split("\n")
         .filter((l) => /^-[^-]/.test(l))
@@ -285,7 +312,8 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
       for (const w of wrappers) expect(removed).toContain(w);
       const moved = removed.filter((l) => !wrappers.includes(l));
       expect(moved).toHaveLength(MOVED_BLOCK_DELETIONS - wrappers.length);
-      const now = readFileSync(ADMISSION, "utf8")
+      const now = atS1End(ADMISSION)!
+        .toString("utf8")
         .split("\n")
         .map((l) => l.trim());
       const at = now.findIndex((_, i) => moved.every((m, k) => now[i + k] === m));
@@ -293,7 +321,11 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
       expect(now[at - 1]).toBe("return (");
       expect(now[at - 2]).toBe("const a = TransactionAuthoritySchema.safeParse(authority);");
       // ONE law: each compared field is spelled once in code, in the helper, and both arms call that helper
-      const source = code(ADMISSION);
+      // (judged on S1's end state: the text of the file at the B2 base commit, comments stripped as `code` does)
+      const source = atS1End(ADMISSION)!
+        .toString("utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
       for (const field of moved.filter((m) => m.startsWith("!canonicalEqual")))
         expect(source.split(field).length - 1, field).toBe(1);
       expect(source.split("a.data.cause !== tx.cause").length - 1).toBe(1);
@@ -348,9 +380,17 @@ describe("B1-S1 pairing: the engine's local literal against the B0 constant, and
       .sort();
     // (F-014B A1-2a adds one declared local copy in the operator package, pinned equal to the B0 constant by its own suite)
     expect(spelling).toEqual(
-      [...Object.keys(B1_S1_LITERAL_FILES), ...Object.keys(A1_2A_LITERAL_FILES)].sort(),
+      [
+        ...Object.keys(B1_S1_LITERAL_FILES),
+        ...Object.keys(A1_2A_LITERAL_FILES),
+        ...Object.keys(B2_LITERAL_FILES),
+      ].sort(),
     );
-    for (const reason of Object.values(B1_S1_LITERAL_FILES))
+    // (F-014B B2 adds one declared literal file, the contracts module of the strict prospective GM variants, pinned equal to the B0 constant by its own suite)
+    for (const reason of [
+      ...Object.values(B1_S1_LITERAL_FILES),
+      ...Object.values(B2_LITERAL_FILES),
+    ])
       expect(reason.length).toBeGreaterThan(20);
   });
 

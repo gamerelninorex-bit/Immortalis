@@ -114,6 +114,22 @@ export const EXPECTED_FACT_KINDS: readonly ExpectedFactKind[] = [
     exampleKey: "temporal/origin",
   },
   {
+    id: "temporal_gm_wait_marker",
+    owner: "temporal_kernel",
+    facet: "temporal_coordination",
+    lifecycle: "SEALED",
+    group: "TEMPORAL_FACT_KINDS",
+    exampleKey: `temporal/gm-wait/marker/${"a".repeat(64)}`,
+  },
+  {
+    id: "temporal_gm_wait_pc_index",
+    owner: "temporal_kernel",
+    facet: "temporal_coordination",
+    lifecycle: "ADVANCING",
+    group: "TEMPORAL_FACT_KINDS",
+    exampleKey: "temporal/gm-wait/by-pc/pc-1",
+  },
+  {
     id: "population_ledger",
     owner: "population",
     facet: "population_state",

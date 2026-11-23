@@ -39,6 +39,8 @@ const A01 = "+POPULATION-STAGE-AUTHORITY-V2";
 /** the exact segments this slice appends (pinned here and, as the lowering row's values, by tools/check-spec.ts) */
 const T1_SEGMENT = "+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z";
 const MS_SEGMENT = "+MS-V3-CLOCK-STEP-B2-ORIGIN";
+/** F-014B B2 (a later slice) appended one more additive segment after these two, in the same change as the GM-wait custody / W2 verifier it identifies */
+const B2_SEGMENT = "+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z";
 /** the composition of the previous identity (main 8d25f90), as it was before this slice */
 const previous = (suffix = "") =>
   `${BASE}${suffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}${A01}`;
@@ -69,7 +71,7 @@ describe("A0-T15: the composed identity", () => {
       "+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1",
     );
     expect(canonicalAdmission.historyVerificationId).toBe(
-      `${previous()}${T1_SEGMENT}${MS_SEGMENT}`,
+      `${previous()}${T1_SEGMENT}${MS_SEGMENT}${B2_SEGMENT}`,
     );
     expect(canonicalAdmission.historyVerificationId).not.toBe(previous());
   });
@@ -80,7 +82,7 @@ describe("A0-T15: the composed identity", () => {
       canonicalAdmission.historyVerificationId,
     );
     expect(fixtureCanonicalAdmission.historyVerificationId).toBe(
-      `${previous("+fixture-evidence-t1")}${T1_SEGMENT}${MS_SEGMENT}`,
+      `${previous("+fixture-evidence-t1")}${T1_SEGMENT}${MS_SEGMENT}${B2_SEGMENT}`,
     );
     expect(fixtureMsCanonicalAdmission(binding).historyVerificationId).toBe(
       fixtureCanonicalAdmission.historyVerificationId,
@@ -97,7 +99,7 @@ describe("A0-T15: the composed identity", () => {
         `${admission.historyVerificationId}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
       );
       expect(legacyContractAdmission(admission).historyVerificationId).toContain(
-        `${T1_SEGMENT}${MS_SEGMENT}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
+        `${T1_SEGMENT}${MS_SEGMENT}${B2_SEGMENT}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
       );
     }
     const extended = must_(storeBindings(PRODUCTION_FIXTURE_EXTENSION));
@@ -152,7 +154,9 @@ describe("A0-T15: the identity transition", () => {
     cpSync("tests/fixtures/legacy-base-eafbb127/package", dir, { recursive: true });
     mkdirSync(join(dir, "history"), { recursive: true });
     const legacyId = legacyContractAdmission(canonicalAdmission).historyVerificationId!;
-    expect(legacyId).toBe(`${previous()}${T1_SEGMENT}${MS_SEGMENT}+LEGACY-PRE-V9-RUNTIME-CONTRACT`);
+    expect(legacyId).toBe(
+      `${previous()}${T1_SEGMENT}${MS_SEGMENT}${B2_SEGMENT}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
+    );
     expect(manifestOf(dir).head.checkpoint.verification_policy).not.toBe(legacyId);
     const journal = readFileSync(join(dir, "journal.jsonl"));
     const entries = journal.toString("utf8").split("\n").filter(Boolean).length;

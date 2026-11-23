@@ -446,7 +446,9 @@ describe("A0-T14: MS historical verification of the SEALED prefix", () => {
     const strip = (id: string) =>
       id
         .replace("+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z", "")
-        .replace("+MS-V3-CLOCK-STEP-B2-ORIGIN", "");
+        .replace("+MS-V3-CLOCK-STEP-B2-ORIGIN", "")
+        // and F-014B B2's later segment: "previous" is the identity before A0, so the B2 verifier cannot have stamped it either
+        .replace("+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z", "");
     const h = await msHarness({ historyId: strip });
     const previous = h.admission.historyVerificationId!;
     expect(previous).not.toContain("CAL-TIME-T1");

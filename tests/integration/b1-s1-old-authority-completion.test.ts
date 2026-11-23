@@ -53,6 +53,8 @@ import {
   literalTransaction,
   log,
   manifestOf,
+  identityBeforeB2,
+  stampCheckpointPolicy,
   openUnder,
   probeCommits,
   reopenMatrix,
@@ -220,8 +222,9 @@ describe("R1-A the frozen pre-S1 evidence: a lawfully committed player+literal a
     expect(fact.provenance.group_id).toBe(transactionAuthorityGroupId(OLD));
     expect(fact.provenance.intent_id).toBe(transactionAuthorityIntentId(OLD));
     expect(fact.provenance.cause).toBe(transactionCause(OLD));
+    // saved under the identity before the one segment F-014B B2 appended (the first open under the current identity replays strictly, once)
     expect(manifestOf(AUTH_ONLY.dir).head.checkpoint.verification_policy).toBe(
-      canonicalAdmission.historyVerificationId,
+      identityBeforeB2(canonicalAdmission.historyVerificationId!),
     );
   });
 
@@ -285,8 +288,9 @@ describe("R1-A the frozen pre-S1 evidence: a lawfully committed player+literal a
         [...m[mode].verdicts!.values()].every((v) => v === null),
         mode,
       ).toBe(true);
+    // saved under the identity before the one segment F-014B B2 appended (the first open under the current identity replays strictly, once)
     expect(manifestOf(AUTH_SEAL.dir).head.checkpoint.verification_policy).toBe(
-      canonicalAdmission.historyVerificationId,
+      identityBeforeB2(canonicalAdmission.historyVerificationId!),
     );
   });
 
@@ -393,7 +397,11 @@ describe("R1-C the exact old transaction finishes after S1", () => {
 
   it("[s1 guard] the sealed result survives WARM, COLD (audit) and COLD (checkpoint invalidated) reopen with identical authority and seal receipts, and the verifier identity is the one it was saved under", async () => {
     // complete, hold the continuation with an ordinary-trigger player continuation, then pad so a checkpoint lies AFTER the completed record
-    const r = await oldRig();
+    // F-014B B2: the frozen package's checkpoint is re-stamped with the current identity first (as the matrix below does), so this rig starts
+    // from trusted evidence at revision 128 instead of performing the declared policy transition, which would re-earn the checkpoint at the head
+    const settled = copyOf(AUTH_ONLY.dir);
+    stampCheckpointPolicy(settled, canonicalAdmission.historyVerificationId!);
+    const r = await rig(settled);
     expect((await completeStageFree(r)).out).toEqual(PC_TARGET_COMMITTED);
     const resume = pcTargetTransaction(PC_TARGET_TX2, {
       trigger: { kind: "player-pc-target-resume-choice", ref: "choice-resume" },

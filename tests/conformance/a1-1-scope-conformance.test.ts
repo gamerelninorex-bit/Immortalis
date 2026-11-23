@@ -22,6 +22,11 @@ import {
 import { B1_S1_PACKAGE_PATHS } from "../support/b1-s1-scoped-deltas.ts";
 import { B1_S2S3_PACKAGE_PATHS } from "../support/b1-s2s3-scoped-deltas.ts";
 import { A1_2A_PACKAGE_PATHS } from "../support/a1-2a-scoped-deltas.ts";
+import {
+  B2_B0_SECTION_5_1_EDITS,
+  B2_PACKAGE_PATHS,
+  unionPaths,
+} from "../support/b2-scoped-deltas.ts";
 
 const git = (...args: string[]): Buffer | null => {
   try {
@@ -78,13 +83,15 @@ describe("A1-1 scope: the declared transition is the two production files and th
       );
       // Declared inclusions (F-014B B1 S1 and B1 S2/S3, later slices): the paths in tests/support/b1-s1-scoped-deltas.ts and
       // tests/support/b1-s2s3-scoped-deltas.ts, which those slices' own tables and scope conformance suites police; A1-1 itself changes none of them.
+      // (and the F-014B B2 slice's recorded paths, which that slice's own table and suite police; A1-1 itself changes none of them)
       expect([...changed, ...untracked].sort()).toEqual(
-        [
-          ...A1_1_PACKAGE_PATHS,
-          ...B1_S1_PACKAGE_PATHS,
-          ...B1_S2S3_PACKAGE_PATHS,
-          ...A1_2A_PACKAGE_PATHS,
-        ].sort(),
+        unionPaths(
+          A1_1_PACKAGE_PATHS,
+          B1_S1_PACKAGE_PATHS,
+          B1_S2S3_PACKAGE_PATHS,
+          A1_2A_PACKAGE_PATHS,
+          B2_PACKAGE_PATHS,
+        ),
       );
       // the declared allow-list is not a place to park files that did not change
       expect(A1_1_PACKAGE_PATHS.every((p) => changed.includes(p))).toBe(true);
@@ -155,9 +162,14 @@ describe("A1-1 scope: the declared transition is the two production files and th
           lines(git("-c", "core.fileMode=false", "diff", "--name-only", A1_1_BASE_COMMIT, "--", p)),
           p,
         ).toEqual(
-          [...B1_S1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS]
-            .filter((d) => d.startsWith(`${p}/`))
-            .sort(),
+          // (and the declared F-014B B2 paths inside a forbidden tree, which that slice's own table polices: its package paths, and the three
+          // protocol conformance suites whose one stale byte pin it replaced, declared in tests/support/b2-scoped-deltas.ts)
+          unionPaths(
+            B1_S1_PACKAGE_PATHS,
+            A1_2A_PACKAGE_PATHS,
+            B2_PACKAGE_PATHS,
+            Object.keys(B2_B0_SECTION_5_1_EDITS).filter((d) => d.startsWith("tests/")),
+          ).filter((d) => d === p || d.startsWith(`${p}/`)),
         );
         expect(lines(git("ls-files", "--others", "--exclude-standard", "--", p)), p).toEqual([]);
       }

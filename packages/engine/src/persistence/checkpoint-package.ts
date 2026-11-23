@@ -30,6 +30,11 @@ import {
   entryHash,
 } from "../commit/campaign-core.ts";
 import { sha256Canonical } from "../hash.ts";
+import {
+  gmWaitAdmissionInstalled,
+  gmWaitCheckpointNeedsStrictReplay,
+  gmWaitIsCustodyGroup,
+} from "../gm-wait-custody.ts";
 import { COMPATIBLE_RUNTIME_CONTRACT_SHA256S } from "../compat.ts";
 import { ENGINE_PACKAGE, ENGINE_VERSION } from "../version.ts";
 import {
@@ -473,6 +478,11 @@ export async function loadCheckpoint(
     stateSha256(state) !== cp.state_sha256
   )
     return fail("INTEGRITY_STATE", "checkpoint state digest mismatch");
+  // F-014B B2 W2: a checkpoint that holds an ACTIVE GM wait (or custody facts that do not cohere) carries no ordered original-interval
+  // proof, so it is never trusted warm: ONE strict replay from genesis rebuilds the interval at its actual prestates before any
+  // writable access. (The commit core also holds such a state HELD, as defence in depth.)
+  if (!options.audit && gmWaitCheckpointNeedsStrictReplay(state))
+    options = { ...options, audit: true };
   const index = new HistoryIndex(dir, fs, sha256Canonical(policy(options)));
   const readLocation = (loc: Location): JournalEntry => {
     if (loc.offset + loc.length > cp.journal_bytes || loc.revision > cp.revision)
@@ -562,6 +572,13 @@ export async function loadCheckpoint(
     let offset = offsetStart;
     const verifiedEntries: { entry: JournalEntry; location: Location }[] = [];
     for (const { entry, length } of parseLines(bytes, count)) {
+      // F-014B B2 (RED T93): a journal that holds GM-wait custody is replayed only under an admission that carries the W2 custody verifier
+      if (gmWaitIsCustodyGroup(entry.group) && !gmWaitAdmissionInstalled(options.admission)) {
+        return fail(
+          "PROTECTED_STORE_REQUIRES_ADMISSION",
+          "this campaign holds GM-wait custody and opens only under an admission that carries the W2 custody verifier",
+        );
+      }
       const replayed = core.replay(entry);
       if (!replayed.ok) return replayed;
       const loc = locationOf(
@@ -598,6 +615,13 @@ export async function loadCheckpoint(
       return fail("INTEGRITY_JOURNAL", "tail chain head mismatch");
     if (core.state.revision !== h.revision || stateSha256(core.state) !== h.state_sha256)
       return fail("INTEGRITY_STATE", "tail state mismatch");
+    // F-014B B2 (RED T93): a protected store never opens writable without the admission hook that carries the W2 custody verifier
+    if (core.gmWaitFence.protected && !gmWaitAdmissionInstalled(options.admission)) {
+      return fail(
+        "PROTECTED_STORE_REQUIRES_ADMISSION",
+        "this campaign holds GM-wait custody and opens only under an admission that carries the W2 custody verifier",
+      );
+    }
     if (transition) {
       const before = options.beforeMigrationCheck?.(
         new CheckpointStore(dir, fs, lock, core, m, options, size, tail, []),

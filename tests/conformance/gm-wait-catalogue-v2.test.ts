@@ -161,10 +161,11 @@ describe("F-014B static catalogue v2 [mechanism only]", { timeout: 30_000 }, () 
     }
   });
 
-  it("[B1] [mechanism only] B1-06 records the unretired historical extension gap and all seven early returns", () => {
+  it("[B1] [mechanism only] B1-06 records the unretired historical extension gap and all nine early returns", () => {
     expect(v2.extension_dispatch).toMatchObject({
       function: "storeBindings",
-      early_return_count: 7,
+      // seven at B1, nine under F-014B B2: the common GM-wait fence adds one early return to each of check and verifyHistorical
+      early_return_count: 9,
       historical_verification_of_extension_groups: "SKIPPED",
       historical_coverage: "UNRETIRED_DENY",
       extension_owners: [],

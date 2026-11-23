@@ -78,8 +78,7 @@ const MODIFIED: Record<string, string> = {
   "packages/engine/src/referee/integrity.ts":
     "77598855c7adfd864090d43725ee52bf2bcfc4d859b0792e0ff769a0a98a0284",
   // ROADBED R3-T25 freight: packages/engine/src/temporal/admission.ts is a recorded scoped delta of the freight slice (pinned in freight-profile-conformance)
-  "packages/engine/src/temporal/integrity.ts":
-    "8e0be8a4635d3827ee65a8388844b512c8fd2413f89cb254cb560e5e90d52918",
+  // F-014B B2: packages/engine/src/temporal/integrity.ts is a recorded scoped delta of the GM-wait custody slice (pinned in tests/support/b2-scoped-deltas.ts)
   "packages/operator/src/cli.ts":
     "4193210a7fc685122d68d3299052f302011b2c481ba4d1f41d98678a4de00bbf",
   "packages/operator/src/confirmation.ts":

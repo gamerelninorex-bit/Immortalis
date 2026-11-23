@@ -658,3 +658,32 @@ export const BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1: readonly SunsetPolicyRow[]
   ...BOOTSTRAP_SUNSET_POLICY_S4_LEDGER_V1,
   ...CLOCK_ORIGIN_SUNSET_POLICY_DELTA,
 ];
+
+/**
+ * Additive delta under F-014B B2 (BLUE N7 / Sovereign-ratified D4(e)): the two prospective Temporal GM-wait kinds are Temporal-owned
+ * coordination bookkeeping (an immutable preparation marker and the by-PC slot index). Neither asserts a non-PC presence, solitude,
+ * workforce or rights premise, so each takes the row of its Temporal sibling of the same lifecycle: the marker (SEALED) that of
+ * `temporal_transaction_authority`, the index (ADVANCING) that of `temporal_state`. That is `OWNER_CHECKS_ONLY`, exactly "No direct new non-PC
+ * presence/rights assertion from this kind alone", and it grants no eligibility. The existing rows are untouched (the retained clock-origin
+ * table is compared verbatim against its fixture).
+ */
+export const GM_WAIT_CUSTODY_SUNSET_POLICY_DELTA: readonly SunsetPolicyRow[] = [
+  {
+    kind: "temporal_gm_wait_marker",
+    policy: "OWNER_CHECKS_ONLY",
+    effect:
+      "No direct new non-PC presence/rights assertion from this kind alone. All existing owner, standing, scope, foreign-engagement, conservation, timing and due-event checks remain effective; actual adverse outcomes still withhold.",
+  },
+  {
+    kind: "temporal_gm_wait_pc_index",
+    policy: "OWNER_CHECKS_ONLY",
+    effect:
+      "No direct new non-PC presence/rights assertion from this kind alone. All existing owner, standing, scope, foreign-engagement, conservation, timing and due-event checks remain effective; actual adverse outcomes still withhold.",
+  },
+];
+
+/** Every registered kind: the clock-origin table (122 rows) and the 2 GM-wait custody rows. */
+export const BOOTSTRAP_SUNSET_POLICY_GM_WAIT_V1: readonly SunsetPolicyRow[] = [
+  ...BOOTSTRAP_SUNSET_POLICY_CLOCK_ORIGIN_V1,
+  ...GM_WAIT_CUSTODY_SUNSET_POLICY_DELTA,
+];

@@ -202,14 +202,19 @@ import {
   RECIPIENT_ROLE_PLAYER_CHARACTER,
   PopulationBasisSchema,
   ReconciliationCloseSchema,
-  ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalOriginSchema,
   TemporalStateSchema,
   TEMPORAL_ORIGIN_KEY,
-  TransactionAuthoritySchema,
+  TransactionAuthorityStoredSchema,
+  ResolutionTransactionStoredSchema,
+  GmWaitMarkerSchema,
+  GmWaitByPcIndexSchema,
+  GmWaitTransactionAuthoritySchema,
+  TEMPORAL_GM_WAIT_BY_PC_PREFIX,
+  TEMPORAL_GM_WAIT_MARKER_PREFIX,
   WorldCorridorSchema,
   WorldLocusSchema,
   WorldProfileSchema,
@@ -217,6 +222,7 @@ import {
   type ValueSchema,
 } from "@immortalis/contracts";
 import type { OwnerRegistry } from "../commit/campaign-core.ts";
+import { GM_WAIT_CUSTODY_RULE } from "../gm-wait-custody.ts";
 import {
   INITIAL_COMPLETION_SCENE_CLOSURE_RULE,
   INITIAL_COMPLETION_WORKFORCE_SCOPE_RULE,
@@ -377,6 +383,8 @@ export const TEMPORAL_FACT_KIND_IDS = [
   "resolution_transaction",
   "temporal_transaction_authority",
   "temporal_origin",
+  "temporal_gm_wait_marker",
+  "temporal_gm_wait_pc_index",
 ] as const;
 export const POPULATION_FACT_KIND_IDS = [
   "population_ledger",
@@ -741,7 +749,8 @@ export const TEMPORAL_FACT_KINDS: readonly FactKind[] = [
     rc: ["RC-02", "RC-05"],
     lifecycle: "SEALED",
     keyPattern: new RegExp(`^temporal/transaction/${ID}$`),
-    valueSchema: ResolutionTransactionSchema,
+    // F-014B B2: the legacy player-origin member FIRST, then the strict prospective GM variant (discriminated by `origin`)
+    valueSchema: ResolutionTransactionStoredSchema,
     rule: KERNEL_RULE,
   },
   {
@@ -752,7 +761,7 @@ export const TEMPORAL_FACT_KINDS: readonly FactKind[] = [
     rc: ["RC-02", "RC-05"],
     lifecycle: "SEALED",
     keyPattern: new RegExp(`^temporal/transaction-authority/${ID}$`),
-    valueSchema: TransactionAuthoritySchema,
+    valueSchema: TransactionAuthorityStoredSchema,
     rule: KERNEL_RULE,
   },
   /**
@@ -770,6 +779,37 @@ export const TEMPORAL_FACT_KINDS: readonly FactKind[] = [
     keyPattern: new RegExp(`^${escape(TEMPORAL_ORIGIN_KEY)}$`),
     valueSchema: TemporalOriginSchema,
     rule: TEMPORAL_CAPTURED_V2_GENESIS_RULE,
+  },
+  /**
+   * F-014B B2 (BLUE N7 / Sovereign-ratified D4(e), RED R-7e): the two PROSPECTIVE GM-wait kinds, under the SAME Temporal owner and facet
+   * (no new owner, no second clock). Both carry the one fixed D4(e) citation, not the frozen-spec-lock one: they are not part of the
+   * 2026-09-25 original Temporal §2 kind set. The marker is the player-facing transaction identity/provenance of the wait (SEALED,
+   * create-only, one per X); the by-PC index is the explicitly ratified shared temporal reference and the SOLE authoritative per-PC
+   * wait slot (ADVANCING, a monotonic expected-version chain). Key segments admit only the registry grammar: X is 64 lowercase hex
+   * and the PC is an EntityId, so a raw RPC id, a slash or a quote can never reach a key. Neither kind is a world fact, creates a
+   * clock, a credit, an owner event or a player-facing perception, and neither is written by anything but the Temporal owner.
+   */
+  {
+    id: "temporal_gm_wait_marker",
+    owner: OWNER_TEMPORAL_KERNEL,
+    facet: FACET_TEMPORAL_COORDINATION,
+    im: "IM-02",
+    rc: ["RC-02", "RC-05", "RC-07"],
+    lifecycle: "SEALED",
+    keyPattern: new RegExp(`^${escape(TEMPORAL_GM_WAIT_MARKER_PREFIX)}([0-9a-f]{64})$`),
+    valueSchema: GmWaitMarkerSchema,
+    rule: GM_WAIT_CUSTODY_RULE,
+  },
+  {
+    id: "temporal_gm_wait_pc_index",
+    owner: OWNER_TEMPORAL_KERNEL,
+    facet: FACET_TEMPORAL_COORDINATION,
+    im: "IM-02",
+    rc: ["RC-02", "RC-05", "RC-07"],
+    lifecycle: "ADVANCING",
+    keyPattern: new RegExp(`^${escape(TEMPORAL_GM_WAIT_BY_PC_PREFIX)}${ID}$`),
+    valueSchema: GmWaitByPcIndexSchema,
+    rule: GM_WAIT_CUSTODY_RULE,
   },
 ];
 
@@ -2537,6 +2577,28 @@ const TEMPORAL_FACT_KINDS_WITH_V2_GENESIS: readonly FactKind[] =
       : k,
   );
 
+/**
+ * F-014B B2: the strict GM variant of the durable opening authority is written by the OPEN group, which carries the custody rule (a group
+ * carries one rule, and it also writes the by-PC index). It is the ONLY value class that citation admits on this kind: a legacy player-origin
+ * authority keeps `KERNEL_RULE` and is not admitted under the custody citation. (This registry only classifies a citation; that a GM-variant
+ * authority is published ONLY by the OPEN group under the custody rule is the custody check's rule.) A separate step, so the
+ * `temporal_state` genesis alternate above stays the one alternate of that kind and its own block is unchanged.
+ */
+const TEMPORAL_FACT_KINDS_WITH_GM_WAIT_OPENING: readonly FactKind[] =
+  TEMPORAL_FACT_KINDS_WITH_V2_GENESIS.map((k) =>
+    k.id === "temporal_transaction_authority"
+      ? {
+          ...k,
+          alternateRules: [
+            {
+              rule: GM_WAIT_CUSTODY_RULE,
+              admits: (value: unknown) => GmWaitTransactionAuthoritySchema.safeParse(value).success,
+            },
+          ],
+        }
+      : k,
+  );
+
 const CAUSAL_DRAW_RED_CLEARANCE =
   "Independent Red delta review PASS at this exact native pin 2026-10-02T15:11:03.450Z, unchanged since clearance (Twenty-Sixth Bounded Vertical Slice construction brief)";
 
@@ -4058,7 +4120,7 @@ export const isFreightRequestIdentity = isEconomyFreightRequestRef;
 
 export const ALL_FACT_KINDS: readonly FactKind[] = [
   ...withLedgerBindingRule(FACT_KINDS),
-  ...TEMPORAL_FACT_KINDS_WITH_V2_GENESIS,
+  ...TEMPORAL_FACT_KINDS_WITH_GM_WAIT_OPENING,
   ...POPULATION_FACT_KINDS,
   ...PRODUCTION_FACT_KINDS_WITH_FREIGHT,
   ...SOURCE_DRAWDOWN_FACT_KINDS_WITH_PC_COLLECTION_START,

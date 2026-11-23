@@ -60,12 +60,14 @@ describe("[S2] [mechanism only] the census agrees with the registry, with the Co
   });
 
   it("[S2] [mechanism only] the kind, owner, owner-facet and lifecycle counts equal the Codex census, recounted from the manifest alone", () => {
-    expect(manifest.kinds.length).toBe(122);
-    expect(new Set(manifest.kinds.map((k) => k.id)).size).toBe(122);
+    // 124 = the Codex census's 122 plus the two Temporal kinds F-014B B2 registered (temporal_gm_wait_marker, SEALED, and
+    // temporal_gm_wait_pc_index, ADVANCING): the B1 archive keeps the Codex figures byte-for-byte (tests/conformance/b2-catalogue-conformance.test.ts)
+    expect(manifest.kinds.length).toBe(124);
+    expect(new Set(manifest.kinds.map((k) => k.id)).size).toBe(124);
     expect(new Set(manifest.kinds.map((k) => k.owner)).size).toBe(17);
     expect(new Set(manifest.kinds.map((k) => `${k.owner}|${k.facet}`)).size).toBe(37);
-    expect(manifest.kinds.filter((k) => k.lifecycle === "SEALED").length).toBe(83);
-    expect(manifest.kinds.filter((k) => k.lifecycle === "ADVANCING").length).toBe(39);
+    expect(manifest.kinds.filter((k) => k.lifecycle === "SEALED").length).toBe(84);
+    expect(manifest.kinds.filter((k) => k.lifecycle === "ADVANCING").length).toBe(40);
     // the owner policy is a second structure (the owner registry) and must agree with the kinds
     const pairs = manifest.policy.owner_policy.owners
       .flatMap((o) => o.facets.map((f) => `${o.owner}|${f}`))
@@ -73,7 +75,7 @@ describe("[S2] [mechanism only] the census agrees with the registry, with the Co
     expect(pairs).toEqual([...new Set(manifest.kinds.map((k) => `${k.owner}|${k.facet}`))].sort());
   });
 
-  it("[S2] [mechanism only] the 122 kind ids equal the union of the string ids declared in the *_FACT_KIND_IDS arrays, read by an AST and not through ALL_FACT_KINDS", () => {
+  it("[S2] [mechanism only] the 124 kind ids equal the union of the string ids declared in the *_FACT_KIND_IDS arrays, read by an AST and not through ALL_FACT_KINDS", () => {
     const ids = new Set<string>();
     for (const f of [
       "packages/engine/src/owners/registry.ts",
@@ -108,8 +110,9 @@ describe("[S2] [mechanism only] the census agrees with the registry, with the Co
 
   it("[S2] [mechanism only] the registered alternate and legacy rule carriers BLUE names are all present with the expected counts", () => {
     const withAlt = manifest.kinds.filter((k) => k.alternate_refs.length > 0);
-    expect(withAlt.length).toBe(21);
-    expect(manifest.kinds.reduce((n, k) => n + k.alternate_refs.length, 0)).toBe(33);
+    // F-014B B2: the durable opening authority gains ONE alternate (the strict prospective GM variant): 22 carriers, 34 alternates
+    expect(withAlt.length).toBe(22);
+    expect(manifest.kinds.reduce((n, k) => n + k.alternate_refs.length, 0)).toBe(34);
     expect(manifest.kinds.filter((k) => k.legacy_refs.length > 0).length).toBe(8);
     expect(manifest.kinds.filter((k) => k.later_legacy_refs.length > 0).map((k) => k.id)).toEqual([
       "gip_governance_instrument",
@@ -279,18 +282,21 @@ describe("[S2] [mechanism only] policy and source pins are bound", () => {
     expect(() => buildManifest(census, drifted)).toThrow();
   });
 
-  it("[S2] [mechanism only] the extension dispatch structure is pinned: seven early returns, the canonical-key guard, and no historical verification of extension groups", () => {
+  it("[S2] [mechanism only] the extension dispatch structure is pinned: nine early returns, the canonical-key guard, and no historical verification of extension groups", () => {
     const returns = scanAst(readSourceFiles(REPO_ROOT, AST_ROOTS).files).extensionReturns;
     expect(returns).toEqual([
       "check: return fence;",
+      // F-014B B2 W2: the common GM-wait fence precedes the extension branch, live and in original-policy historical verification
+      "check: return w2;",
       "check: return base.check(group, state, history);",
       'check: return reject("KEY_NOT_ADMITTED", "an extension owner may not write a canonical or kernel key space", { key: w.key });',
       "check: return extension.admission?.check(group, state) ?? null;",
       "verifyHistorical: return fence;",
+      "verifyHistorical: return w2;",
       "verifyHistorical: return null;",
       "verifyHistorical: return base.verifyHistorical?.(group, state) ?? null;",
     ]);
-    expect(manifest.extension_dispatch.early_return_count).toBe(7);
+    expect(manifest.extension_dispatch.early_return_count).toBe(9);
     expect(manifest.extension_dispatch.historical_verification_of_extension_groups).toBe("SKIPPED");
     expect(manifest.extension_dispatch.extension_owners).toEqual([]);
   });

@@ -1,8 +1,11 @@
 import {
   BoundaryIndexSchema,
+  GmWaitByPcIndexSchema,
+  GmWaitMarkerSchema,
+  GmWaitTransactionAuthoritySchema,
   OBSERVATION_TRIGGER_KIND,
   accessEventKey,
-  ResolutionTransactionSchema,
+  ResolutionTransactionStoredSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
@@ -14,6 +17,9 @@ import {
   compareTime,
   timeAtOrBefore,
   timeEquals,
+  temporalGmWaitByPcKey,
+  temporalGmWaitMarkerKey,
+  type GmWaitResolutionTransaction,
   type OwnerFact,
   type PendingConsequenceBarrier,
   type ResolutionTransaction,
@@ -37,6 +43,16 @@ import {
   transactionGroupId,
   transactionIntentId,
 } from "./identity.ts";
+import {
+  gmWaitMarkerGroupId,
+  gmWaitOpenGroupId,
+  gmWaitOpenIntentId,
+  gmWaitTransactionId,
+} from "../gm-wait-identity.ts";
+import { GM_WAIT_CUSTODY_RULE } from "../gm-wait-custody.ts";
+
+/** A sealed transaction of either origin: the legacy player-origin record, or the strict prospective GM variant. */
+type StoredTransaction = ResolutionTransaction | GmWaitResolutionTransaction;
 
 /**
  * Re-verifies, from committed state and the journal alone, that the kernel-owned temporal state of a
@@ -77,7 +93,9 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       id === "temporal_boundary_index" ||
       id === "temporal_object" ||
       id === "resolution_transaction" ||
-      id === "temporal_transaction_authority"
+      id === "temporal_transaction_authority" ||
+      id === "temporal_gm_wait_marker" ||
+      id === "temporal_gm_wait_pc_index"
     );
   });
   if (facts.length === 0) return out;
@@ -107,8 +125,8 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
   const txFacts = facts
     .filter((f) => resolveKey(f.key)?.kind.id === "resolution_transaction")
     .sort((a, b) => revisionOf(a) - revisionOf(b));
-  const txs: { fact: OwnerFact; tx: ResolutionTransaction }[] = txFacts.flatMap((fact) => {
-    const tx = parsed(ResolutionTransactionSchema, fact);
+  const txs: { fact: OwnerFact; tx: StoredTransaction }[] = txFacts.flatMap((fact) => {
+    const tx = parsed(ResolutionTransactionStoredSchema, fact);
     return tx ? [{ fact, tx }] : [];
   });
 
@@ -183,7 +201,8 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       );
     } else if (prev && held) {
       // the same rule admission applies, re-verified against the sealed prior record
-      const violation = continuationRequestViolation(prev, tx.requested);
+      // a GM-origin seal is TARGET_REACHED with no remainder, so it is never the held prior: the prior is a legacy record here
+      const violation = continuationRequestViolation(prev as ResolutionTransaction, tx.requested);
       if (violation) bad(key, "TEMPORAL_TRANSACTION", violation);
     }
     if (
@@ -196,7 +215,7 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
         "the transaction was not committed under its derived identity",
       );
     }
-    if (tx.trigger.kind === OBSERVATION_TRIGGER_KIND) {
+    if (!("origin" in tx) && tx.trigger.kind === OBSERVATION_TRIGGER_KIND) {
       const event = store.getFact(accessEventKey(tx.trigger.ref));
       const why = observationTransactionViolation(tx, event);
       if (why) bad(key, "TEMPORAL_EVIDENCE", why);
@@ -207,7 +226,30 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
     const authKey = temporalTransactionAuthorityKey(tx.transaction_id);
     const authFact = facts.find((f) => f.key === authKey);
     const auth = authFact && parsed(TransactionAuthoritySchema, authFact);
-    if (tx.stages.length > 0) {
+    if ("origin" in tx) {
+      // F-014B B2: a GM-origin seal ALWAYS has the durable GM opening of the same X, repeated exactly, even with no stage
+      const gmAuth = authFact && parsed(GmWaitTransactionAuthoritySchema, authFact);
+      if (
+        !authFact ||
+        !gmAuth ||
+        gmAuth.x !== tx.x ||
+        gmAuth.transaction_id !== tx.transaction_id ||
+        gmAuth.cause !== tx.cause ||
+        !canonicalEqual(gmAuth.trigger, tx.trigger) ||
+        !canonicalEqual(gmAuth.opening, tx.opening) ||
+        !canonicalEqual(gmAuth.requested, tx.requested) ||
+        !canonicalEqual(gmAuth.context, tx.context) ||
+        gmAuth.publication.basis !== fact.basis ||
+        gmAuth.publication.secrecy !== fact.secrecy ||
+        revisionOf(authFact) >= txRevision
+      ) {
+        bad(
+          key,
+          "TEMPORAL_EVIDENCE",
+          "a GM-origin seal has the durable GM opening of its own X, committed before it",
+        );
+      }
+    } else if (tx.stages.length > 0) {
       if (
         !authFact ||
         !auth ||
@@ -344,6 +386,28 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
   for (const f of facts.filter(
     (x) => resolveKey(x.key)?.kind.id === "temporal_transaction_authority",
   )) {
+    const gmOpening = parsed(GmWaitTransactionAuthoritySchema, f);
+    if (gmOpening) {
+      if (
+        f.provenance.group_id !== gmWaitOpenGroupId(gmOpening.x) ||
+        f.provenance.intent_id !== gmWaitOpenIntentId(gmOpening.x) ||
+        gmOpening.transaction_id !== gmWaitTransactionId(gmOpening.x)
+      ) {
+        bad(
+          f.key,
+          "TEMPORAL_TRANSACTION",
+          "a GM wait was not opened under the identity derived from its X",
+        );
+      }
+      if (gmOpening.opening.state_version > stateFact.version) {
+        bad(
+          f.key,
+          "TEMPORAL_TRANSACTION",
+          "a transaction was opened at a state that never existed",
+        );
+      }
+      continue;
+    }
     const a = parsed(TransactionAuthoritySchema, f);
     if (!a) continue;
     if (
@@ -362,6 +426,62 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
     }
     if (a.opening.state_version > stateFact.version) {
       bad(f.key, "TEMPORAL_TRANSACTION", "a transaction was opened at a state that never existed");
+    }
+  }
+
+  // F-014B B2: the GM-wait custody facts cohere: every by-PC index names the committed immutable marker of its X, its opening
+  // authority and its seal are exactly the ones its state requires, and each carries the one registered custody citation.
+  for (const f of facts.filter((x) => resolveKey(x.key)?.kind.id === "temporal_gm_wait_pc_index")) {
+    const idx = parsed(GmWaitByPcIndexSchema, f);
+    if (!idx || f.key !== temporalGmWaitByPcKey(idx.pc_id)) {
+      bad(f.key, "TEMPORAL_EVIDENCE", "the by-PC index is not a strict index of its own key");
+      continue;
+    }
+    if (!canonicalEqual(f.provenance.rule, GM_WAIT_CUSTODY_RULE))
+      bad(
+        f.key,
+        "TEMPORAL_EVIDENCE",
+        "the by-PC index does not cite the registered GM-wait custody rule",
+      );
+    const markerFact = facts.find((x) => x.key === temporalGmWaitMarkerKey(idx.x));
+    const marker = markerFact && parsed(GmWaitMarkerSchema, markerFact);
+    if (
+      !markerFact ||
+      !marker ||
+      marker.x !== idx.x ||
+      marker.pc_id !== idx.pc_id ||
+      markerFact.provenance.group_id !== idx.marker.group_id ||
+      markerFact.provenance.group_id !== gmWaitMarkerGroupId(idx.x) ||
+      !canonicalEqual(markerFact.provenance.rule, GM_WAIT_CUSTODY_RULE)
+    ) {
+      bad(
+        f.key,
+        "TEMPORAL_EVIDENCE",
+        "the by-PC index does not name the committed immutable marker of its X",
+      );
+      continue;
+    }
+    const tx = gmWaitTransactionId(idx.x);
+    const opened = facts.find((x) => x.key === temporalTransactionAuthorityKey(tx));
+    const sealed = facts.find((x) => x.key === temporalTransactionKey(tx));
+    const needsOpen = idx.state === "OPEN" || idx.state === "SEALED_RECONCILED";
+    if (
+      Boolean(opened) !== needsOpen ||
+      Boolean(sealed) !==
+        (idx.state === "SEALED_RECONCILED" || (idx.state === "OPEN" && Boolean(sealed))) ||
+      (idx.state !== "OPEN" && idx.state !== "SEALED_RECONCILED" && (opened || sealed))
+    ) {
+      bad(
+        f.key,
+        "TEMPORAL_EVIDENCE",
+        `the ${idx.state} by-PC index is not consistent with the opening and seal of its X`,
+      );
+    }
+  }
+  for (const f of facts.filter((x) => resolveKey(x.key)?.kind.id === "temporal_gm_wait_marker")) {
+    const marker = parsed(GmWaitMarkerSchema, f);
+    if (!marker || f.key !== temporalGmWaitMarkerKey(marker.x)) {
+      bad(f.key, "TEMPORAL_EVIDENCE", "the marker is not a strict marker of its own key");
     }
   }
 

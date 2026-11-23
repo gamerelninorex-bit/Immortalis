@@ -8,15 +8,15 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 
 export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/contracts/src/index.ts":
-    "34cd2b85657d46f8641bbb8df09f3896a3c668afa58b5102eab09b95ccc77652",
+    "e51ad3adbea3a7d850a626ce84f08e13b42f691acc7c023b66bbd4d37c20480e",
   "packages/contracts/src/referee.ts":
     "11f76d1df0cac6e0dc67d8298bab4271e6f3edc672c6ed687e64ac38bd35a868",
   "packages/engine/src/epistemic/observation.ts":
     "11fccd5aac7da3fb0e09ec0794bb47d26e0f287371ceebcae79af90b20c939ca",
   "packages/engine/src/index.ts":
-    "18a0edbe9aadf9c6aa2282a475d25600c55a1d264141aa2973a0bb46e9fa3f8e",
+    "6d99c68407b6d15b01c06cb7ba62d14b4068986d130f6eef95d35410b8e6c19b",
   "packages/engine/src/owners/admission.ts":
-    "2e3ec95e6b0e6c333c789d3baf8a2edb97a260980cd0320d22ab576972f8e1fd",
+    "4c105c39111634cc97bb2e1b6c5a93da09ceaac3882b4efd0fb849f7dc5f234f",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":

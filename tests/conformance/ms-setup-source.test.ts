@@ -65,7 +65,10 @@ describe("M-S exact ratified source and additive registration", () => {
         !engine.PC_STANDING_LEDGER_FACT_KIND_IDS.includes(k.id as never) &&
         // F-014B A0 registered the Temporal origin witness after the S-4 ledger (its row is the clock-origin delta,
         // tests/conformance/a0-scope-conformance.test.ts)
-        k.id !== "temporal_origin",
+        k.id !== "temporal_origin" &&
+        // and the two F-014B B2 GM-wait custody kinds (their rows are the GM-wait custody delta, tests/conformance/b2-scope-conformance.test.ts)
+        k.id !== "temporal_gm_wait_marker" &&
+        k.id !== "temporal_gm_wait_pc_index",
     );
     expect(msKinds).toHaveLength(93);
     expect(rows.slice(0, 90)).toEqual(engine.BOOTSTRAP_SUNSET_POLICY_V9);
@@ -84,7 +87,8 @@ describe("M-S exact ratified source and additive registration", () => {
         engine.FREIGHT_HISTORY_POLICY_SUFFIX +
         engine.PC_LEDGER_HISTORY_POLICY_SUFFIX +
         "+POPULATION-STAGE-AUTHORITY-V2" +
-        A0_HISTORY_SEGMENTS,
+        A0_HISTORY_SEGMENTS +
+        B2_HISTORY_SEGMENT,
     );
     expect(engine.fixtureCanonicalAdmission.historyVerificationId).toBe(
       basePolicy +
@@ -93,7 +97,8 @@ describe("M-S exact ratified source and additive registration", () => {
         engine.FREIGHT_HISTORY_POLICY_SUFFIX +
         engine.PC_LEDGER_HISTORY_POLICY_SUFFIX +
         "+POPULATION-STAGE-AUTHORITY-V2" +
-        A0_HISTORY_SEGMENTS,
+        A0_HISTORY_SEGMENTS +
+        B2_HISTORY_SEGMENT,
     );
     for (const admission of [engine.canonicalAdmission, engine.fixtureCanonicalAdmission]) {
       expect(engine.legacyContractAdmission(admission).historyVerificationId).toBe(
@@ -102,6 +107,8 @@ describe("M-S exact ratified source and additive registration", () => {
     }
   });
 });
+// F-014B B2 appended one more additive segment after A0's, in the same change as the GM-wait custody / W2 verifier it identifies
+const B2_HISTORY_SEGMENT = "+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z";
 const A0_HISTORY_SEGMENTS =
   "+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN";
 const basePolicy =

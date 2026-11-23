@@ -85,11 +85,13 @@ describe("the S-4 policy suffix changes how a checkpoint's evidence is trusted",
   // F-014B A0 (CAL-TIME T-1) appended two additive segments after the A01 suffix, in the same change as its validators
   const A0_SEGMENTS =
     "+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN";
+  // F-014B B2 (a later slice) appended one more additive segment after the A0 ones, in the same change as the GM-wait custody / W2 verifier it identifies
+  const B2_SEGMENT = "+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z";
 
-  it("the combined policy retains the authentic pre-S-4 identity plus S-4, A01 and the A0 segments in order", () => {
+  it("the combined policy retains the authentic pre-S-4 identity plus S-4, A01, the A0 segments and the B2 segment in order", () => {
     expect(PC_LEDGER_HISTORY_POLICY_SUFFIX.length).toBeGreaterThan(0);
     expect(CURRENT_ID).toBe(
-      `${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}${A01_SUFFIX}${A0_SEGMENTS}`,
+      `${PRE_S4_ID}${PC_LEDGER_HISTORY_POLICY_SUFFIX}${A01_SUFFIX}${A0_SEGMENTS}${B2_SEGMENT}`,
     );
     expect(PRE_S4_ID).not.toBe(CURRENT_ID);
   });
