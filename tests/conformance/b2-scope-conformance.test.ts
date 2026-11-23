@@ -4,6 +4,7 @@
 //
 // History checks use the Git objects named in tests/support/b2-scoped-deltas.ts; a shallow checkout (no history) skips them and says so, it never
 // claims them.
+import { IF6B_BASE_COMMIT, IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
@@ -119,7 +120,13 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
     const changed = diffNames("apps", "packages");
     const added = untracked("apps", "packages");
     // later slices (an A-/B-series package after this one) extend the allow-list through their own tables; at this head there is none
-    expect([...changed, ...added].sort()).toEqual([...B2_PACKAGE_PATHS].sort());
+    expect([...changed, ...added].sort()).toEqual(
+      [...B2_PACKAGE_PATHS, ...IF6B_PACKAGE_PATHS].sort(),
+    );
+    const merged = lines(
+      git("diff", "--name-only", B2_BASE_COMMIT, IF6B_BASE_COMMIT, "--", "apps", "packages"),
+    );
+    expect(merged.sort()).toEqual([...B2_PACKAGE_PATHS].sort());
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
     for (const p of [...Object.keys(B2_SCOPED_DELTAS), ...B2_PRESENT_DAY_FILES])
       expect(changed.includes(p), p).toBe(true);

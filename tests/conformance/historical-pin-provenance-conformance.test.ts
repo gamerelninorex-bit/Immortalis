@@ -9,6 +9,7 @@
 //      suite names a base commit, the value at THAT commit. A shallow checkout skips these and says so; it never claims them;
 //   4. present-day identities are stated only in tests/support/present-day-identities.ts, and the table matches the working tree;
 //   5. a contemporary hash substituted into a historical assertion is caught, and the genuine historical values are not flagged.
+import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -365,6 +366,7 @@ describe("RP-2 pins the four authorized production repairs", () => {
         B1_S2S3_PACKAGE_PATHS,
         A1_2A_PACKAGE_PATHS,
         B2_PACKAGE_PATHS,
+        IF6B_PACKAGE_PATHS,
       ),
     );
     const lockPath = "spec/f027/spec-lock.json";

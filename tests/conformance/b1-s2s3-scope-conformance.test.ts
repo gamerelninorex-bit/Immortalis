@@ -11,6 +11,7 @@
 //
 // Custody is bytes at the pinned base commit, never ancestry. Where that commit is not retrievable (a shallow checkout) the comparisons are
 // SKIPPED and reported as skipped, never claimed. Each text scanner is first run on a specimen it must flag and a specimen it must not.
+import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -82,6 +83,7 @@ describe("[scope] [mechanism only] B1 S2/S3 declared scope", () => {
           A1_2A_PACKAGE_PATHS,
           B1_S2S3_PACKAGE_PATHS,
           B2_PACKAGE_PATHS,
+          IF6B_PACKAGE_PATHS,
         ),
       );
       // every declared path is an ADDED file: absent from the base commit
@@ -102,6 +104,7 @@ describe("[scope] [mechanism only] B1 S2/S3 declared scope", () => {
         ...B1_S2S3_PACKAGE_PATHS,
         ...B1_S2S3_OUTSIDE_PACKAGE_PATHS,
         ...B2_PACKAGE_PATHS,
+        ...IF6B_PACKAGE_PATHS,
       ]);
       const unexpected = outside.filter(
         (p) =>
@@ -154,6 +157,7 @@ describe("[scope] [mechanism only] B1 S2/S3 forbidden files are byte-identical t
         ...A1_2A_PACKAGE_PATHS,
         B1_V2_WORKFLOW_PATH,
         ...B2_PACKAGE_PATHS,
+        ...IF6B_PACKAGE_PATHS,
       ]);
       for (const p of FORBIDDEN) {
         expect(

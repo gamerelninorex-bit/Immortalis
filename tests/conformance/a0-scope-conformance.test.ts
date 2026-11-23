@@ -4,6 +4,7 @@
 //
 // History checks use the Git objects named in tests/support/a0-scoped-deltas.ts; a shallow checkout (no history) skips them and says so,
 // it never claims them.
+import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
@@ -138,6 +139,7 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         B1_S2S3_PACKAGE_PATHS,
         A1_2A_PACKAGE_PATHS,
         B2_PACKAGE_PATHS,
+        IF6B_PACKAGE_PATHS,
       ),
     );
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
@@ -194,6 +196,7 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         B1_S2S3_PACKAGE_PATHS,
         A1_2A_PACKAGE_PATHS,
         B2_PACKAGE_PATHS,
+        IF6B_PACKAGE_PATHS,
       ),
     );
     // the declared main inclusions are in main already: this slice does not change them
@@ -255,7 +258,12 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     for (const p of FORBIDDEN) {
       // a forbidden path moves by nothing, except the declared A1-1 and A1-2a inclusions that lie inside it
       // (F-014B B2, a later slice, also changes files inside the temporal, persistence and commit trees: its table polices them)
-      const declared = [...A1_1_PACKAGE_PATHS, ...A1_2A_PACKAGE_PATHS, ...B2_PACKAGE_PATHS]
+      const declared = [
+        ...A1_1_PACKAGE_PATHS,
+        ...A1_2A_PACKAGE_PATHS,
+        ...B2_PACKAGE_PATHS,
+        ...IF6B_PACKAGE_PATHS,
+      ]
         .filter((a) => a === p || a.startsWith(`${p}/`))
         .sort();
       expect(
