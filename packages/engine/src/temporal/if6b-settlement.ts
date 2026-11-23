@@ -2,6 +2,7 @@ import {
   BoundaryIndexSchema,
   GM_WAIT_IF6B_POLICY,
   GmWaitStagedTransactionSchema,
+  JsonValueSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   timeEquals,
   type CommitGroup,
@@ -46,7 +47,11 @@ export function if6bSettlement(
     writes.push({
       key: fact.key,
       version: fact.version,
-      value: { ...object, last_resolved_basis: entry.at, next_boundary: null },
+      value: JsonValueSchema.parse({
+        ...object,
+        last_resolved_basis: entry.at,
+        next_boundary: null,
+      }),
     });
     engaged.push({
       boundary: "RETIRED" as const,

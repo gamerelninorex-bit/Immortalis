@@ -215,21 +215,23 @@ export interface If6bAdmission {
 interface HistoryAdmission {
   readonly historyVerificationId?: string;
 }
-const installed = new WeakMap<HistoryAdmission, If6bAdmission>();
+const if6bPolicy = Symbol("IF-6b fixture admission");
+type Registered = HistoryAdmission & { readonly [if6bPolicy]?: If6bAdmission };
 
 /** Only a constructed fixture admission with a separate replay identity can install the draft route. */
 export function installIf6b<T extends HistoryAdmission>(admission: T, policy: If6bAdmission): T {
   if (!admission.historyVerificationId?.endsWith("+" + IF6B_POLICY))
     throw new Error("IF-6b needs its own historical verifier identity");
-  installed.set(
-    admission,
-    Object.freeze({ ...policy, ownerVerifiers: Object.freeze([...policy.ownerVerifiers]) }),
-  );
-  return admission;
+  return Object.assign(admission, {
+    [if6bPolicy]: Object.freeze({
+      ...policy,
+      ownerVerifiers: Object.freeze([...policy.ownerVerifiers]),
+    }),
+  });
 }
 
 export function if6bAdmissionOf(admission: HistoryAdmission | undefined) {
-  return admission && installed.get(admission);
+  return (admission as Registered | undefined)?.[if6bPolicy];
 }
 
 export interface If6bCommittedStage {
