@@ -274,6 +274,119 @@ describe("P7-03 executable evaluator [mechanism only, internal candidate fixture
   });
 });
 
+describe("incomparable clocks: a reading on another clock is never ordered, picked or defaulted [mechanism only] (BLUE review F-1 of f189f1d)", () => {
+  const writeFree = () => {
+    const store = base.s.campaign.store;
+    const before = { head: store.head(), facts: store.listFacts().length };
+    return () => expect({ head: store.head(), facts: store.listFacts().length }).toEqual(before);
+  };
+  const expectPrivateRefusal = (r: EarliestChoiceResult): void => {
+    expect(r.result).toBe("NOT_PROVEN");
+    expect(codes(r)).toContain("CLOCK_UNIT_MISMATCH");
+    expect(r).toMatchObject({ certified: false, writes: [], visibility: "PRIVATE_INTERNAL" });
+    // the refusal discloses nothing outward: the only GM/player-facing projection is the constant
+    expect(JSON.stringify(gmFacingProjection(r))).toBe(
+      '{"kind":"WITHHELD_PENDING_PROTECTED_RESULT"}',
+    );
+    expect("instant" in r).toBe(false);
+  };
+
+  it("a first option read on a different unit is NOT_PROVEN with a coded reason, not a guessed instant, an ordering or AT; the same-unit twin is still a positive", () => {
+    const unchanged = writeFree();
+    const foreign = evaluateEarliestChoice(
+      inputOf(base),
+      evalCtx(base, { firstOptionAuthority: fixtureFirstOption(0, "another-clock") }),
+    );
+    expectPrivateRefusal(foreign);
+    expect(details(foreign).some((d) => d.startsWith("CLOCK_UNIT_MISMATCH:"))).toBe(true);
+    // the discriminating variable is the unit alone: same value path, same authority, same evidence
+    const same = evaluateEarliestChoice(
+      inputOf(base),
+      evalCtx(base, { firstOptionAuthority: fixtureFirstOption(0) }),
+    );
+    expect(same.result).toBe("CANDIDATE_EARLIEST_CHOICE");
+    unchanged();
+  });
+
+  it("the same refusal holds whatever the foreign value is (earlier, equal or later than the knowledge time and the target would each have passed a defaulted comparison)", () => {
+    for (const lag of [-30, 0, 7, 500]) {
+      const r = evaluateEarliestChoice(
+        inputOf(base),
+        evalCtx(base, { firstOptionAuthority: fixtureFirstOption(lag, "another-clock") }),
+      );
+      expectPrivateRefusal(r);
+    }
+  });
+
+  it("an active-boundary-index entry on another clock than the window is not silently skipped: the omission and same-instant checks cannot be bypassed that way", () => {
+    const unchanged = writeFree();
+    const indexKey = "temporal/boundary-index";
+    const recast: typeof base.ledger = {
+      get: (k) => {
+        const f = base.ledger.get(k);
+        if (k !== indexKey || f === undefined) return f;
+        const v = f.value as {
+          entries: {
+            object_id: string;
+            boundary_id: string;
+            at: { unit: string; value: number };
+          }[];
+        };
+        return {
+          ...f,
+          value: {
+            entries: v.entries.map((e) => ({
+              ...e,
+              at: { unit: "another-clock", value: e.at.value },
+            })),
+          },
+        };
+      },
+    };
+    const r = evaluateEarliestChoice(inputOf(base), evalCtx(base, { ledger: recast }));
+    expectPrivateRefusal(r);
+    // the untouched index is the twin: the same evidence is a candidate
+    expect(evaluateEarliestChoice(inputOf(base), evalCtx(base)).result).toBe(
+      "CANDIDATE_EARLIEST_CHOICE",
+    );
+    unchanged();
+  });
+
+  it("a forged but self-consistent access event on another clock than its own packet boundary is refused, not ordered (labelled forged fixture)", () => {
+    const unchanged = writeFree();
+    const real = base.eventFact;
+    const forged = {
+      ...real,
+      value: { ...(real.value as object), established_at: { unit: "another-clock", value: 100 } },
+    };
+    const ledger: typeof base.ledger = {
+      get: (k) => (k === real.key ? forged : base.ledger.get(k)),
+    };
+    const r = evaluateEarliestChoice(
+      inputOf(base, {
+        candidates: [{ event: refOf(forged), packet_object: refOf(base.objectFact) }],
+      }),
+      evalCtx(base, { ledger }),
+    );
+    expectPrivateRefusal(r);
+    unchanged();
+  });
+
+  it("a window on another clock than the due boundary is refused (existing behaviour kept)", () => {
+    const r = evaluateEarliestChoice(
+      inputOf(base, {
+        window: {
+          from: { unit: "another-clock", value: 100 },
+          to: { unit: "another-clock", value: 200 },
+        },
+      }),
+      evalCtx(base),
+    );
+    expect(r.result).toBe("NOT_PROVEN");
+    expect(codes(r)).toContain("EVENT_NOT_IN_WINDOW");
+  });
+});
+
 describe("P7-02 a member is not certified from a document, a source reference or a matched digest [mechanism only]", () => {
   const closedAfter = (mutate: (c: ReturnType<typeof certsFor>) => unknown[]) => {
     const r = checkSection10(ctxOf(base, { certificates: mutate(certsFor(base)) }));

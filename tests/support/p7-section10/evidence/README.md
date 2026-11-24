@@ -24,7 +24,7 @@ Everything lives in **one new directory**, `tests/support/p7-section10/`, plus t
 | `tests/support/p7-section10/fixtures.ts`           | fixtures, including three LABELLED test-double authorities                                                                                                              |
 | `tests/support/p7-section10/evidence/`             | this report and `gap-report.json` (the production-default gap report)                                                                                                   |
 | `tests/conformance/p7-section10-proof.test.ts`     | P7-01, 10–16 against the real manifest, census and sources (18 tests)                                                                                                   |
-| `tests/integration/p7-section10-evaluator.test.ts` | P7-02…09, 14 against real in-memory campaigns built through the original owner adapters (27 tests)                                                                      |
+| `tests/integration/p7-section10-evaluator.test.ts` | P7-02…09, 14 against real in-memory campaigns built through the original owner adapters (32 tests)                                                                      |
 
 ## 2. Material finding for BLUE: the suggested file locations collide with two existing locks
 
@@ -132,3 +132,20 @@ pnpm exec vitest run tests/conformance/p7-section10-proof.test.ts tests/integrat
 node --disable-warning=ExperimentalWarning --experimental-strip-types tests/support/p7-section10/audit.ts --out gap-report.canonical.json
 pnpm run ci
 ```
+
+## 11. BLUE review F-1 repair (same PR; review object `f189f1d90b85d141866f41dd29207b8ce35b0322`)
+
+**Defect (confirmed, and reproduced before the fix).** `compareTime` returns `null` for different clock units. In `evaluator.ts` a helper turned `null` into `NaN`, `laterOf` then silently selected the first option's instant, the after-target guard did not reject `null`, and the relation to the owner event was defaulted to `AT` through `?? 0`. A first-option authority answering on another clock could therefore yield a spurious `CANDIDATE_EARLIEST_CHOICE`. I wrote the negative twins first and ran them against the unrepaired code: **three failed with a spurious `CANDIDATE_EARLIEST_CHOICE`**.
+
+**Repair delta (one file of logic: `tests/support/p7-section10/evaluator.ts`, plus one coded reason in `proof.ts`).**
+
+- `laterOf` now returns `null` for an incomparable pair; `cmpTime` and every `?? 0` / `NaN` fallback are removed. No instant is guessed, ordered or defaulted.
+- New coded reason `CLOCK_UNIT_MISMATCH` (private `NOT_PROVEN`). Applied at each time comparison on the path: knowledge time (access basis vs packet boundary), first-option instant vs knowledge time, choice instant vs target, earliest vs the other candidates, and the relation to the owner event.
+- **Nearby null-fallback found by the review of neighbours:** an active-boundary-index entry on another clock than the window was skipped silently, which disabled the candidate-omission and same-instant checks. It now refuses. The same hole existed for the same-instant test against the owner event.
+- `proof.ts`: a packet boundary and an access basis on different clocks now report `CLOCK_UNIT_MISMATCH` instead of being folded into `PACKET_PRECEDES_ACCESS`.
+
+**New tests (5, integration, using the existing positive original-owner scene).** A foreign-unit `AVAILABLE_AT` is `NOT_PROVEN`; the same-unit twin still yields the positive. A foreign value that is earlier, equal, later and far beyond the target (−30, 0, +7, +500) is refused each time. An index recast onto another clock is refused. A forged but self-consistent access event on another clock than its own packet boundary is refused. Each asserts `certified: false`, `writes: []`, `visibility: PRIVATE_INTERNAL`, no `instant` field, the constant GM/player projection, and an unchanged journal head and fact count. The pre-existing "window on another clock" refusal is kept as a test.
+
+**Mutation probe of the repair.** The guards are layered, so each one alone is redundant by design. Removing a single layer survives, because a backstop still refuses; removing the whole first-option layers together is killed (2 failures), the whole packet/access layers together is killed (1 failure), and restoring the silent index skip is killed (1 failure). I had said one backstop was unreachable; with the upstream layers removed it is reachable, and I corrected that here.
+
+**Unchanged and not touched:** the catalogue digest, the earlier slices' path locks, #140, #141, the five source sentinels. The later-of knowledge-time computation remains an internal conservative candidate; its exact positive integration stays source-fidelity-gated, as BLUE's source note says.

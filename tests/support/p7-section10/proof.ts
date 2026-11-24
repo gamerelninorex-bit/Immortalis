@@ -270,6 +270,7 @@ export const REASON_CODES = [
   "WRONG_RECIPIENT",
   "RECEIPT_NOT_DERIVABLE",
   "PACKET_PRECEDES_ACCESS",
+  "CLOCK_UNIT_MISMATCH",
   "DECLARATION_MISMATCH",
   // ability / first option / twins / history
   "ABILITY_UNKNOWN",
@@ -1053,7 +1054,9 @@ function knowledgeResult(
   // false` literal of the object is NOT latency evidence: an object without an earned boundary has no latency path to read.
   const boundary = w.object.next_boundary;
   if (boundary === null) return open(o, "LATENCY_LITERAL_NOT_PROOF", w.ref.key);
-  if (k.established_at.unit !== boundary.at.unit || boundary.at.value < k.established_at.value)
+  if (k.established_at.unit !== boundary.at.unit)
+    return open(o, "CLOCK_UNIT_MISMATCH", k.event_key);
+  if (boundary.at.value < k.established_at.value)
     return open(o, "PACKET_PRECEDES_ACCESS", k.event_key);
   return closedResult(o);
 }

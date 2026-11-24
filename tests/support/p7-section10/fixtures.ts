@@ -98,8 +98,11 @@ export const fixtureAbility = (state: AbilityReading["state"]): AbilityAuthority
   fixture: true,
   read: () => ({ authority_id: FIXTURE_ABILITY_ID, fixture: true, state }),
 });
-/** the PC can act `lag` coordinate units after it knows (0 = at once); `null` proves nothing */
-export const fixtureFirstOption = (lag: number | null): FirstOptionAuthority => ({
+/**
+ * The PC can act `lag` coordinate units after it knows (0 = at once); `null` proves nothing. `unit` makes the reading come from ANOTHER
+ * clock (an incomparable coordinate), which a correct evaluator must refuse rather than order.
+ */
+export const fixtureFirstOption = (lag: number | null, unit?: string): FirstOptionAuthority => ({
   id: FIXTURE_FIRST_OPTION_ID,
   fixture: true,
   read(q): FirstOptionReading {
@@ -109,7 +112,7 @@ export const fixtureFirstOption = (lag: number | null): FirstOptionAuthority => 
           authority_id: FIXTURE_FIRST_OPTION_ID,
           fixture: true,
           state: "AVAILABLE_AT",
-          at: { unit: q.at.unit, value: q.at.value + lag },
+          at: { unit: unit ?? q.at.unit, value: q.at.value + lag },
         };
   },
 });

@@ -76,6 +76,8 @@ export const EVALUATOR_REASONS = [
   "STANDING_POLICY_UNKNOWN",
   "STANDING_POLICY_REQUIRES_ADJUDICATION",
   "EARLIER_CHOICE_NOT_EXCLUDED",
+  /** two instants that must be ordered are on different clocks (opaque units): never ordered, picked or defaulted */
+  "CLOCK_UNIT_MISMATCH",
 ] as const;
 export type EvaluatorReason = (typeof EVALUATOR_REASONS)[number];
 
@@ -171,8 +173,15 @@ const notProven = (
   reasons,
 });
 
-const cmpTime = (a: CanonicalTime, b: CanonicalTime): number => compareTime(a, b) ?? Number.NaN;
-const laterOf = (a: CanonicalTime, b: CanonicalTime): CanonicalTime => (cmpTime(a, b) >= 0 ? a : b);
+/**
+ * The later of two instants on ONE clock, or null when the clocks differ. `compareTime` answers null for different units (the coordinate
+ * is opaque: no calendar or unit conversion exists), so an incomparable pair is never ordered, never picked and never defaulted: every
+ * caller turns null into a coded private refusal.
+ */
+const laterOf = (a: CanonicalTime, b: CanonicalTime): CanonicalTime | null => {
+  const c = compareTime(a, b);
+  return c === null ? null : c >= 0 ? a : b;
+};
 
 /** Every produced fact key a stage declares, and every key it reads (for the causal-precedence test of Temporal section 15). */
 function producedKeys(o: TemporalObject): Set<string> {
@@ -279,8 +288,20 @@ export function evaluateEarliestChoice(
     );
     // a packet cannot form before the access it renders was established; knowledge time is the later of the two
     const order = compareTime(P, k.established_at);
-    if (order === null || order === -1) {
+    if (order === null) {
+      refuse(
+        "CLOCK_UNIT_MISMATCH",
+        `${c.event.key}: packet boundary and access basis on different clocks`,
+      );
+      continue;
+    }
+    if (order === -1) {
       refuse("PACKET_PRECEDES_ACCESS", c.event.key);
+      continue;
+    }
+    const K = laterOf(k.established_at, P);
+    if (K === null) {
+      refuse("CLOCK_UNIT_MISMATCH", `${c.event.key}: knowledge time is not on one clock`);
       continue;
     }
     const channel = (eventFact.value as { channel: "PERCEPTION" | "SPEECH" }).channel;
@@ -288,7 +309,7 @@ export function evaluateEarliestChoice(
       event_key: k.event_key,
       E: k.established_at,
       P,
-      K: laterOf(k.established_at, P),
+      K,
       channel,
     });
   }
@@ -310,7 +331,16 @@ export function evaluateEarliestChoice(
     for (const e of indexParsed.data.entries) {
       const afterFromE = compareTime(w.from, e.at);
       const beforeToE = compareTime(e.at, w.to);
-      if (afterFromE !== -1 || beforeToE === null || beforeToE === 1) continue;
+      if (afterFromE === null || beforeToE === null) {
+        // the active index is on another clock than the window: its entries can be neither placed in the window nor excluded from it, so
+        // the omission and same-instant checks cannot run. They are never skipped silently: the whole evaluation is unknown.
+        refuse(
+          "CLOCK_UNIT_MISMATCH",
+          `boundary index entry ${e.object_id} is on another clock than the window`,
+        );
+        break;
+      }
+      if (afterFromE !== -1 || beforeToE === 1) continue;
       const isDue = e.object_id === due.object_id;
       const other = isDue ? undefined : ctx.ledger.get(temporalObjectKey(e.object_id));
       const otherParsed =
@@ -326,7 +356,15 @@ export function evaluateEarliestChoice(
         if (target !== null && !named.has(accessEventKey(target.eventId)))
           refuse("CANDIDATE_OMITTED", accessEventKey(target.eventId));
       }
-      if (isDue || compareTime(e.at, I) !== 0 || packetObjects.includes(e.object_id)) continue;
+      const atI = compareTime(e.at, I);
+      if (atI === null) {
+        refuse(
+          "CLOCK_UNIT_MISMATCH",
+          `boundary index entry ${e.object_id} is on another clock than the owner event`,
+        );
+        continue;
+      }
+      if (isDue || atI !== 0 || packetObjects.includes(e.object_id)) continue;
       const ordered =
         intersects(producedKeys(due), readKeys(entryObject)) ||
         intersects(producedKeys(entryObject), readKeys(due));
@@ -365,7 +403,23 @@ export function evaluateEarliestChoice(
       continue;
     }
     const A = laterOf(c.K, f.at);
-    if (compareTime(A, w.to) === 1) {
+    if (A === null) {
+      // the first-option authority answered on another clock than the PC's knowledge time: no instant is guessed from it
+      refuse(
+        "CLOCK_UNIT_MISMATCH",
+        `${c.event_key}: first option on a different clock via ${f.authority_id}`,
+      );
+      continue;
+    }
+    const againstTarget = compareTime(A, w.to);
+    if (againstTarget === null) {
+      refuse(
+        "CLOCK_UNIT_MISMATCH",
+        `${c.event_key}: choice instant and target on different clocks`,
+      );
+      continue;
+    }
+    if (againstTarget === 1) {
       refuse("FIRST_OPTION_AFTER_TARGET", c.event_key);
       continue;
     }
@@ -415,7 +469,27 @@ export function evaluateEarliestChoice(
   } as const;
   if (actionable.length === 0)
     return { ...base, result: "CANDIDATE_NO_ACTIONABLE_KNOWLEDGE", instant: I };
-  const earliest = actionable.reduce((a, b) => (cmpTime(b.A, a.A) < 0 ? b : a));
+  let earliest = actionable[0]!;
+  for (const x of actionable.slice(1)) {
+    const c = compareTime(x.A, earliest.A);
+    if (c === null)
+      return notProven(
+        [{ code: "CLOCK_UNIT_MISMATCH", detail: "candidate choice instants on different clocks" }],
+        fixture,
+      );
+    if (c === -1) earliest = x;
+  }
+  const relation = compareTime(earliest.A, I);
+  if (relation === null)
+    return notProven(
+      [
+        {
+          code: "CLOCK_UNIT_MISMATCH",
+          detail: "earliest choice and owner event on different clocks",
+        },
+      ],
+      fixture,
+    );
   return {
     ...base,
     result: "CANDIDATE_EARLIEST_CHOICE",
@@ -428,9 +502,7 @@ export function evaluateEarliestChoice(
       comprehension: "NOT_EVALUATED_GM_WRITE_ONCE_VERDICT_REQUIRED",
       first_option_at: earliest.F,
       event_key: earliest.event_key,
-      relation_to_owner_event: (["BEFORE", "AT", "AFTER"] as const)[
-        (compareTime(earliest.A, I) ?? 0) + 1
-      ]!,
+      relation_to_owner_event: (["BEFORE", "AT", "AFTER"] as const)[relation + 1]!,
     },
   };
 }
