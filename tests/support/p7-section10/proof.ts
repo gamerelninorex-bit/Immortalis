@@ -285,6 +285,9 @@ export const REASON_CODES = [
   "ROUTE_ATTRIBUTION_NOT_DEFINED",
   "EXTENSION_HISTORY_SKIPPED_IN_SOURCE",
   "AUTHORITY_READING_MISMATCH",
+  // P7-E1: the native receipt witness for the DIRECT_OBSERVATION route. Diagnostic only, never a canonical classification.
+  "NATIVE_RECEIPT_EVIDENCE_ABSENT",
+  "NATIVE_RECEIPT_NOT_PROVEN",
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 
@@ -454,6 +457,23 @@ export const NO_RETIRED_HISTORY: HistoryReader = Object.freeze({
   verifiesSegment: () => false,
 });
 
+/**
+ * P7-E1: what a DIRECT_OBSERVATION receipt must additionally rest on. A receipt that a derivation COULD produce from a committed event is
+ * not the receipt the owner actually COMMITTED. The witness is a test-local, read-only view of an actual campaign journal at one named cut
+ * (the real implementation lives beside the E1 tests and takes only the store's read methods); it returns a diagnostic code and detail
+ * on refusal. The code is a test diagnostic and never a canonical classification. Absent witness: the route never closes.
+ */
+export interface NativeObservationVerdict {
+  readonly ok: boolean;
+  /** diagnostic only */
+  readonly code: string;
+  readonly detail: string;
+}
+export interface NativeObservationWitness {
+  readonly id: string;
+  verify(q: { readonly event: OwnerFact; readonly pc_id: string }): NativeObservationVerdict;
+}
+
 export interface CheckerContext {
   /** the presented manifest (any value; it is parsed and validated here, never trusted) */
   readonly manifest: unknown;
@@ -469,6 +489,8 @@ export interface CheckerContext {
   readonly abilityAuthority?: AbilityAuthority;
   readonly firstOptionAuthority?: FirstOptionAuthority;
   readonly history?: HistoryReader;
+  /** the native journal witness the DIRECT_OBSERVATION route requires (P7-E1); absent, that route never closes */
+  readonly nativeObservation?: NativeObservationWitness;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1036,8 +1058,14 @@ function knowledgeResult(
   if (route === "DIRECT_OBSERVATION") {
     const k = readCandidateKnowledge(env.m, env.ctx.ledger, eventRef, pcId, null);
     if (!k.ok) return open(o, k.reason, k.detail);
-    if (!isObservationEarnedFact(env.ctx.ledger.get(eventRef.key)!))
+    const eventFact = env.ctx.ledger.get(eventRef.key)!;
+    if (!isObservationEarnedFact(eventFact))
       return open(o, "EVENT_NOT_OBSERVATION_EARNED", eventRef.key);
+    // P7-E1: derivable is not committed. The route closes only when the actual journal shows the receipt the owner committed.
+    const witness = env.ctx.nativeObservation;
+    if (witness === undefined) return open(o, "NATIVE_RECEIPT_EVIDENCE_ABSENT", eventRef.key);
+    const native = witness.verify({ event: eventFact, pc_id: pcId });
+    if (!native.ok) return open(o, "NATIVE_RECEIPT_NOT_PROVEN", `${native.code}: ${native.detail}`);
     return closedResult(o);
   }
   const w = temporalWitness(env, evidence);
