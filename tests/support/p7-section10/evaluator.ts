@@ -18,7 +18,7 @@ import {
   verifySuppliedDigest,
   type DigestAuthority,
   type GmWaitCatalogueManifestV2,
-} from "../../packages/engine/src/gm-wait-catalogue.ts";
+} from "../../../packages/engine/src/gm-wait-catalogue.ts";
 import {
   NEGATIVE_TWIN_CLASSES,
   NO_HEALTH_OWNER_AUTHORITY,
@@ -37,7 +37,7 @@ import {
 import {
   isObservationEarnedFact,
   packetOfKey,
-} from "../../packages/engine/src/epistemic/declaration.ts";
+} from "../../../packages/engine/src/epistemic/declaration.ts";
 
 /**
  * F-014B P-7 E0 - the pure internal candidate evaluator of the earliest genuine PC choice and the PC's actual knowledge time

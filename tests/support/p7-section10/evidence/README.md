@@ -14,23 +14,29 @@
 
 ## 1. What was built (all additive; no existing file is modified)
 
+Everything lives in **one new directory**, `tests/support/p7-section10/`, plus two new test files (the reason is §2).
+
 | File                                               | Role                                                                                                                                                                    |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tools/gm-wait-section10/proof.ts`                 | per-member proof/certificate checker; all-enrolled member enumeration; coverage/gap report; closed table of governing sources at exact pins; integration-seam statement |
-| `tools/gm-wait-section10/evaluator.ts`             | pure internal candidate evaluator of the earliest genuine PC choice and the PC's knowledge time; the constant GM/player-facing projection                               |
-| `tools/audit-gm-wait-section10.ts`                 | optional build-time audit runner (read-only): prints the production-default gap report                                                                                  |
+| `tests/support/p7-section10/proof.ts`              | per-member proof/certificate checker; all-enrolled member enumeration; coverage/gap report; closed table of governing sources at exact pins; integration-seam statement |
+| `tests/support/p7-section10/evaluator.ts`          | pure internal candidate evaluator of the earliest genuine PC choice and the PC's knowledge time; the constant GM/player-facing projection                               |
+| `tests/support/p7-section10/audit.ts`              | optional build-time audit runner (read-only): prints the production-default gap report                                                                                  |
+| `tests/support/p7-section10/fixtures.ts`           | fixtures, including three LABELLED test-double authorities                                                                                                              |
+| `tests/support/p7-section10/evidence/`             | this report and `gap-report.json` (the production-default gap report)                                                                                                   |
 | `tests/conformance/p7-section10-proof.test.ts`     | P7-01, 10–16 against the real manifest, census and sources (18 tests)                                                                                                   |
 | `tests/integration/p7-section10-evaluator.test.ts` | P7-02…09, 14 against real in-memory campaigns built through the original owner adapters (27 tests)                                                                      |
-| `tests/support/p7-section10.ts`                    | fixtures, including three LABELLED test-double authorities                                                                                                              |
-| `docs/evidence/f014b-p7/`                          | this report and `gap-report.json` (the production-default gap report)                                                                                                   |
 
-## 2. Material finding for BLUE: module location
+## 2. Material finding for BLUE: the suggested file locations collide with two existing locks
 
-The brief suggests `packages/engine/src/gm-wait-section10-proof.ts`. That path cannot be used without a shared-surface edit. The catalogue's `policy.source_policy.files` fingerprints **every `.ts` file under `apps`, `packages/contracts/src`, `packages/engine/src`, `packages/operator/src` and `packages/protocol/src`**. A new module there changes the catalogue digest. I observed `SOURCE_POLICY_CHANGED` for each new file and `generate().digest ≠ 7707ff8e…`. The fix would force regeneration of `gm-wait-catalogue-current.ts` and a new manifest, which are the exact files the order forbids touching and which #140 and #141 both change.
+The brief suggests `packages/engine/src/gm-wait-section10-proof.ts`, `tests/…` and `docs/evidence/f014b-p7/`. Two independent mechanisms already in the repository refuse those placements. Neither can be satisfied without editing a surface the order forbids, so I placed everything under `tests/support/p7-section10/`. Please confirm or direct otherwise.
 
-The brief says "such as", so the modules live under `tools/gm-wait-section10/`. That path is outside every AST root and is still typechecked and linted. Verified: the generator reproduces the current digest and bytes exactly (also asserted in `p7-section10-proof.test.ts`).
+**(A) The catalogue digest fingerprints every source file.** `policy.source_policy.files` hashes every `.ts` under `apps`, `packages/contracts/src`, `packages/engine/src`, `packages/operator/src` and `packages/protocol/src`. A new module there changes the catalogue digest (observed: `SOURCE_POLICY_CHANGED` per new file, `generate().digest ≠ 7707ff8e…`). That forces regeneration of `gm-wait-catalogue-current.ts` and a new manifest, the exact files the order forbids touching and which #140 and #141 both change.
 
-Consequence for the later integration PR, not this one: a production consumer under `packages/engine/src` will correctly enter the source-policy fingerprint and change the digest. That is the catalogue working as designed, and that PR regenerates the manifest under its own authority. No scope amendment is needed for P7-E0; I am recording the choice so BLUE can disagree.
+**(B) Earlier slices pin their changed-path sets in conformance tests.** I first placed the modules under `tools/` and the report under `docs/evidence/f014b-p7/` (outside the AST roots, so (A) did not apply). The full local `pnpm run ci` then failed six existing scope-lock tests in `a0-scope`, `b1-s1-scope`, `b1-s2s3-scope` and `b2-scope`, each showing exactly my new `tools/…` and `docs/…` files as undeclared. By repository convention a later slice declares its own paths by **editing those earlier tests and their `*-scoped-deltas.ts` support files**. The order forbids editing existing conformance snapshots, and P7-15 requires them to pass unmodified. Those locks explicitly exempt `tests/` (`!p.startsWith("tests/")`).
+
+So all new files are under `tests/`, in one directory. Verified: the generator reproduces the current digest and bytes exactly (asserted in `p7-section10-proof.test.ts`), and no existing test file or support file is touched.
+
+**Consequence for the later integration PR (not this one):** production code under `packages/engine/src` will correctly enter the source-policy fingerprint and change the digest, and it will need its own scope-lock declarations. That is how the repository is designed, and that PR does it under its own authority. A scope amendment from BLUE would let a later PR move these files; P7-E0 itself needs none.
 
 ## 3. Source-fidelity account
 
@@ -93,14 +99,14 @@ All results are T1 (scripted/host-neutral mechanism, real in-memory owners). "PA
 - **Reuse:** the catalogue's own verifier (`verifySuppliedDigest`, `catalogueDigest`, `validateManifest`, `catalogueCoverageViolations`), the Epistemic owner's `deriveAccessProducts` and `epistemicPacketDeclaration`, `TemporalObjectSchema`, `BoundaryIndexSchema`. No parallel owner, store, scheduler or ledger.
 - **Whole-operation cost (Node 22.22.2, 4 vCPU container, measured with no other load):** the existing census (`buildCensus`) takes ≈2.5 s once; `buildSection10Report` over the real 383 KB manifest, 247 members, with the census prebuilt, takes a median 14.9 ms (min 12.6, max 48.0; 25 runs); the report is 42,991 canonical bytes, deterministic across runs (SHA-256 `8f610e9f2a998e0cff5d6cf351d991fe3e586bc03f55d3864b03aef1079b2329`). **T0 is untouched:** nothing here is called by any production path.
 - **Evaluator work counter:** per evaluation it reads the supplied evidence keys, the single boundary-index fact and the index entries _inside the window_. A test registers 12 unrelated engaged objects beyond the target and asserts the **same number and the same set of ledger reads**. Growth that remains: parsing the one boundary-index fact is O(active entries). That is the kernel's own structure and is not changed here.
-- **Provisional limits and reconsideration triggers:** (a) the three test-double authorities, until the Health owner, a retired first-option owner and per-segment history exist; (b) the witness-based checker, until the later evaluator acceptance defines inapplicability evidence; (c) the module location, until it is integrated under `packages/engine/src`.
+- **Provisional limits and reconsideration triggers:** (a) the three test-double authorities, until the Health owner, a retired first-option owner and per-segment history exist; (b) the witness-based checker, until the later evaluator acceptance defines inapplicability evidence; (c) the module location under `tests/`, until it is integrated under `packages/engine/src` with its own digest regeneration and scope-lock declarations.
 - **Boundary:** mechanism only. T2 (genuine AI GM), T3 (named client) and retained restart are **UNRUN** and not claimed.
 
 ## 7. Changed-file boundary and concurrency (P7-13)
 
-Only new files are added (the seven in §1). No existing file is modified. In particular **untouched:** `packages/engine/src/gm-wait-catalogue-current.ts`, every manifest, `tools/gen-gm-wait-catalogue.ts`, `packages/engine/src/gm-wait-catalogue.ts`, `gm-wait-custody.ts`, the owner registry and every owner/Temporal writer, existing conformance snapshots, `apps/phone`, and the #140 / #141 branches. The five source sentinels are read and reported, never changed.
+Only new files are added (the files in §1; the earlier commit on this branch placed some under `tools/` and `docs/`, and the next commit moved them: see §2(B)). No existing file is modified. In particular **untouched:** `packages/engine/src/gm-wait-catalogue-current.ts`, every manifest, `tools/gen-gm-wait-catalogue.ts`, `packages/engine/src/gm-wait-catalogue.ts`, `gm-wait-custody.ts`, the owner registry and every owner/Temporal writer, existing conformance snapshots, `apps/phone`, and the #140 / #141 branches. The five source sentinels are read and reported, never changed.
 
-Rebase plan after #140 / #141 merge: nothing in this PR names a catalogue count or digest literal other than the archive digest `f3393ad4…` (stable). The tests read the current digest from `GM_WAIT_CATALOGUE_CURRENT_SHA256`. Re-run `pnpm run ci`, then re-run `node --disable-warning=ExperimentalWarning --experimental-strip-types tools/audit-gm-wait-section10.ts --out <file>`. New B3 kinds and providers enter as new, uncertified, `NOT_PROVEN` members automatically, and `gap-report.json` here is then historical for digest `7707ff8e…`.
+Rebase plan after #140 / #141 merge: nothing in this PR names a catalogue count or digest literal other than the archive digest `f3393ad4…` (stable). The tests read the current digest from `GM_WAIT_CATALOGUE_CURRENT_SHA256`. Re-run `pnpm run ci`, then re-run `node --disable-warning=ExperimentalWarning --experimental-strip-types tests/support/p7-section10/audit.ts --out <file>`. New B3 kinds and providers enter as new, uncertified, `NOT_PROVEN` members automatically, and `gap-report.json` here is then historical for digest `7707ff8e…`.
 
 ## 8. The later integration seam (not installed; not reachable from this PR)
 
@@ -123,6 +129,6 @@ node --version                                   # v22.22.2
 pnpm install --frozen-lockfile
 node --disable-warning=ExperimentalWarning --experimental-strip-types tools/gen-gm-wait-catalogue.ts --check
 pnpm exec vitest run tests/conformance/p7-section10-proof.test.ts tests/integration/p7-section10-evaluator.test.ts
-node --disable-warning=ExperimentalWarning --experimental-strip-types tools/audit-gm-wait-section10.ts --out gap-report.canonical.json
+node --disable-warning=ExperimentalWarning --experimental-strip-types tests/support/p7-section10/audit.ts --out gap-report.canonical.json
 pnpm run ci
 ```

@@ -39,14 +39,14 @@ import {
   type EarliestChoiceInput,
   type EarliestChoiceResult,
   type EvaluatorContext,
-} from "../../tools/gm-wait-section10/evaluator.ts";
+} from "../support/p7-section10/evaluator.ts";
 import {
   NO_HEALTH_OWNER_AUTHORITY,
   checkSection10,
   refOf,
   type EvidenceRef,
   type ReportInput,
-} from "../../tools/gm-wait-section10/proof.ts";
+} from "../support/p7-section10/proof.ts";
 import { must } from "../support/temporal.ts";
 import { tempDir } from "../support/tmp.ts";
 import {
@@ -74,7 +74,7 @@ import {
   spyLedger,
   twinRefs,
   type Scene,
-} from "../support/p7-section10.ts";
+} from "../support/p7-section10/fixtures.ts";
 
 // A bare second campaign: the separately committed history in which none of the scene's facts exist (the negative-history twin).
 const twinCampaign = await seededEpistemicCampaign(tempDir());

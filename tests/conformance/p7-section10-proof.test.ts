@@ -29,7 +29,7 @@ import {
   buildSection10Report,
   type ReportInput,
   type Section10Report,
-} from "../../tools/gm-wait-section10/proof.ts";
+} from "../support/p7-section10/proof.ts";
 import {
   AST_ROOTS,
   MANIFEST_DIR,
@@ -327,7 +327,8 @@ describe("P7-12 no promotion: the five source sentinels are read and reported, n
 });
 
 describe("P7-13 / P7-14 boundary: additive, non-writing and outside every shared surface [mechanism only]", () => {
-  const modules = ["tools/gm-wait-section10/proof.ts", "tools/gm-wait-section10/evaluator.ts"];
+  const dir = "tests/support/p7-section10";
+  const modules = [`${dir}/proof.ts`, `${dir}/evaluator.ts`];
   const importsOf = (path: string): string[] => {
     const sf = ts.createSourceFile(path, text(path), ts.ScriptTarget.ES2023, true);
     const out: string[] = [];
@@ -341,10 +342,10 @@ describe("P7-13 / P7-14 boundary: additive, non-writing and outside every shared
   it("[P7] [mechanism only] the modules import only read-only contracts, the catalogue verifier, the hash helper and two pure Epistemic derivations - no writer, store, custody, registry, host or filesystem", () => {
     const allowed = new Set([
       "@immortalis/contracts",
-      "../../packages/engine/src/hash.ts",
-      "../../packages/engine/src/gm-wait-catalogue.ts",
-      "../../packages/engine/src/epistemic/derive.ts",
-      "../../packages/engine/src/epistemic/declaration.ts",
+      "../../../packages/engine/src/hash.ts",
+      "../../../packages/engine/src/gm-wait-catalogue.ts",
+      "../../../packages/engine/src/epistemic/derive.ts",
+      "../../../packages/engine/src/epistemic/declaration.ts",
       "./proof.ts",
     ]);
     for (const m of modules) {
@@ -396,16 +397,19 @@ describe("P7-13 / P7-14 boundary: additive, non-writing and outside every shared
   });
 
   it("[P7] [mechanism only] the modules are outside every catalogue AST root and are not exported from the package index, so no shared digest or public surface moves", () => {
-    for (const m of [...modules, "tools/audit-gm-wait-section10.ts"])
+    for (const m of [...modules, `${dir}/audit.ts`, `${dir}/fixtures.ts`]) {
       expect(
         AST_ROOTS.some((r) => m.startsWith(`${r}/`)),
         m,
       ).toBe(false);
+      // and under tests/, the one tree the earlier slices' path-lock suites exempt: none of those locked suites is edited or tripped
+      expect(m.startsWith("tests/"), m).toBe(true);
+    }
     expect(text("packages/engine/src/index.ts")).not.toMatch(/section10|gm-wait-section10/);
   });
 
   it("[P7] [mechanism only] a PROOF_CLOSED_CANDIDATE verdict cannot be forged: an object literal is not an issued verdict", async () => {
-    const { isIssuedProofClosed } = await import("../../tools/gm-wait-section10/proof.ts");
+    const { isIssuedProofClosed } = await import("../support/p7-section10/proof.ts");
     expect(
       isIssuedProofClosed({
         member: "PROVIDER:x|y",

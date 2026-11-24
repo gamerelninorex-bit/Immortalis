@@ -3,14 +3,14 @@
 // all-enrolled coverage / gap report for the PRODUCTION default - no certificate exists, so every member that needs one is NOT_PROVEN with its
 // reason. It writes nothing but the optional `--out` file, regenerates no digest, edits no manifest and installs nothing. Not a CI gate.
 //
-//   node --disable-warning=ExperimentalWarning --experimental-strip-types tools/audit-gm-wait-section10.ts [--out <file>]
+//   node --disable-warning=ExperimentalWarning --experimental-strip-types tests/support/p7-section10/audit.ts [--out <file>]
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson } from "@immortalis/contracts";
-import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../packages/engine/src/gm-wait-catalogue-current.ts";
-import { buildSection10Report, type Section10Report } from "./gm-wait-section10/proof.ts";
-import { MANIFEST_DIR, REPO_ROOT, buildCensus } from "./gen-gm-wait-catalogue.ts";
+import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../../packages/engine/src/gm-wait-catalogue-current.ts";
+import { buildSection10Report, type Section10Report } from "./proof.ts";
+import { MANIFEST_DIR, REPO_ROOT, buildCensus } from "../../../tools/gen-gm-wait-catalogue.ts";
 
 export async function auditProduction(): Promise<Section10Report> {
   const bytes = readFileSync(

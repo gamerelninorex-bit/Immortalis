@@ -11,7 +11,7 @@ import {
   type OwnerFact,
   type TemporalObject,
 } from "@immortalis/contracts";
-import { sha256Canonical, canonicalEqual } from "../../packages/engine/src/hash.ts";
+import { sha256Canonical, canonicalEqual } from "../../../packages/engine/src/hash.ts";
 import {
   GmWaitCatalogueManifestV2Schema,
   catalogueCoverageViolations,
@@ -22,16 +22,16 @@ import {
   type DigestAuthority,
   type DigestVerdict,
   type GmWaitCatalogueManifestV2,
-} from "../../packages/engine/src/gm-wait-catalogue.ts";
+} from "../../../packages/engine/src/gm-wait-catalogue.ts";
 import {
   deriveAccessProducts,
   requiredCapability,
   isBroadcastEvent,
-} from "../../packages/engine/src/epistemic/derive.ts";
+} from "../../../packages/engine/src/epistemic/derive.ts";
 import {
   epistemicPacketDeclaration,
   isObservationEarnedFact,
-} from "../../packages/engine/src/epistemic/declaration.ts";
+} from "../../../packages/engine/src/epistemic/declaration.ts";
 
 /**
  * F-014B P-7 E0 - the source-closed per-member proof checker and the all-enrolled coverage / gap report for the Temporal section 10
@@ -1582,7 +1582,7 @@ export const BOUNDARY_INDEX_KEY = TEMPORAL_BOUNDARY_INDEX_KEY;
  *     future verdict derives from `buildSection10Report().aggregate` and remains NOT_ACCEPTED until every member is proof-closed and
  *     the evaluator is integrated. This module adds no T0 read, scan or future-schedule index.
  *   Inside an OPEN X, at an owner due boundary I  - the protected Temporal coordinator, before it credits time or publishes an owner
- *     effect that would pass the earliest feasible PC option, calls `evaluateEarliestChoice` (tools/gm-wait-section10/evaluator.ts) on
+ *     effect that would pass the earliest feasible PC option, calls `evaluateEarliestChoice` (tests/support/p7-section10/evaluator.ts) on
  *     typed evidence read at the actual causal cut. Its only outputs are an internal private candidate; a non-actionable verdict still
  *     needs the GM's write-once verdict (Two-Blocker 8.1(3)) where comprehension, significance or standing-contingency discretion exists.
  *   Private pause / disclosed INTERRUPTED  - Two-Blocker 8.1(3)/(4) outcomes PAUSED and INTERRUPTED are written by their owner-bound

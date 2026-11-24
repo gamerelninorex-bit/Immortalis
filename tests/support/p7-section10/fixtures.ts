@@ -27,8 +27,8 @@ import {
   GmWaitCatalogueManifestV2Schema,
   type DigestAuthority,
   type GmWaitCatalogueManifestV2,
-} from "../../packages/engine/src/gm-wait-catalogue.ts";
-import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
+} from "../../../packages/engine/src/gm-wait-catalogue.ts";
+import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../../packages/engine/src/gm-wait-catalogue-current.ts";
 import {
   NEGATIVE_TWIN_CLASSES,
   P7_GOVERNING_SOURCES,
@@ -45,11 +45,11 @@ import {
   type Member,
   type MemberCertificate,
   type OwnerFactRef,
-} from "../../tools/gm-wait-section10/proof.ts";
-import { MANIFEST_DIR, REPO_ROOT } from "../../tools/gen-gm-wait-catalogue.ts";
-import { must } from "./temporal.ts";
-import { tempDir } from "./tmp.ts";
-import { seededEpistemicCampaign, type EpistemicSeeded } from "./epistemic.ts";
+} from "./proof.ts";
+import { MANIFEST_DIR, REPO_ROOT } from "../../../tools/gen-gm-wait-catalogue.ts";
+import { must } from "../temporal.ts";
+import { tempDir } from "../tmp.ts";
+import { seededEpistemicCampaign, type EpistemicSeeded } from "../epistemic.ts";
 
 export const PC = FIXTURE_PC_ID;
 export const PACKET_PROVIDER = "epistemic_access|epistemic-form-accessible-packet";
