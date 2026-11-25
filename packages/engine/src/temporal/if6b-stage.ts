@@ -33,7 +33,7 @@ import {
   type SourceRef,
 } from "@immortalis/contracts";
 import { groupSha256, type CampaignState } from "../commit/campaign-core.ts";
-import { deriveGmWaitFence, type GmWaitFence } from "../gm-wait-custody.ts";
+import { deriveGmWaitFence, gmWaitFenceOf, type GmWaitFence } from "../gm-wait-custody.ts";
 import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { stageGroupId, stageIntentId } from "./identity.ts";
 
@@ -307,6 +307,19 @@ export function if6bWorkHorizon(
   const settled = stages.find(({ record }) => canonicalEqual(record.stage, boundary.stage));
   // The proven contrary owner branch can release the candidate cut. Missing proof cannot.
   return settled && !settled.occurrence ? target : boundary.entry.at;
+}
+
+/** Read-only stage selection for original owners. The OPEN fence stays in Temporal custody. */
+export function if6bDueForOpenWait(
+  state: CampaignState,
+  marker: GmWaitMarker,
+  target: CanonicalTime,
+) {
+  const fence = gmWaitFenceOf(state);
+  if (fence.active?.x !== marker.x || fence.unknown !== null) return undefined;
+  const boundary = if6bOccurrenceBoundary(state, marker);
+  if (!boundary) return undefined;
+  return if6bDueObjects(state, if6bWorkHorizon(boundary, target, fence.stages ?? []));
 }
 
 /** The exact indexed declaration, current source reads and prior durable stages qualify before the owner commits. */
