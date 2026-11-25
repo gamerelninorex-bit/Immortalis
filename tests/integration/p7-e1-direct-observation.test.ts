@@ -1,18 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tests read raw persisted records */
-// F-014B P-7 E1 - E1-01..E1-08: the native DIRECT_OBSERVATION receipt/latency witness (BLUE P7-E1 brief, Notion 42220af9-01e0-811b-8857-f7647cabc51d).
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests read and forge raw persisted records */
+// F-014B P-7 E1 - E1-01..E1-10: the native DIRECT_OBSERVATION receipt/latency evidence (BLUE P7-E1 brief, Notion 42220af9-01e0-811b-8857-f7647cabc51d;
+// BLUE HOLD F-1/F-2 repair, Notion 42320af9-01e0-81a0-9bed-f747340238).
 // TEST-ONLY, READ-ONLY, MECHANISM ONLY (T1): the scripted referee decision is a legitimate fixture of the shipped observation seam, not genuine
 // LLM reasoning, an actual client or retained production storage; those stay UNRUN. Nothing here certifies a route member, an actionable
 // knowledge time or a wait interruption; the aggregate stays NOT_ACCEPTED.
 //
 // Non-tautology: the receipt is produced by the SHIPPED `observeSurroundings` on a native campaign (locality, character, binding, placement,
 // Temporal at BASIS); the independent negative is the SAME scene with only an opaque screen substituted; the helper never receives an
-// expected verdict. Each twin varies one real thing (a cut, a hidden record, a forged field, a revision, a clock) and the witness reads the
-// real journal with the owners' own verifiers.
+// expected verdict. Each twin varies one real thing (a cut, a hidden record, a forged field, a revision, a clock, a receipt, a ledger) and the
+// verifier reads the real journal with the owners' own verifiers. Forgeries are read-only overlays: the SELF-CONSISTENT ones (group and receipt
+// hash rewritten to match) can be refused only by the layer under test; the INCONSISTENT ones are refused by the strict group/receipt layer.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   AccessEventSchema,
   AccessiblePacketSchema,
   BoundaryIndexSchema,
+  CANON_WRITE_AUTHORITY,
   ResolutionTransactionSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
@@ -22,26 +25,38 @@ import {
   accessPacketStage,
   accessProvenanceKey,
   observationTransactionId,
+  temporalTransactionAuthorityKey,
   temporalTransactionKey,
+  type CanonicalTime,
   type OwnerFact,
 } from "@immortalis/contracts";
 import { formObservedPacket, verifyEpistemicIntegrity } from "@immortalis/engine";
 import { FIXTURE_PC_ID, pcAccessEvent } from "@immortalis/testkit";
+import { canonicalEqual } from "../../packages/engine/src/hash.ts";
 import { observationEventId } from "../../packages/engine/src/epistemic/observation.ts";
-import { stageGroupId } from "../../packages/engine/src/temporal/identity.ts";
+import { EPISTEMIC_ACCESS_RULE_TENTH_SLICE } from "../../packages/engine/src/owners/registry.ts";
+import {
+  stageGroupId,
+  transactionAuthorityGroupId,
+  transactionGroupId,
+} from "../../packages/engine/src/temporal/identity.ts";
 import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
 import {
   NO_HEALTH_OWNER_AUTHORITY,
   NO_PROVEN_FIRST_OPTION_AUTHORITY,
   checkSection10,
+  installNativeReceiptVerifier,
   refOf,
-  type NativeObservationWitness,
 } from "../support/p7-section10/proof.ts";
 import {
-  ledgerAtCut,
-  nativeObservationWitness,
+  bindNativeEvidence,
+  forgeConsistently,
+  forgeGroupConsistently,
   overlayStore,
   revisionOf,
+  verifyNativeReceipt,
+  type NativeEvidence,
+  type NativeLedger,
   type ReadOnlyStore,
 } from "../support/p7-section10/native-observation.ts";
 import { currentAuthority, currentManifest } from "../support/p7-section10/fixtures.ts";
@@ -62,10 +77,16 @@ const EVENT_ID = observationEventId(PC_ID, BASIS);
 const EVENT_KEY = accessEventKey(EVENT_ID);
 const PACKET_KEY = accessPacketKey(EVENT_ID, PC_ID);
 const PROVENANCE_KEY = accessProvenanceKey(EVENT_ID, PC_ID);
-const TX_KEY = temporalTransactionKey(observationTransactionId(EVENT_ID));
+const TX_ID = observationTransactionId(EVENT_ID);
+const TX_KEY = temporalTransactionKey(TX_ID);
+const AUTH_KEY = temporalTransactionAuthorityKey(TX_ID);
 const STAGE = accessPacketStage(EVENT_ID, PC_ID);
+const FORMATION_GROUP = stageGroupId(STAGE);
+const AUTH_GROUP = transactionAuthorityGroupId(TX_ID);
+const SEAL_GROUP = transactionGroupId(TX_ID);
 
 let positive: ObservationCampaign;
+let twin: ObservationCampaign;
 let screened: ObservationCampaign;
 
 beforeAll(async () => {
@@ -74,12 +95,16 @@ beforeAll(async () => {
   expect(received.result.status, JSON.stringify(received.result.details)).toBe(
     "OBSERVATION_RECEIVED",
   );
+  // a SECOND, separately committed positive campaign built the same way: same campaign id, same keys, same bytes
+  twin = await observationCampaign();
+  const again = await observe(twin.dirs);
+  expect(again.result.status, JSON.stringify(again.result.details)).toBe("OBSERVATION_RECEIVED");
   screened = await observationCampaign({ scene: screenScene() });
   const refused = await observe(screened.dirs);
   expect(refused.result.status).toBe("OBSERVATION_NOT_ESTABLISHED");
-}, 480_000);
+}, 600_000);
 
-/** Opens the positive (or another) campaign, runs `fn` against its REAL store, and closes it: the writer lock never has two holders. */
+/** Opens a campaign, runs `fn` against its REAL store, and closes it: the writer lock never has two holders per campaign. */
 async function withStore<T>(
   dir: string,
   fn: (store: Awaited<ReturnType<typeof openOrdinary>>["store"]) => Promise<T> | T,
@@ -94,19 +119,37 @@ async function withStore<T>(
 const withPositive = <T>(fn: Parameters<typeof withStore<T>>[1]) =>
   withStore(positive.dirs.campaignDir, fn);
 
-/** The route-specific knowledge/latency result of the E0 checker for this event, with an optional native witness. */
-function route(
+const bind = (store: ReadOnlyStore, cut?: number): NativeEvidence =>
+  bindNativeEvidence(store, cut === undefined ? {} : { cutRevision: cut });
+const eventOf = (store: ReadOnlyStore): OwnerFact => store.getFact(EVENT_KEY)!;
+/** The verifier's diagnostic verdict for the journal's event at a cut (or for another presented event / character). */
+function verify(
   store: ReadOnlyStore,
+  o: { cut?: number; event?: OwnerFact; pc?: string; canonical_cut?: CanonicalTime } = {},
+) {
+  const evidence = bind(store, o.cut);
+  return verifyNativeReceipt(evidence, {
+    event: o.event ?? eventOf(store),
+    pc_id: o.pc ?? PC_ID,
+    ledger: evidence.ledger,
+    ...(o.canonical_cut ? { canonical_cut: o.canonical_cut } : {}),
+  });
+}
+
+/** The route-specific knowledge/latency result of the E0 checker for this event, with optional native evidence. */
+function route(
   event: OwnerFact,
-  opts: {
-    witness?: NativeObservationWitness;
-    cut?: number;
-    ledger?: { get: (k: string) => OwnerFact | undefined };
+  o: {
+    evidence?: NativeEvidence;
+    ledger?: NativeLedger;
     pc?: string;
+    cut?: CanonicalTime;
     claims?: Record<string, unknown>;
+    extra?: Record<string, unknown>;
   } = {},
 ) {
-  const ledger = opts.ledger ?? ledgerAtCut(store, opts.cut);
+  const ledger = o.ledger ?? o.evidence?.ledger;
+  if (ledger === undefined) throw new Error("a ledger is required");
   const certificate = {
     format: "immortalis-p7-section10-proof",
     version: 1,
@@ -114,7 +157,7 @@ function route(
     member: { family: "EPISTEMIC_ROUTE", id: "DIRECT_OBSERVATION" },
     claims: {
       RECIPIENT_KNOWLEDGE_LATENCY: { evidence: [refOf(event)] },
-      ...(opts.claims ?? {}),
+      ...(o.claims ?? {}),
     },
   };
   const result = checkSection10({
@@ -122,17 +165,17 @@ function route(
     authority: currentAuthority(),
     ledger,
     certificates: [certificate],
-    pc: { entity_id: opts.pc ?? PC_ID },
-    cut: BASIS,
-    ...(opts.witness ? { nativeObservation: opts.witness } : {}),
-  });
+    pc: { entity_id: o.pc ?? PC_ID },
+    cut: o.cut ?? BASIS,
+    ...(o.evidence ? { nativeEvidence: o.evidence } : {}),
+    ...(o.extra ?? {}),
+  } as never);
   const verdict = result.verdicts.get(MEMBER)!;
   const knowledge = verdict.obligations.find(
-    (o) => o.obligation === "RECIPIENT_KNOWLEDGE_LATENCY",
+    (x) => x.obligation === "RECIPIENT_KNOWLEDGE_LATENCY",
   )!;
   return { result, verdict, knowledge };
 }
-const eventOf = (store: ReadOnlyStore): OwnerFact => store.getFact(EVENT_KEY)!;
 const forge = (fact: OwnerFact, patch: (f: any) => void): OwnerFact => {
   const copy = structuredClone(fact) as any;
   patch(copy);
@@ -142,23 +185,26 @@ const headOf = (store: ReadOnlyStore) => {
   const h = store.head();
   return { revision: h.revision, state: h.state_sha256, entries: h.journal_entries };
 };
+const groupOf = (store: ReadOnlyStore, id: string) => store.committedGroupById!(id)!;
 
 describe("E1-01 native positive: the committed receipt, not a derivable one, closes the route's knowledge/latency obligation", () => {
-  it("the real original journal verifies, and the E0 checker closes ONLY that obligation, only with the native witness", async () => {
+  it("the real original journal verifies, and the E0 checker closes ONLY that obligation, only with the issued evidence", async () => {
     await withPositive((store) => {
       const event = eventOf(store);
       expect(AccessEventSchema.parse(event.value).channel).toBe("PERCEPTION");
-      const witness = nativeObservationWitness(store);
-      expect(witness.verify({ event, pc_id: PC_ID })).toMatchObject({ ok: true });
+      const evidence = bind(store);
+      expect(
+        verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger }),
+      ).toMatchObject({ ok: true, code: "NATIVE_RECEIPT_COMMITTED" });
 
-      const closed = route(store, event, { witness });
+      const closed = route(event, { evidence });
       expect(closed.knowledge).toMatchObject({ status: "CLOSED", reason: "CLOSED" });
       // the member is NOT proved: default Health, first option and history, and every other claim, stay open
       expect(closed.verdict.status).toBe("NOT_PROVEN");
       expect(closed.verdict.fixture_dependent).toBe(false);
 
-      // the SAME evidence without the native witness is derivable and still does not close: derivable is not committed
-      const derivable = route(store, event);
+      // the SAME ledger without the evidence is derivable and still does not close: derivable is not committed
+      const derivable = route(event, { ledger: evidence.ledger });
       expect(derivable.knowledge).toMatchObject({
         status: "OPEN",
         reason: "NATIVE_RECEIPT_EVIDENCE_ABSENT",
@@ -177,26 +223,43 @@ describe("E1-01 native positive: the committed receipt, not a derivable one, clo
       await c.close();
     }
   });
+
+  it("each record the verifier relies on is the exact write of its own committed group, in the order event < authority < formation < seal", async () => {
+    await withPositive((store) => {
+      const rev = (id: string) => store.lookupReceipt(groupOf(store, id).intent_id)!.revision;
+      const eventGroup = eventOf(store).provenance.group_id;
+      const chain = [eventGroup, AUTH_GROUP, FORMATION_GROUP, SEAL_GROUP];
+      expect(new Set(chain).size, "four distinct committed groups").toBe(4);
+      const revisions = chain.map(rev);
+      expect(revisions, "event < authority < formation < seal").toEqual(
+        [...revisions].sort((a, b) => a - b),
+      );
+      expect(new Set(revisions).size).toBe(4);
+      for (const id of chain.slice(1))
+        expect(groupOf(store, id).authority).toEqual(CANON_WRITE_AUTHORITY);
+    });
+  });
 });
 
-describe("E1-02 independent negative: the same scene with only an opaque screen earns no receipt and the witness has nothing to close on", () => {
+describe("E1-02 independent negative: the same scene with only an opaque screen earns no receipt and the evidence has nothing to close on", () => {
   it("the owner refuses; no event, packet, provenance or transaction exists; and the positive campaign's receipt is not this campaign's", async () => {
     const positiveEvent = await withPositive((store) => eventOf(store));
     await withStore(screened.dirs.campaignDir, (store) => {
-      for (const k of [EVENT_KEY, PACKET_KEY, PROVENANCE_KEY, TX_KEY])
+      for (const k of [EVENT_KEY, PACKET_KEY, PROVENANCE_KEY, TX_KEY, AUTH_KEY])
         expect(store.getFact(k), k).toBeUndefined();
       // cross-campaign: the positive campaign's event presented against the screened campaign's journal never closes
-      const verdict = nativeObservationWitness(store).verify({
-        event: positiveEvent,
-        pc_id: PC_ID,
+      expect(verify(store, { event: positiveEvent })).toMatchObject({
+        ok: false,
+        code: "EVENT_NOT_AT_CUT",
       });
-      expect(verdict).toMatchObject({ ok: false, code: "EVENT_NOT_AT_CUT" });
-      const r = route(store, positiveEvent, {
-        witness: nativeObservationWitness(store),
-        ledger: { get: (k) => (k === EVENT_KEY ? positiveEvent : store.getFact(k)) },
+      const evidence = bind(store);
+      const r = route(positiveEvent, {
+        evidence,
+        ledger: { get: (k) => (k === EVENT_KEY ? positiveEvent : evidence.ledger.get(k)) },
       });
       expect(r.knowledge.status).toBe("OPEN");
       expect(r.knowledge.reason).toBe("NATIVE_RECEIPT_NOT_PROVEN");
+      expect(r.knowledge.detail).toContain("LEDGER_NOT_THE_BOUND_ONE");
     });
   });
 });
@@ -208,54 +271,43 @@ describe("E1-03 an event without its committed receipt at the cut closes nothing
       const eventRevision = revisionOf(store, event)!;
       const packetRevision = revisionOf(store, store.getFact(PACKET_KEY)!)!;
       expect(eventRevision).toBeLessThan(packetRevision);
-      const earlier = nativeObservationWitness(store, { cutRevision: eventRevision });
-      const atEarlierCut = ledgerAtCut(store, eventRevision);
-      expect(atEarlierCut.get(EVENT_KEY)).toBeDefined();
-      expect(atEarlierCut.get(PACKET_KEY)).toBeUndefined();
+      const earlier = bind(store, eventRevision);
+      expect(earlier.ledger.get(EVENT_KEY)).toBeDefined();
+      expect(earlier.ledger.get(PACKET_KEY)).toBeUndefined();
       // the payload is perfectly derivable from the event alone, and the E0 checker would have stopped only at the native requirement...
-      expect(route(store, event, { cut: eventRevision }).knowledge.reason).toBe(
+      expect(route(event, { ledger: earlier.ledger }).knowledge.reason).toBe(
         "NATIVE_RECEIPT_EVIDENCE_ABSENT",
       );
-      // ...and with the witness at that cut it refuses for the missing committed receipt
-      const r = route(store, event, { witness: earlier, cut: eventRevision });
+      // ...and with the evidence of that very cut it refuses for the missing committed receipt
+      const r = route(event, { evidence: earlier });
       expect(r.knowledge.status).toBe("OPEN");
       expect(r.knowledge.reason).toBe("NATIVE_RECEIPT_NOT_PROVEN");
       expect(r.knowledge.detail).toContain("PACKET_ABSENT_AT_CUT");
       // the full cut, same campaign, same evidence reference, closes: the cut is the discriminating variable
-      expect(
-        route(store, event, { witness: nativeObservationWitness(store) }).knowledge.status,
-      ).toBe("CLOSED");
+      expect(route(event, { evidence: bind(store) }).knowledge.status).toBe("CLOSED");
     });
   });
 
-  it("each committed record is individually required: no provenance, no seal, or a seal committed after the cut", async () => {
+  it("each committed record is individually required: no provenance, no authority, no seal, or a seal committed after the cut", async () => {
     await withPositive((store) => {
-      const event = eventOf(store);
-      const verdictOf = (s: ReadOnlyStore, cut?: number) =>
-        nativeObservationWitness(s, cut === undefined ? {} : { cutRevision: cut }).verify({
-          event,
-          pc_id: PC_ID,
-        });
-      expect(verdictOf(overlayStore(store, { facts: { [PROVENANCE_KEY]: null } }))).toMatchObject({
+      const hide = (key: string) => overlayStore(store, { facts: { [key]: null } });
+      expect(verify(hide(PROVENANCE_KEY))).toMatchObject({
         ok: false,
         code: "PROVENANCE_ABSENT_AT_CUT",
       });
-      expect(verdictOf(overlayStore(store, { facts: { [PACKET_KEY]: null } }))).toMatchObject({
-        ok: false,
-        code: "PACKET_ABSENT_AT_CUT",
-      });
-      expect(verdictOf(overlayStore(store, { facts: { [TX_KEY]: null } }))).toMatchObject({
-        ok: false,
-        code: "TRANSACTION_ABSENT_AT_CUT",
-      });
+      expect(verify(hide(PACKET_KEY))).toMatchObject({ ok: false, code: "PACKET_ABSENT_AT_CUT" });
+      expect(verify(hide(AUTH_KEY))).toMatchObject({ ok: false, code: "AUTHORITY_ABSENT_AT_CUT" });
+      expect(verify(hide(TX_KEY))).toMatchObject({ ok: false, code: "TRANSACTION_ABSENT_AT_CUT" });
       // a cut exactly at the formation group: packet and provenance are committed, the sealed transaction is not yet
       const formationRevision = revisionOf(store, store.getFact(PACKET_KEY)!)!;
       const sealRevision = revisionOf(store, store.getFact(TX_KEY)!)!;
       expect(sealRevision).toBeGreaterThan(formationRevision);
-      expect(verdictOf(store, formationRevision)).toMatchObject({
+      expect(verify(store, { cut: formationRevision })).toMatchObject({
         ok: false,
         code: "TRANSACTION_ABSENT_AT_CUT",
       });
+      // a cut exactly at the seal closes
+      expect(verify(store, { cut: sealRevision })).toMatchObject({ ok: true });
     });
   });
 });
@@ -264,13 +316,12 @@ describe("E1-04 wrong character, forged records and a record that is not the jou
   it("another character, an authored (non-observation) event and a broadcast are not this receipt", async () => {
     await withPositive((store) => {
       const event = eventOf(store);
-      const witness = nativeObservationWitness(store);
-      expect(witness.verify({ event, pc_id: "some-other-character" })).toMatchObject({
+      expect(verify(store, { pc: "some-other-character" })).toMatchObject({
         ok: false,
         code: "EVENT_IDENTITY_NOT_DERIVED",
       });
-      // through the E0 checker the recipient guard refuses before the witness is consulted
-      const other = route(store, event, { witness, pc: "some-other-character" });
+      // through the E0 checker the recipient guard refuses before the evidence is consulted
+      const other = route(event, { evidence: bind(store), pc: "some-other-character" });
       expect(other.knowledge.status).toBe("OPEN");
       expect(other.knowledge.reason).toBe("WRONG_RECIPIENT");
     });
@@ -286,17 +337,15 @@ describe("E1-04 wrong character, forged records and a record that is not the jou
     } as never);
     expect(committed.ok).toBe(true);
     const fact = s.campaign.store.getFact(accessEventKey("event-authored"))!;
-    expect(
-      nativeObservationWitness(s.campaign.store).verify({ event: fact, pc_id: FIXTURE_PC_ID }),
-    ).toMatchObject({ ok: false, code: "EVENT_IDENTITY_NOT_DERIVED" });
-    const asRoute = route(s.campaign.store, fact, {
-      witness: nativeObservationWitness(s.campaign.store),
-      pc: FIXTURE_PC_ID,
+    expect(verify(s.campaign.store, { event: fact, pc: FIXTURE_PC_ID })).toMatchObject({
+      ok: false,
+      code: "EVENT_IDENTITY_NOT_DERIVED",
     });
+    const asRoute = route(fact, { evidence: bind(s.campaign.store), pc: FIXTURE_PC_ID });
     expect(asRoute.knowledge.reason).toBe("EVENT_NOT_OBSERVATION_EARNED");
   });
 
-  it("a self-consistent forged event (version, committing group, source pin, basis) is not the journal's own fact", async () => {
+  it("a presented event that is not the journal's own fact (version, committing group, source pin, basis, payload) never closes", async () => {
     await withPositive((store) => {
       const real = eventOf(store);
       const forgeries: [string, OwnerFact][] = [
@@ -307,54 +356,74 @@ describe("E1-04 wrong character, forged records and a record that is not the jou
         ["payload", forge(real, (f) => (f.value.payload.content = "something else was seen"))],
       ];
       for (const [name, forged] of forgeries) {
-        const witness = nativeObservationWitness(store);
-        // the forged fact is self-consistent for the E0 re-read: only the journal can refuse it
-        const ledger = { get: (k: string) => (k === EVENT_KEY ? forged : store.getFact(k)) };
-        const r = route(store, forged, { witness, ledger });
-        expect(r.knowledge.status, name).toBe("OPEN");
-        expect(witness.verify({ event: forged, pc_id: PC_ID }).ok, name).toBe(false);
+        const evidence = bind(store);
+        expect(
+          verifyNativeReceipt(evidence, { event: forged, pc_id: PC_ID, ledger: evidence.ledger })
+            .ok,
+          name,
+        ).toBe(false);
+        // the checker's own ledger is the evidence's, and E0 re-reads the event from it by owner, facet, version, committing group and
+        // value digest: a forged reference is refused by that re-read. The basis LABEL is not part of that reference, and the checker
+        // closes only on the JOURNAL's own event (never on the presented one), so a basis-only forgery changes nothing the checker uses.
+        if (name !== "basis")
+          expect(route(forged, { evidence }).knowledge.status, name).toBe("OPEN");
+      }
+    });
+  });
+
+  it("a self-consistent forged JOURNAL record (the group and receipt agree with it) is still refused by the owner's own verifier", async () => {
+    await withPositive((store) => {
+      const cases: [string, ReadOnlyStore][] = [
+        ["basis", forgeConsistently(store, [[EVENT_KEY, (f) => (f.basis = "another-basis")]])],
+        [
+          "source pin",
+          forgeConsistently(store, [[EVENT_KEY, (f: any) => (f.value.source.version += 1)]]),
+        ],
+        [
+          "payload",
+          forgeConsistently(store, [
+            [EVENT_KEY, (f: any) => (f.value.payload.content = "something else was seen")],
+          ]),
+        ],
+      ];
+      for (const [name, view] of cases) {
+        const verdict = verify(view, { event: view.getFact(EVENT_KEY)! });
+        expect(verdict.ok, name).toBe(false);
+        expect(verdict.code, name).toBe("OWNER_EVENT_VERIFIER_REFUSED");
       }
     });
   });
 
   it("the formation must be the committed stage group, after the event, with the transaction linked to that group and receipt", async () => {
     await withPositive((store) => {
-      const event = eventOf(store);
-      const formationGroup = store.committedGroupById!(stageGroupId(STAGE))!;
-      const eventRevision = revisionOf(store, event)!;
+      const formationGroup = groupOf(store, FORMATION_GROUP);
+      const eventRevision = revisionOf(store, eventOf(store))!;
       // formation before event: the journal revision of the formation group is moved at or before the event's
       const early = overlayStore(store, {
         revisions: { [formationGroup.intent_id]: eventRevision },
       });
-      expect(nativeObservationWitness(early).verify({ event, pc_id: PC_ID })).toMatchObject({
-        ok: false,
-        code: "FORMATION_NOT_AFTER_EVENT",
-      });
+      expect(verify(early)).toMatchObject({ ok: false, code: "FORMATION_NOT_AFTER_EVENT" });
       // the sealed transaction names another receipt for that group
-      const sealed = store.getFact(TX_KEY)!;
-      const tampered = forge(sealed, (f) => (f.value.stages[0].group_sha256 = "0".repeat(64)));
       expect(
-        nativeObservationWitness(overlayStore(store, { facts: { [TX_KEY]: tampered } })).verify({
-          event,
-          pc_id: PC_ID,
-        }),
+        verify(
+          forgeConsistently(store, [
+            [TX_KEY, (f: any) => (f.value.stages[0].group_sha256 = "0".repeat(64))],
+          ]),
+        ),
       ).toMatchObject({ ok: false, code: "TRANSACTION_NOT_LINKED_TO_THE_COMMITTED_GROUP" });
       // the packet is not what the owner derives
-      const altered = forge(
-        store.getFact(PACKET_KEY)!,
-        (f) => (f.value.payload.content = "unseen"),
-      );
       expect(
-        nativeObservationWitness(overlayStore(store, { facts: { [PACKET_KEY]: altered } })).verify({
-          event,
-          pc_id: PC_ID,
-        }),
+        verify(
+          forgeConsistently(store, [
+            [PACKET_KEY, (f: any) => (f.value.payload.content = "unseen")],
+          ]),
+        ),
       ).toMatchObject({ ok: false, code: "PACKET_NOT_THE_OWNER_DERIVATION" });
     });
   });
 });
 
-describe("E1-04 every guard of the witness has its own falsifier [forged overlays are read-only]", () => {
+describe("E1-04 every guard of the verifier has its own falsifier [forged overlays are read-only]", () => {
   it("each single forged or displaced record is refused for its own reason", async () => {
     await withPositive((store) => {
       const event = eventOf(store);
@@ -363,82 +432,72 @@ describe("E1-04 every guard of the witness has its own falsifier [forged overlay
       const sealed = store.getFact(TX_KEY)!;
       const binding =
         store.getFact("role/player-character-binding") ??
-        store.listFacts().find((f) => (f.value as any)?.binding_slot === "role.player_character")!;
-      const eventGroup = store.committedGroupById!(event.provenance.group_id)!;
-      const formationGroup = store.committedGroupById!(stageGroupId(STAGE))!;
+        store
+          .listFacts()
+          .find((f: OwnerFact) => (f.value as any)?.binding_slot === "role.player_character")!;
+      const eventGroup = groupOf(store, event.provenance.group_id);
       const formationRevision = revisionOf(store, packet)!;
       type Case = [string, ReadOnlyStore, string];
       const cases: Case[] = [
         [
           "the event group does not read the retained decision",
-          overlayStore(store, { groups: { [eventGroup.group_id]: { ...eventGroup, reads: [] } } }),
+          forgeGroupConsistently(store, eventGroup.group_id, (g) => (g.reads = [])),
           "OWNER_EVENT_VERIFIER_REFUSED",
         ],
         [
           "the event group is not the journal's: it does not write the event",
-          overlayStore(store, { groups: { [eventGroup.group_id]: { ...eventGroup, writes: [] } } }),
-          "EVENT_GROUP_DOES_NOT_WRITE_IT",
+          forgeGroupConsistently(store, eventGroup.group_id, (g) => {
+            g.writes = g.writes.map((w) => ({ ...w, key: "access/not-the-event/event" }));
+          }),
+          "GROUP_DOES_NOT_WRITE_IT",
         ],
         [
           "the Role Registry binding names another character",
-          overlayStore(store, {
-            facts: {
-              [binding.key]: forge(binding, (f) => (f.value.active_pc.entity_id = "someone-else")),
-            },
-          }),
+          forgeConsistently(store, [
+            [binding.key, (f: any) => (f.value.active_pc.entity_id = "someone-else")],
+          ]),
           "PC_NOT_BOUND",
         ],
         [
           "the sealed provenance is not what the owner derives",
-          overlayStore(store, {
-            facts: { [PROVENANCE_KEY]: forge(provenance, (f) => (f.value.event.version += 1)) },
-          }),
+          forgeConsistently(store, [[PROVENANCE_KEY, (f: any) => (f.value.event.version += 1)]]),
           "PROVENANCE_NOT_THE_OWNER_DERIVATION",
         ],
         [
           "the secrecy classes of packet and provenance are swapped",
-          overlayStore(store, {
-            facts: {
-              [PACKET_KEY]: forge(packet, (f) => (f.secrecy = provenance.secrecy)),
-              [PROVENANCE_KEY]: forge(provenance, (f) => (f.secrecy = packet.secrecy)),
-            },
-          }),
+          forgeConsistently(store, [
+            [PACKET_KEY, (f) => (f.secrecy = provenance.secrecy)],
+            [PROVENANCE_KEY, (f) => (f.secrecy = packet.secrecy)],
+          ]),
           "SECRECY_CLASS_NOT_SEPARATED",
         ],
         [
-          "the provenance was committed by another REAL group (the event's), not the packet's stage group",
-          overlayStore(store, {
-            facts: {
-              [PROVENANCE_KEY]: forge(
-                provenance,
-                (f) => (f.provenance.group_id = eventGroup.group_id),
-              ),
-            },
-          }),
-          "FORMATION_NOT_ONE_STAGE_GROUP",
+          "the provenance names the EVENT's real group, which never wrote it",
+          forgeConsistently(store, [
+            [
+              PROVENANCE_KEY,
+              (f) => {
+                f.provenance.group_id = eventGroup.group_id;
+                f.provenance.intent_id = eventGroup.intent_id;
+              },
+            ],
+          ]),
+          "GROUP_DOES_NOT_WRITE_IT",
         ],
         [
           "the formation group writes another key too",
-          overlayStore(store, {
-            groups: {
-              [formationGroup.group_id]: {
-                ...formationGroup,
-                writes: [
-                  ...formationGroup.writes,
-                  { ...formationGroup.writes[0]!, key: "extra/key" },
-                ],
-              },
-            },
+          forgeGroupConsistently(store, FORMATION_GROUP, (g) => {
+            g.writes = [...g.writes, { ...g.writes[0]!, key: "extra/key" }];
           }),
           "FORMATION_GROUP_WRITES_OTHER_KEYS",
         ],
         [
           "the formation group belongs to another campaign",
-          overlayStore(store, {
-            groups: {
-              [formationGroup.group_id]: { ...formationGroup, campaign_id: "another-campaign" },
-            },
-          }),
+          forgeGroupConsistently(
+            store,
+            FORMATION_GROUP,
+            (g) => (g.campaign_id = "another-campaign"),
+          ),
           "CAMPAIGN_MISMATCH",
         ],
         [
@@ -448,53 +507,106 @@ describe("E1-04 every guard of the witness has its own falsifier [forged overlay
         ],
         [
           "the seal is not the observation trigger",
-          overlayStore(store, {
-            facts: {
-              [TX_KEY]: forge(sealed, (f) => (f.value.trigger.kind = "fixture-advance-request")),
-            },
-          }),
+          forgeConsistently(store, [
+            [TX_KEY, (f: any) => (f.value.trigger.kind = "fixture-advance-request")],
+          ]),
           "TRANSACTION_NOT_THE_OBSERVATION_TRIGGER",
         ],
         [
           "the seal names another stage",
-          overlayStore(store, {
-            facts: {
-              [TX_KEY]: forge(
-                sealed,
-                (f) => (f.value.stages[0].stage.causal_process_id = "another-process"),
-              ),
-            },
-          }),
+          forgeConsistently(store, [
+            [TX_KEY, (f: any) => (f.value.stages[0].stage.causal_process_id = "another-process")],
+          ]),
           "TRANSACTION_STAGE_NOT_THE_PACKET_FORMATION",
         ],
         [
           "the seal records other writes",
-          overlayStore(store, {
-            facts: { [TX_KEY]: forge(sealed, (f) => (f.value.stages[0].writes[0].version = 9)) },
-          }),
+          forgeConsistently(store, [
+            [TX_KEY, (f: any) => (f.value.stages[0].writes[0].version = 9)],
+          ]),
           "TRANSACTION_WRITES_NOT_THE_FORMATION",
         ],
         [
-          "the seal engaged a temporal object: the transaction schema itself refuses it before the witness's explicit check (a backstop)",
-          overlayStore(store, {
-            facts: {
-              [TX_KEY]: forge(sealed, (f) =>
+          "the seal engaged a temporal object: the transaction schema itself refuses it before the explicit check (which stays as a backstop)",
+          forgeConsistently(store, [
+            [
+              TX_KEY,
+              (f: any) =>
                 f.value.engaged.push({
                   boundary: "STILL_ACTIVE",
                   object_id: "an-engaged-object",
                   fact_key: "temporal/object/an-engaged-object",
                   version_before: 1,
                 }),
-              ),
-            },
-          }),
+            ],
+          ]),
           "TRANSACTION_INVALID",
         ],
         [
+          "the seal engaged a PCB-01 due object, which the transaction schema admits in a zero-span seal: only the explicit observation guard refuses it",
+          forgeConsistently(store, [
+            [
+              TX_KEY,
+              (f: any) =>
+                f.value.engaged.push({
+                  boundary: "DUE_UNRESOLVED",
+                  object_id: "an-engaged-object",
+                  fact_key: "temporal/object/an-engaged-object",
+                  version_before: 1,
+                  due_for: STAGE,
+                  trigger: "PCB-01",
+                }),
+            ],
+          ]),
+          "TRANSACTION_ENGAGES_OBJECT_OR_BOUNDARY",
+        ],
+        [
+          "the seal retired an object and crossed a boundary, which the schema also admits: only the explicit observation guard refuses it",
+          forgeConsistently(store, [
+            [
+              TX_KEY,
+              (f: any) => {
+                f.value.engaged.push({
+                  boundary: "RETIRED",
+                  object_id: "a-retired-object",
+                  fact_key: "temporal/object/a-retired-object",
+                  version_before: 1,
+                  version_after: 2,
+                });
+                f.value.boundaries_crossed.push({
+                  object_id: "a-retired-object",
+                  boundary_id: "a-boundary",
+                  at: f.value.opening.basis_time,
+                });
+              },
+            ],
+          ]),
+          "TRANSACTION_ENGAGES_OBJECT_OR_BOUNDARY",
+        ],
+        [
+          "the seal's cause, trigger reference and continuation are each the observation's own",
+          forgeConsistently(store, [[TX_KEY, (f: any) => (f.value.cause = "another-cause")]]),
+          "TRANSACTION_NOT_THE_OBSERVATION_TRIGGER",
+        ],
+        [
+          "the seal's trigger names another event",
+          forgeConsistently(store, [[TX_KEY, (f: any) => (f.value.trigger.ref = "another-event")]]),
+          "TRANSACTION_NOT_THE_OBSERVATION_TRIGGER",
+        ],
+        [
+          "the seal continues another transaction",
+          forgeConsistently(store, [
+            [TX_KEY, (f: any) => (f.value.continues = "another-transaction")],
+          ]),
+          "TRANSACTION_NOT_THE_OBSERVATION_TRIGGER",
+        ],
+        [
           "the event's own group belongs to another campaign",
-          overlayStore(store, {
-            groups: { [eventGroup.group_id]: { ...eventGroup, campaign_id: "another-campaign" } },
-          }),
+          forgeGroupConsistently(
+            store,
+            eventGroup.group_id,
+            (g) => (g.campaign_id = "another-campaign"),
+          ),
           "CAMPAIGN_MISMATCH",
         ],
         [
@@ -506,9 +618,38 @@ describe("E1-04 every guard of the witness has its own falsifier [forged overlay
         ],
       ];
       for (const [name, view, code] of cases) {
-        const verdict = nativeObservationWitness(view).verify({ event, pc_id: PC_ID });
+        const verdict = verify(view, { event });
         expect(verdict, name).toMatchObject({ ok: false, code });
       }
+    });
+  });
+
+  it("an event committed under another governing rule is not observation-earned, and a provenance written by a SECOND real group is not the packet's stage group", async () => {
+    await withPositive((store) => {
+      const eventGroup = groupOf(store, eventOf(store).provenance.group_id);
+      const formation = groupOf(store, FORMATION_GROUP);
+      // the event group re-published under the superseded rule: the event it wrote now carries that rule, self-consistently
+      const reruled = forgeGroupConsistently(
+        store,
+        eventGroup.group_id,
+        (g) => (g.rule = EPISTEMIC_ACCESS_RULE_TENTH_SLICE),
+      );
+      expect(verify(reruled, { event: reruled.getFact(EVENT_KEY)! })).toMatchObject({
+        ok: false,
+        code: "EVENT_NOT_OBSERVATION_EARNED",
+      });
+      // the provenance claims the EVENT's group as its writer, and that group (consistently) also writes it
+      const provenance = forge(store.getFact(PROVENANCE_KEY)!, (f) => {
+        f.provenance = structuredClone(eventOf(store).provenance);
+      });
+      const twice = forgeGroupConsistently(
+        store,
+        eventGroup.group_id,
+        (g) =>
+          g.writes.push(structuredClone(formation.writes.find((w) => w.key === PROVENANCE_KEY)!)),
+        { facts: { [PROVENANCE_KEY]: provenance } },
+      );
+      expect(verify(twice)).toMatchObject({ ok: false, code: "FORMATION_NOT_ONE_STAGE_GROUP" });
     });
   });
 });
@@ -543,23 +684,23 @@ describe("E1-05 one clock: event, packet and seal share the same basis and unit;
 
   it("an incompatible unit or an advanced stop (a forged seal) never closes; a changed basis is a different event", async () => {
     await withPositive((store) => {
-      const event = eventOf(store);
-      const sealed = store.getFact(TX_KEY)!;
-      const advanced = forge(sealed, (f) => {
-        f.value.requested.target = { unit: f.value.requested.target.unit, value: 101 };
-        f.value.outcome.actual_stop = { unit: f.value.outcome.actual_stop.unit, value: 101 };
-      });
-      const otherUnit = forge(sealed, (f) => (f.value.opening.basis_time.unit = "another-clock"));
-      for (const [name, fact] of [
+      const advanced = forgeConsistently(store, [
+        [
+          TX_KEY,
+          (f: any) => {
+            f.value.requested.target = { unit: f.value.requested.target.unit, value: 101 };
+            f.value.outcome.actual_stop = { unit: f.value.outcome.actual_stop.unit, value: 101 };
+          },
+        ],
+      ]);
+      const otherUnit = forgeConsistently(store, [
+        [TX_KEY, (f: any) => (f.value.opening.basis_time.unit = "another-clock")],
+      ]);
+      for (const [name, view] of [
         ["advanced stop", advanced],
         ["other unit", otherUnit],
       ] as const) {
-        const verdict = nativeObservationWitness(
-          overlayStore(store, { facts: { [TX_KEY]: fact } }),
-        ).verify({
-          event,
-          pc_id: PC_ID,
-        });
+        const verdict = verify(view);
         expect(verdict.ok, name).toBe(false);
         expect(
           ["CLOCK_NOT_ONE_BASIS", "TRANSACTION_INVALID"],
@@ -568,6 +709,25 @@ describe("E1-05 one clock: event, packet and seal share the same basis and unit;
       }
       // the event identity is derived from the basis: the same character at another instant is another key
       expect(observationEventId(PC_ID, { unit: BASIS.unit, value: 101 })).not.toBe(EVENT_ID);
+    });
+  });
+
+  it("the checker's canonical cut binds the evidence's time: a cut before the access, or in another unit, never closes", async () => {
+    await withPositive((store) => {
+      const event = eventOf(store);
+      const evidence = bind(store);
+      expect(route(event, { evidence, cut: BASIS }).knowledge.status).toBe("CLOSED");
+      // a later canonical cut is lawful: the receipt was committed before it
+      expect(
+        route(event, { evidence, cut: { unit: BASIS.unit, value: BASIS.value + 5 } }).knowledge
+          .status,
+      ).toBe("CLOSED");
+      const before = route(event, { evidence, cut: { unit: BASIS.unit, value: BASIS.value - 1 } });
+      expect(before.knowledge.status).toBe("OPEN");
+      expect(before.knowledge.detail).toContain("EVIDENCE_AFTER_CANONICAL_CUT");
+      const unit = route(event, { evidence, cut: { unit: "another-clock", value: BASIS.value } });
+      expect(unit.knowledge.status).toBe("OPEN");
+      expect(unit.knowledge.detail).toContain("CLOCK_NOT_ONE_BASIS");
     });
   });
 });
@@ -589,12 +749,8 @@ describe("E1-06 the actor packet stays actor-safe, the route proves nothing beyo
         expect(shown, hidden).not.toContain(hidden);
       expect(packet.secrecy).toBe("epistemic.actor-accessible");
       expect(provenance.secrecy).toBe("epistemic.engine-sealed");
-      // the witness answers with a diagnostic and no payload or hidden timing
-      const verdict = nativeObservationWitness(store).verify({
-        event: eventOf(store),
-        pc_id: PC_ID,
-      });
-      expect(JSON.stringify(verdict)).not.toContain(
+      // the verifier answers with a diagnostic and no payload or hidden timing
+      expect(JSON.stringify(verify(store))).not.toContain(
         AccessiblePacketSchema.parse(packet.value).payload.content,
       );
     });
@@ -602,8 +758,8 @@ describe("E1-06 the actor packet stays actor-safe, the route proves nothing beyo
 
   it("with the default Health, first-option and history authorities the member is still NOT_PROVEN: no substitution, no visual inference", async () => {
     await withPositive((store) => {
-      const r = route(store, eventOf(store), {
-        witness: nativeObservationWitness(store),
+      const r = route(eventOf(store), {
+        evidence: bind(store),
         claims: {
           RECIPIENT_ABILITY: {
             evidence: [
@@ -653,11 +809,12 @@ describe("E1-07 read-only: checking writes nothing, the native replay is a no-op
         index: store.getFact(TEMPORAL_BOUNDARY_INDEX_KEY)?.value,
       };
       const event = eventOf(store);
-      const witness = nativeObservationWitness(store);
-      witness.verify({ event, pc_id: PC_ID });
-      route(store, event, { witness });
-      route(store, event);
-      nativeObservationWitness(store, { cutRevision: 1 }).verify({ event, pc_id: PC_ID });
+      const evidence = bind(store);
+      verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger });
+      route(event, { evidence });
+      route(event, { ledger: evidence.ledger });
+      verify(store, { cut: 1 });
+      verify(store, { cut: 10_000 });
       const after = {
         head: headOf(store),
         facts: store.listFacts().length,
@@ -682,17 +839,44 @@ describe("E1-07 read-only: checking writes nothing, the native replay is a no-op
     await withPositive((store) => {
       expect(headOf(store)).toEqual(first.head);
       expect(eventOf(store)).toEqual(first.event);
-      expect(
-        route(store, eventOf(store), { witness: nativeObservationWitness(store) }).knowledge.status,
-      ).toBe("CLOSED");
+      expect(route(eventOf(store), { evidence: bind(store) }).knowledge.status).toBe("CLOSED");
+    });
+  });
+
+  it("the verification is deterministic exact-key work: the same counters on a second run, and the store type has no listing", async () => {
+    await withPositive((store) => {
+      const count = () => {
+        const n = {
+          head: 0,
+          getFact: 0,
+          lookupReceipt: 0,
+          committedGroup: 0,
+          committedGroupById: 0,
+        };
+        const counting: ReadOnlyStore = {
+          head: () => (n.head++, store.head()),
+          getFact: (k) => (n.getFact++, store.getFact(k)),
+          lookupReceipt: (i) => (n.lookupReceipt++, store.lookupReceipt(i)),
+          committedGroup: (i) => (n.committedGroup++, store.committedGroup(i)),
+          committedGroupById: (g) => (n.committedGroupById++, store.committedGroupById!(g)),
+        };
+        expect(verify(counting)).toMatchObject({ ok: true });
+        return n;
+      };
+      const a = count();
+      const b = count();
+      expect(a).toEqual(b);
+      expect(Object.keys(a).sort()).toEqual(
+        ["committedGroup", "committedGroupById", "getFact", "head", "lookupReceipt"].sort(),
+      );
     });
   });
 });
 
 describe("E1-08 nothing is promoted: the catalogue is unchanged, no member is proof-closed, the aggregate stays NOT_ACCEPTED", () => {
-  it("with the witness and the receipt present, the whole real catalogue is still 0 proof-closed and every sentinel is unchanged", async () => {
+  it("with the evidence and the receipt present, the whole real catalogue is still 0 proof-closed and every sentinel is unchanged", async () => {
     await withPositive((store) => {
-      const { result } = route(store, eventOf(store), { witness: nativeObservationWitness(store) });
+      const { result } = route(eventOf(store), { evidence: bind(store) });
       expect(result.report.totals.proof_closed_candidate).toBe(0);
       expect(result.report.totals.not_proven).toBe(result.report.totals.members);
       expect(result.report.aggregate).toMatchObject({ accepted: false, status: "NOT_ACCEPTED" });
@@ -704,6 +888,664 @@ describe("E1-08 nothing is promoted: the catalogue is unchanged, no member is pr
         extension_historical_coverage: "UNRETIRED_DENY",
       });
       expect(result.report.catalogue.sha256).toBe(GM_WAIT_CATALOGUE_CURRENT_SHA256);
+    });
+  });
+});
+
+describe("E1-09 BLUE F-1: a spoofed success, a swapped ledger or cut, an invalid cut and a same-key event of another campaign never close the obligation", () => {
+  it("a caller-supplied success callback is not evidence: the retired field is ignored and a look-alike is never issued", async () => {
+    await withPositive((store) => {
+      const event = eventOf(store);
+      const early = bind(store, revisionOf(store, event)!);
+      let called = 0;
+      const callback = () => {
+        called += 1;
+        return { ok: true, code: "SPOOF", detail: "" };
+      };
+      // the old structural witness is not part of the checker context any more: it is ignored, so the route stays fail-closed
+      const retired = route(event, {
+        ledger: early.ledger,
+        extra: { nativeObservation: { id: "SPOOF", verify: callback } },
+      });
+      expect(retired.knowledge).toMatchObject({
+        status: "OPEN",
+        reason: "NATIVE_RECEIPT_EVIDENCE_ABSENT",
+      });
+      const lookalikes: [string, unknown][] = [
+        [
+          "plain literal",
+          { campaign_id: early.campaign_id, cut_revision: 99, ledger: early.ledger },
+        ],
+        ["spread clone of real evidence", { ...early }],
+        ["prototype clone of real evidence", Object.create(early)],
+        ["real shape plus a verdict callback", { ...early, verify: callback, ok: true }],
+        ["a frozen forgery", Object.freeze({ ...early })],
+      ];
+      for (const [name, fake] of lookalikes) {
+        const r = route(event, { ledger: early.ledger, evidence: fake as NativeEvidence });
+        expect(r.knowledge.status, name).toBe("OPEN");
+        expect(r.knowledge.reason, name).toBe("NATIVE_RECEIPT_NOT_PROVEN");
+        expect(r.knowledge.detail, name).toContain("NATIVE_EVIDENCE_NOT_ISSUED");
+      }
+      expect(called, "no caller-supplied callback is ever invoked").toBe(0);
+    });
+  });
+
+  it("the native verifier cannot be replaced: a second installation throws and the real one keeps judging", async () => {
+    await withPositive((store) => {
+      const event = eventOf(store);
+      const early = bind(store, revisionOf(store, event)!);
+      let called = 0;
+      expect(() =>
+        installNativeReceiptVerifier(() => {
+          called += 1;
+          return { ok: true, code: "SPOOF", detail: "" };
+        }),
+      ).toThrow(/already installed/);
+      // the event-only cut still refuses, and the spoof was never consulted
+      const r = route(event, { evidence: early });
+      expect(r.knowledge.reason).toBe("NATIVE_RECEIPT_NOT_PROVEN");
+      expect(r.knowledge.detail).toContain("PACKET_ABSENT_AT_CUT");
+      expect(called).toBe(0);
+    });
+  });
+
+  it("the ledger, the campaign and the cut are one bound value: a later complete evidence with an earlier ledger (and the reverse) is refused", async () => {
+    await withPositive((store) => {
+      const event = eventOf(store);
+      const full = bind(store);
+      const early = bind(store, revisionOf(store, event)!);
+      const refusedAs = (r: ReturnType<typeof route>) => {
+        expect(r.knowledge.status).toBe("OPEN");
+        expect(r.knowledge.reason).toBe("NATIVE_RECEIPT_NOT_PROVEN");
+        expect(r.knowledge.detail).toContain("LEDGER_NOT_THE_BOUND_ONE");
+      };
+      // the exact counterexample: the event is visible at the earlier cut, the receipt only at the later one
+      refusedAs(route(event, { evidence: full, ledger: early.ledger }));
+      refusedAs(route(event, { evidence: early, ledger: full.ledger }));
+      // a ledger rebuilt over the same store and the same cut is ANOTHER ledger: bound by identity, not by look
+      refusedAs(route(event, { evidence: full, ledger: bind(store).ledger }));
+      // the matched pairs: each is judged at its own cut
+      expect(route(event, { evidence: early }).knowledge.detail).toContain("PACKET_ABSENT_AT_CUT");
+      expect(route(event, { evidence: full }).knowledge.status).toBe("CLOSED");
+    });
+  });
+
+  it("an invalid cut (future, negative, fractional, non-numeric) is refused, never clamped; the head and the genuine boundary cuts are valid", async () => {
+    await withPositive((store) => {
+      const event = eventOf(store);
+      const head = store.head().revision;
+      const invalid: [string, number][] = [
+        ["one beyond the head", head + 1],
+        ["far beyond the head", head + 1000],
+        ["negative", -1],
+        ["fractional", head - 0.5],
+        ["NaN", Number.NaN],
+        ["infinite", Number.POSITIVE_INFINITY],
+        ["a string", "5" as unknown as number],
+      ];
+      for (const [name, cut] of invalid) {
+        const evidence = bind(store, cut);
+        const r = route(event, { evidence });
+        expect(r.knowledge.status, name).toBe("OPEN");
+        expect(r.knowledge.reason, name).toBe("NATIVE_RECEIPT_NOT_PROVEN");
+        expect(r.knowledge.detail, name).toContain("CUT_INVALID");
+        expect(
+          verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger }).code,
+          name,
+        ).toBe("CUT_INVALID");
+      }
+      expect(route(event, { evidence: bind(store, head) }).knowledge.status).toBe("CLOSED");
+      // the cut before the journal began shows nothing: the event is not at the cut
+      const empty = route(event, { evidence: bind(store, 0) });
+      expect(empty.knowledge.status).toBe("OPEN");
+    });
+  });
+
+  it("a SAME-KEY, byte-identical event of another separately committed positive campaign cannot be substituted", async () => {
+    await withPositive((a) =>
+      withStore(twin.dirs.campaignDir, (b) => {
+        const eventA = eventOf(a);
+        const eventB = eventOf(b);
+        // the premise that makes this twin sharp: same campaign id, same key, same bytes; only the journal differs
+        expect(eventB.key).toBe(eventA.key);
+        expect(a.head().campaign_id).toBe(b.head().campaign_id);
+        expect(canonicalEqual(eventA, eventB)).toBe(true);
+        expect(a.head().journal_head_sha256).not.toBe(b.head().journal_head_sha256);
+        const evA = bind(a);
+        const evB = bind(b);
+        // each campaign closes on ITS OWN evidence...
+        expect(route(eventA, { evidence: evA }).knowledge.status).toBe("CLOSED");
+        expect(route(eventB, { evidence: evB }).knowledge.status).toBe("CLOSED");
+        // ...and neither can borrow the other's: campaign B's event and ledger against campaign A's evidence
+        const swapped = route(eventB, { evidence: evA, ledger: evB.ledger });
+        expect(swapped.knowledge.status).toBe("OPEN");
+        expect(swapped.knowledge.detail).toContain("LEDGER_NOT_THE_BOUND_ONE");
+        expect(
+          verifyNativeReceipt(evA, { event: eventB, pc_id: PC_ID, ledger: evB.ledger }).code,
+        ).toBe("LEDGER_NOT_THE_BOUND_ONE");
+        // and campaign A's ledger cannot be presented with campaign B's evidence either
+        expect(route(eventA, { evidence: evB, ledger: evA.ledger }).knowledge.status).toBe("OPEN");
+      }),
+    );
+  });
+
+  it("the evidence is pinned to the journal it was issued at: another head or a rewound journal refuses", async () => {
+    await withPositive((store) => {
+      const event = eventOf(store);
+      const swappable = {
+        journal: store.head().journal_head_sha256,
+        revision: store.head().revision,
+        campaign: store.head().campaign_id,
+      };
+      const wrapped: ReadOnlyStore = {
+        ...overlayStore(store, {}),
+        head: () => ({
+          ...store.head(),
+          journal_head_sha256: swappable.journal,
+          revision: swappable.revision,
+          campaign_id: swappable.campaign,
+        }),
+      };
+      const evidence = bind(wrapped);
+      const ask = () =>
+        verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger });
+      expect(ask()).toMatchObject({ ok: true });
+      swappable.journal = "0".repeat(64);
+      expect(ask()).toMatchObject({ ok: false, code: "JOURNAL_NOT_THE_PINNED_ONE" });
+      swappable.journal = store.head().journal_head_sha256;
+      swappable.revision = store.head().revision - 1;
+      expect(ask()).toMatchObject({ ok: false, code: "JOURNAL_REWOUND" });
+      swappable.revision = store.head().revision;
+      swappable.campaign = "another-campaign";
+      expect(ask()).toMatchObject({ ok: false, code: "CAMPAIGN_MISMATCH" });
+      swappable.campaign = store.head().campaign_id;
+      expect(ask()).toMatchObject({ ok: true });
+    });
+  });
+});
+
+describe("E1-10 BLUE F-2: the formation and the seal are the exact writes of their own committed groups, receipts, realized reads and durable authority", () => {
+  it("INCONSISTENT journal slices are refused by the strict group/receipt layer: a changed payload with the receipt unchanged, a foreign receipt, a fact that is not its group's write", async () => {
+    await withPositive((store) => {
+      const formation = groupOf(store, FORMATION_GROUP);
+      const receipt = store.lookupReceipt(formation.intent_id)!;
+      const packet = store.getFact(PACKET_KEY)!;
+      const patch = (r: Record<string, unknown>) =>
+        overlayStore(store, { receipts: { [formation.intent_id]: r } });
+      const cases: [string, ReadOnlyStore, string][] = [
+        [
+          "a formation write payload changed, the receipt unchanged",
+          overlayStore(store, {
+            groups: {
+              [FORMATION_GROUP]: {
+                ...formation,
+                writes: formation.writes.map((w, i) =>
+                  i === 0 ? { ...w, value: { tampered: true } as never } : w,
+                ),
+              },
+            },
+          }),
+          "GROUP_HASH_MISMATCH",
+        ],
+        [
+          "a bogus group hash recorded on the receipt",
+          patch({ group_sha256: "f".repeat(64) }),
+          "GROUP_HASH_MISMATCH",
+        ],
+        [
+          "the same bogus hash on the receipt AND in the seal's record of it is still not the recomputed one",
+          overlayStore(store, {
+            receipts: { [formation.intent_id]: { group_sha256: "f".repeat(64) } },
+            facts: {
+              [TX_KEY]: forge(
+                store.getFact(TX_KEY)!,
+                (f) => (f.value.stages[0].group_sha256 = "f".repeat(64)),
+              ),
+            },
+          }),
+          "GROUP_HASH_MISMATCH",
+        ],
+        [
+          "a foreign campaign on the receipt",
+          patch({ campaign_id: "foreign" }),
+          "CAMPAIGN_MISMATCH",
+        ],
+        [
+          "the receipt names another group",
+          patch({ group_id: "stage-group:another" }),
+          "RECEIPT_NOT_THIS_GROUP",
+        ],
+        [
+          "the receipt names another intent",
+          patch({ intent_id: "stage-intent:another" }),
+          "RECEIPT_NOT_THIS_GROUP",
+        ],
+        [
+          "the receipt records another governing rule",
+          patch({ basis: { ...receipt.basis, rule: EPISTEMIC_ACCESS_RULE_TENTH_SLICE } }),
+          "RECEIPT_BASIS_NOT_THE_GROUP",
+        ],
+        [
+          "the receipt records another authority than the group's",
+          patch({
+            basis: { ...receipt.basis, authority: { role: "role.someone-else", permission: "x" } },
+          }),
+          "RECEIPT_BASIS_NOT_THE_GROUP",
+        ],
+        ["an impossible receipt revision", patch({ revision: 0 }), "RECEIPT_REVISION_INVALID"],
+        [
+          "the journal returns another group than the one asked for (another group id)",
+          overlayStore(store, {
+            groups: { [FORMATION_GROUP]: { ...formation, group_id: "stage-group:another" } },
+          }),
+          "GROUP_IDENTITY_MISMATCH",
+        ],
+        [
+          "the intent index returns another group than the group-by-id read",
+          overlayStore(store, {
+            indexGroups: { [formation.intent_id]: { ...formation, cause: "transaction:another" } },
+          }),
+          "GROUP_INDEX_DISAGREES",
+        ],
+        [
+          "the committed group is not a well-formed group",
+          overlayStore(store, {
+            groups: { [FORMATION_GROUP]: { ...formation, writes: [] } },
+          }),
+          "GROUP_INVALID",
+        ],
+        [
+          "the journal cannot show the formation group at all",
+          overlayStore(store, { groups: { [FORMATION_GROUP]: null } }),
+          "GROUP_NOT_COMMITTED",
+        ],
+        [
+          "the packet is not its group's write: another payload",
+          overlayStore(store, {
+            facts: { [PACKET_KEY]: forge(packet, (f) => (f.value.payload.content = "unseen")) },
+          }),
+          "WRITE_PAYLOAD_MISMATCH",
+        ],
+        [
+          "the packet is not its group's write: another version",
+          overlayStore(store, { facts: { [PACKET_KEY]: forge(packet, (f) => (f.version += 1)) } }),
+          "WRITE_VERSION_MISMATCH",
+        ],
+        [
+          "the packet is not its group's write: another owner",
+          overlayStore(store, {
+            facts: { [PACKET_KEY]: forge(packet, (f) => (f.owner = "another_owner")) },
+          }),
+          "WRITE_OWNER_FACET_MISMATCH",
+        ],
+        [
+          "the packet is not its group's write: another facet",
+          overlayStore(store, {
+            facts: { [PACKET_KEY]: forge(packet, (f) => (f.facet = "another-facet")) },
+          }),
+          "WRITE_OWNER_FACET_MISMATCH",
+        ],
+        [
+          "the packet is not its group's write: another basis label",
+          overlayStore(store, {
+            facts: { [PACKET_KEY]: forge(packet, (f) => (f.basis = "another-basis")) },
+          }),
+          "WRITE_PAYLOAD_MISMATCH",
+        ],
+        [
+          "the packet's provenance names another cause",
+          overlayStore(store, {
+            facts: { [PACKET_KEY]: forge(packet, (f) => (f.provenance.cause = "another-cause")) },
+          }),
+          "PROVENANCE_NOT_THE_GROUP",
+        ],
+      ];
+      for (const [name, view, code] of cases) {
+        expect(verify(view), name).toMatchObject({ ok: false, code });
+      }
+    });
+  });
+
+  it("the formation's declared reads, dependencies, rule, authority and cause are exactly the stage's", async () => {
+    await withPositive((store) => {
+      const cases: [string, ReadOnlyStore, string][] = [
+        [
+          "the formation read nothing",
+          forgeGroupConsistently(store, FORMATION_GROUP, (g) => (g.reads = [])),
+          "FORMATION_READS_NOT_THE_EVENT",
+        ],
+        [
+          "the formation read another version of the event",
+          forgeGroupConsistently(store, FORMATION_GROUP, (g) => (g.reads[0]!.version += 1)),
+          "FORMATION_READS_NOT_THE_EVENT",
+        ],
+        [
+          "the formation does not depend on the durable authority group",
+          forgeGroupConsistently(
+            store,
+            FORMATION_GROUP,
+            (g) => (g.depends_on = g.depends_on.filter((d) => d !== AUTH_GROUP)),
+          ),
+          "FORMATION_DEPENDENCIES_NOT_EVENT_AND_AUTHORITY",
+        ],
+        [
+          "the formation does not depend on the group that committed the event",
+          forgeGroupConsistently(
+            store,
+            FORMATION_GROUP,
+            (g) => (g.depends_on = g.depends_on.slice().reverse()),
+          ),
+          "FORMATION_DEPENDENCIES_NOT_EVENT_AND_AUTHORITY",
+        ],
+        [
+          "the formation is published under the superseded governing rule",
+          forgeGroupConsistently(
+            store,
+            FORMATION_GROUP,
+            (g) => (g.rule = EPISTEMIC_ACCESS_RULE_TENTH_SLICE),
+          ),
+          "FORMATION_NOT_THE_EPISTEMIC_STAGE",
+        ],
+        [
+          "the formation is published under another authority",
+          forgeGroupConsistently(
+            store,
+            FORMATION_GROUP,
+            (g) => (g.authority = { role: "role.someone-else", permission: "permission.anything" }),
+          ),
+          "FORMATION_NOT_THE_EPISTEMIC_STAGE",
+        ],
+        [
+          "the formation is caused by another transaction",
+          forgeGroupConsistently(store, FORMATION_GROUP, (g) => (g.cause = "transaction:another")),
+          "FORMATION_NOT_THE_EPISTEMIC_STAGE",
+        ],
+      ];
+      for (const [name, view, code] of cases)
+        expect(verify(view), name).toMatchObject({ ok: false, code });
+    });
+  });
+
+  it("the durable transaction authority exists, is its own group's write, lies between the event and the formation, and is what the seal repeats", async () => {
+    await withPositive((store) => {
+      const auth = store.getFact(AUTH_KEY)!;
+      const formation = groupOf(store, FORMATION_GROUP);
+      const eventRevision = revisionOf(store, eventOf(store))!;
+      const formationRevision = store.lookupReceipt(formation.intent_id)!.revision;
+      const authorityIntent = groupOf(store, AUTH_GROUP).intent_id;
+      const cases: [string, ReadOnlyStore, string][] = [
+        [
+          "the authority is absent",
+          overlayStore(store, { facts: { [AUTH_KEY]: null } }),
+          "AUTHORITY_ABSENT_AT_CUT",
+        ],
+        [
+          "the authority's group does not write it",
+          forgeGroupConsistently(store, AUTH_GROUP, (g) => {
+            g.writes = g.writes.map((w) => ({
+              ...w,
+              key: "temporal/transaction-authority/not-it",
+            }));
+          }),
+          "GROUP_DOES_NOT_WRITE_IT",
+        ],
+        [
+          "the authority was committed at the formation's revision, not before it",
+          overlayStore(store, { revisions: { [authorityIntent]: formationRevision } }),
+          "AUTHORITY_NOT_BETWEEN_EVENT_AND_FORMATION",
+        ],
+        [
+          "the authority was committed at the event's revision, not after it",
+          overlayStore(store, { revisions: { [authorityIntent]: eventRevision } }),
+          "AUTHORITY_NOT_BETWEEN_EVENT_AND_FORMATION",
+        ],
+        [
+          "the authority's group read another state version than the one it opened at",
+          forgeGroupConsistently(store, AUTH_GROUP, (g) => (g.reads[0]!.version += 1)),
+          "AUTHORITY_GROUP_NOT_THE_KERNEL_OPENING",
+        ],
+        [
+          "the authority's group is caused by another transaction",
+          forgeGroupConsistently(store, AUTH_GROUP, (g) => (g.cause = "transaction:another")),
+          "AUTHORITY_GROUP_NOT_THE_KERNEL_OPENING",
+        ],
+        [
+          "the authority's group is published under another authority",
+          forgeGroupConsistently(
+            store,
+            AUTH_GROUP,
+            (g) => (g.authority = { role: "role.someone-else", permission: "permission.anything" }),
+          ),
+          "AUTHORITY_GROUP_NOT_THE_KERNEL_OPENING",
+        ],
+        [
+          "the authority's group is published under another governing rule",
+          forgeGroupConsistently(
+            store,
+            AUTH_GROUP,
+            (g) => (g.rule = EPISTEMIC_ACCESS_RULE_TENTH_SLICE),
+          ),
+          "AUTHORITY_GROUP_NOT_THE_KERNEL_OPENING",
+        ],
+        [
+          "the authority opened another request (another target)",
+          forgeConsistently(store, [
+            [
+              AUTH_KEY,
+              (f: any) =>
+                (f.value.requested.target = {
+                  unit: f.value.requested.target.unit,
+                  value: f.value.requested.target.value + 1,
+                }),
+            ],
+          ]),
+          "OWNER_TRIGGER_REFUSED",
+        ],
+        [
+          "the authority carries other publication labels than the seal and itself",
+          forgeConsistently(store, [
+            [AUTH_KEY, (f: any) => (f.value.publication.secrecy = "another-secrecy")],
+          ]),
+          "AUTHORITY_NOT_WHAT_THE_SEAL_REPEATS",
+        ],
+        [
+          "the authority carries another basis label than the seal and itself",
+          forgeConsistently(store, [
+            [AUTH_KEY, (f: any) => (f.value.publication.basis = "another-basis")],
+          ]),
+          "AUTHORITY_NOT_WHAT_THE_SEAL_REPEATS",
+        ],
+        [
+          "the authority opened under another role context: the authority schema itself admits only the player-choice pair",
+          forgeConsistently(store, [
+            [AUTH_KEY, (f: any) => (f.value.context.permission = "permission.another")],
+          ]),
+          "AUTHORITY_INVALID",
+        ],
+      ];
+      expect(auth.version).toBe(1);
+      for (const [name, view, code] of cases)
+        expect(verify(view), name).toMatchObject({ ok: false, code });
+    });
+  });
+
+  it("the seal is its OWN committed group, strictly after the formation, that really wrote it: displaced provenance, an aliased revision or a missing write all refuse", async () => {
+    await withPositive((store) => {
+      const formation = groupOf(store, FORMATION_GROUP);
+      const authority = groupOf(store, AUTH_GROUP);
+      const seal = groupOf(store, SEAL_GROUP);
+      const formationRevision = store.lookupReceipt(formation.intent_id)!.revision;
+      const displaced = (group: typeof formation) =>
+        forgeConsistently(store, [
+          [
+            TX_KEY,
+            (f) => {
+              f.provenance.group_id = group.group_id;
+              f.provenance.intent_id = group.intent_id;
+            },
+          ],
+        ]);
+      const cases: [string, ReadOnlyStore, string][] = [
+        [
+          "the seal's provenance points at the formation group, which never wrote it",
+          displaced(formation),
+          "GROUP_DOES_NOT_WRITE_IT",
+        ],
+        [
+          "the seal's provenance points at the authority group, which never wrote it",
+          displaced(authority),
+          "GROUP_DOES_NOT_WRITE_IT",
+        ],
+        [
+          "the seal's group does not write the seal",
+          forgeGroupConsistently(store, SEAL_GROUP, (g) => {
+            g.writes = g.writes.filter((w) => w.key !== TX_KEY);
+          }),
+          "GROUP_DOES_NOT_WRITE_IT",
+        ],
+        [
+          "the seal was committed at the formation's revision (an alias, not strictly after)",
+          overlayStore(store, { revisions: { [seal.intent_id]: formationRevision } }),
+          "TRANSACTION_NOT_SEALED_AFTER_FORMATION",
+        ],
+        [
+          "the seal was committed before the formation",
+          overlayStore(store, { revisions: { [seal.intent_id]: formationRevision - 1 } }),
+          "TRANSACTION_NOT_SEALED_AFTER_FORMATION",
+        ],
+        [
+          "the seal's group read another state version than the transaction opened at",
+          forgeGroupConsistently(store, SEAL_GROUP, (g) => (g.reads[0]!.version += 1)),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+        [
+          "the seal's group does not read the durable authority",
+          forgeGroupConsistently(store, SEAL_GROUP, (g) => (g.reads = g.reads.slice(0, 1))),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+        [
+          "the seal's group does not depend on the formation group",
+          forgeGroupConsistently(
+            store,
+            SEAL_GROUP,
+            (g) => (g.depends_on = g.depends_on.filter((d) => d !== FORMATION_GROUP)),
+          ),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+        [
+          "the seal's group does not depend on the durable authority group",
+          forgeGroupConsistently(
+            store,
+            SEAL_GROUP,
+            (g) => (g.depends_on = g.depends_on.filter((d) => d !== AUTH_GROUP)),
+          ),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+        [
+          "the seal's group is published under another governing rule",
+          forgeGroupConsistently(
+            store,
+            SEAL_GROUP,
+            (g) => (g.rule = EPISTEMIC_ACCESS_RULE_TENTH_SLICE),
+          ),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+        [
+          "the seal's group is caused by another transaction",
+          forgeGroupConsistently(store, SEAL_GROUP, (g) => (g.cause = "transaction:another")),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+        [
+          "the seal's group is published under another authority",
+          forgeGroupConsistently(
+            store,
+            SEAL_GROUP,
+            (g) => (g.authority = { role: "role.someone-else", permission: "permission.anything" }),
+          ),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+        [
+          "the seal's group does not move the temporal state",
+          forgeGroupConsistently(store, SEAL_GROUP, (g) => {
+            g.writes = g.writes.filter((w) => w.key !== TEMPORAL_STATE_KEY);
+          }),
+          "SEAL_GROUP_NOT_THE_KERNEL_SEAL",
+        ],
+      ];
+      for (const [name, view, code] of cases)
+        expect(verify(view), name).toMatchObject({ ok: false, code });
+    });
+  });
+
+  it("the seal's realized stage matches the journal: reads (missing, other version, other committing group), writes, invariants, group, receipt and hash", async () => {
+    await withPositive((store) => {
+      const stage = (patch: (s: any) => void) =>
+        forgeConsistently(store, [[TX_KEY, (f: any) => patch(f.value.stages[0])]]);
+      const cases: [string, ReadOnlyStore, string][] = [
+        [
+          "the realized reads are missing",
+          stage((s) => (s.reads = [])),
+          "TRANSACTION_STAGE_READS_NOT_REALIZED",
+        ],
+        [
+          "a realized read names another source version",
+          stage((s) => (s.reads[0].source_basis.version = 7)),
+          "TRANSACTION_STAGE_READS_NOT_REALIZED",
+        ],
+        [
+          "a realized read names another committing group",
+          stage((s) => (s.reads[0].source_basis.committed_by = "another-group")),
+          "TRANSACTION_STAGE_READS_NOT_REALIZED",
+        ],
+        [
+          "a realized read names another source fact",
+          stage((s) => (s.reads[0].source.fact_key = "access/another/event")),
+          "TRANSACTION_STAGE_READS_NOT_REALIZED",
+        ],
+        [
+          "a second realized read is invented",
+          stage((s) => s.reads.push(structuredClone(s.reads[0]))),
+          "TRANSACTION_STAGE_READS_NOT_REALIZED",
+        ],
+        [
+          "the recorded invariants are not the receipt's",
+          stage((s) => (s.validation.invariants = ["an-invented-invariant"])),
+          "TRANSACTION_VALIDATION_NOT_THE_RECEIPT",
+        ],
+        [
+          "the recorded group hash is not the committed group's",
+          stage((s) => (s.group_sha256 = "a".repeat(64))),
+          "TRANSACTION_NOT_LINKED_TO_THE_COMMITTED_GROUP",
+        ],
+        [
+          "the recorded receipt revision is not the receipt's",
+          stage((s) => (s.revision += 1)),
+          "TRANSACTION_NOT_LINKED_TO_THE_COMMITTED_GROUP",
+        ],
+        [
+          "the recorded group is another group",
+          stage((s) => (s.group_id = "stage-group:another")),
+          "TRANSACTION_NOT_LINKED_TO_THE_COMMITTED_GROUP",
+        ],
+        [
+          "the recorded intent is another intent",
+          stage((s) => (s.intent_id = "stage-intent:another")),
+          "TRANSACTION_NOT_LINKED_TO_THE_COMMITTED_GROUP",
+        ],
+        [
+          "the recorded writes name another fact",
+          stage((s) => (s.writes[0].key = "access/another/packet/x")),
+          "TRANSACTION_WRITES_NOT_THE_FORMATION",
+        ],
+        [
+          "a recorded write is dropped",
+          stage((s) => (s.writes = s.writes.slice(0, 1))),
+          "TRANSACTION_WRITES_NOT_THE_FORMATION",
+        ],
+      ];
+      for (const [name, view, code] of cases)
+        expect(verify(view), name).toMatchObject({ ok: false, code });
     });
   });
 });

@@ -38,7 +38,8 @@ import {
  * evaluator (BLUE P-7 brief at native pin 2026-11-24T00:22:21.665Z; Two-Blocker v0.3 section 8.1(2); RED terminal R-9, P-7, T74, T85;
  * BLUE final decision N9.1-N9.8).
  *
- * MECHANISM ONLY and NON-WRITING. Every function here is a pure function of its arguments: no clock, no randomness, no filesystem, no
+ * MECHANISM ONLY and NON-WRITING. Every function here is a pure function of its arguments (the one exception, added by P7-E1, is the
+ * write-once slot of the installed native receipt verifier, which holds a function and no data): no clock, no randomness, no filesystem, no
  * store, no network, no canonical write. It installs no writer, registers no owner/facet/kind, classifies no member INERT,
  * PASSIVE_PROVEN or INTERRUPTION_GUARDED, and edits no manifest. The shared catalogue sentinels (`UNDECLARED`, `ACTIONABLE_OR_UNSAFE`,
  * `NONE_SECTION_10_NOT_ACCEPTED`, `NOT_INSTALLED_NO_GM_WRITER`, `UNRETIRED_DENY`) are READ and reported, never changed. This module is
@@ -458,20 +459,45 @@ export const NO_RETIRED_HISTORY: HistoryReader = Object.freeze({
 });
 
 /**
- * P7-E1: what a DIRECT_OBSERVATION receipt must additionally rest on. A receipt that a derivation COULD produce from a committed event is
- * not the receipt the owner actually COMMITTED. The witness is a test-local, read-only view of an actual campaign journal at one named cut
- * (the real implementation lives beside the E1 tests and takes only the store's read methods); it returns a diagnostic code and detail
- * on refusal. The code is a test diagnostic and never a canonical classification. Absent witness: the route never closes.
+ * P7-E1: the opaque evidence a DIRECT_OBSERVATION receipt must additionally rest on, issued ONLY by the native verifier (the test-support
+ * module `native-observation.ts`): one authentic campaign, one valid exact journal cut and THE ledger over it. The checker never looks
+ * inside it and never trusts a verdict from the caller; it hands the value, the event it re-read from its own ledger and that ledger to the
+ * one installed native verifier, which authenticates the evidence by identity against its own private registry and re-reads the journal.
  */
-export interface NativeObservationVerdict {
+export interface NativeEvidenceHandle {
+  readonly campaign_id: string;
+  readonly cut_revision: number;
+  readonly ledger: EvidenceLedger;
+}
+export interface NativeReceiptQuery {
+  readonly event: OwnerFact;
+  readonly pc_id: string;
+  /** the ledger the checker is reading from: it must be THE ledger of the evidence */
+  readonly ledger: EvidenceLedger;
+  /** the checker's canonical cut, when it has one: the evidence may not lie after it */
+  readonly canonical_cut?: CanonicalTime | undefined;
+}
+/** A diagnostic result: never a canonical classification. */
+export interface NativeReceiptVerdict {
   readonly ok: boolean;
-  /** diagnostic only */
   readonly code: string;
   readonly detail: string;
 }
-export interface NativeObservationWitness {
-  readonly id: string;
-  verify(q: { readonly event: OwnerFact; readonly pc_id: string }): NativeObservationVerdict;
+export type NativeReceiptVerifier = (
+  evidence: NativeEvidenceHandle,
+  q: NativeReceiptQuery,
+) => NativeReceiptVerdict;
+
+/**
+ * The ONE native receipt verifier, installed once by the native module when it loads. It is write-once: a second installation throws, so a
+ * look-alike can never replace it silently, and a spoof installed first would break the native module's load. Absent (the module was not
+ * loaded) the DIRECT_OBSERVATION route fails closed. This is the only state in this module; it carries no store and no clock.
+ */
+let installedNativeVerifier: NativeReceiptVerifier | null = null;
+export function installNativeReceiptVerifier(verifier: NativeReceiptVerifier): void {
+  if (installedNativeVerifier !== null)
+    throw new Error("the native receipt verifier is already installed and cannot be replaced");
+  installedNativeVerifier = verifier;
 }
 
 export interface CheckerContext {
@@ -489,8 +515,14 @@ export interface CheckerContext {
   readonly abilityAuthority?: AbilityAuthority;
   readonly firstOptionAuthority?: FirstOptionAuthority;
   readonly history?: HistoryReader;
-  /** the native journal witness the DIRECT_OBSERVATION route requires (P7-E1); absent, that route never closes */
-  readonly nativeObservation?: NativeObservationWitness;
+  /**
+   * P7-E1: what a DIRECT_OBSERVATION receipt must additionally rest on. A receipt that a derivation COULD produce from a committed event
+   * is not the receipt the owner actually COMMITTED. This is OPAQUE evidence issued only by the native verifier (`bindNativeEvidence`).
+   * The CHECKER has the installed native verifier check it; no caller-supplied verdict exists, a value that was not issued there is
+   * refused, and the `ledger` above must be the evidence's own ledger (a ledger, campaign and cut cannot be swapped independently).
+   * Absent evidence: the route never closes.
+   */
+  readonly nativeEvidence?: NativeEvidenceHandle;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1061,10 +1093,22 @@ function knowledgeResult(
     const eventFact = env.ctx.ledger.get(eventRef.key)!;
     if (!isObservationEarnedFact(eventFact))
       return open(o, "EVENT_NOT_OBSERVATION_EARNED", eventRef.key);
-    // P7-E1: derivable is not committed. The route closes only when the actual journal shows the receipt the owner committed.
-    const witness = env.ctx.nativeObservation;
-    if (witness === undefined) return open(o, "NATIVE_RECEIPT_EVIDENCE_ABSENT", eventRef.key);
-    const native = witness.verify({ event: eventFact, pc_id: pcId });
+    // P7-E1: derivable is not committed. The route closes only when the actual journal shows the receipt the owner committed, verified HERE
+    // against the one issued evidence the checker's own ledger belongs to.
+    const evidence = env.ctx.nativeEvidence;
+    if (evidence === undefined) return open(o, "NATIVE_RECEIPT_EVIDENCE_ABSENT", eventRef.key);
+    if (installedNativeVerifier === null)
+      return open(
+        o,
+        "NATIVE_RECEIPT_NOT_PROVEN",
+        "NATIVE_VERIFIER_NOT_INSTALLED: the native module is not loaded",
+      );
+    const native = installedNativeVerifier(evidence, {
+      event: eventFact,
+      pc_id: pcId,
+      ledger: env.ctx.ledger,
+      canonical_cut: env.ctx.cut,
+    });
     if (!native.ok) return open(o, "NATIVE_RECEIPT_NOT_PROVEN", `${native.code}: ${native.detail}`);
     return closedResult(o);
   }
