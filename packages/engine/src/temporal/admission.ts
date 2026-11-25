@@ -208,7 +208,9 @@ export function temporalGroupCheck(
       ? GmWaitStoredTransactionSchema.parse(txW.value)
       : ResolutionTransactionSchema.parse(txW.value);
     const r = checkTransaction(group, state, prior, newState, txW.key, stored, objWs, idxW);
-    if (r) return r;
+    // The interrupted seal already proves the exact retirement and the unchanged suffix
+    // of the index. Future object values are outside this cut and need no revalidation.
+    if (r || stored.outcome.stop_reason === "INTERRUPTED") return r;
   } else {
     // Registration: new objects (and their index entries) against the current basis.
     const pinned = requirePrerequisite(group, state, TEMPORAL_STATE_KEY, "the temporal state");
