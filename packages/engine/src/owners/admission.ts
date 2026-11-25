@@ -55,7 +55,7 @@ import {
   type PlayerCharacterBinding,
 } from "@immortalis/contracts";
 import type { CampaignState, WriteAdmission } from "../commit/campaign-core.ts";
-import { canonicalEqual } from "../hash.ts";
+import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { classifyGoverningRule } from "./governing-rule.ts";
 import { namedActorGroupCheck } from "../actor/admission.ts";
 import { existingActorSourceViolation } from "../actor/derive.ts";
@@ -555,6 +555,9 @@ function buildCanonicalAdmission(
   const selectedHistoryId = laneX
     ? workshopHistoryId +
       (laneX.economyDraft ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1" : "") +
+      (laneX.choiceSource
+        ? "+B3-CHOICE:" + sha256Canonical(laneX.choiceSource.verificationId)
+        : "") +
       "+" +
       IF6B_POLICY
     : workshopHistoryId;

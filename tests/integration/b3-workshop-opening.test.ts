@@ -26,6 +26,7 @@ import {
   workshopFixtureIdentity,
 } from "../../packages/engine/src/owners/workshop/index.ts";
 import { openingPublication, openWorkshop, workshopRawProfile } from "../support/b3-opening.ts";
+import { verifyWorkshopOpeningQV1 } from "../support/b3-qv1.ts";
 import { must } from "../support/temporal.ts";
 
 function factRefs(value: unknown): WorkshopFactRef[] {
@@ -48,6 +49,7 @@ describe("B3 original workshop Profiles (Lane O, signed fixture mechanism)", () 
       });
       const store = h.store;
       try {
+        verifyWorkshopOpeningQV1(profile, h);
         const charter = WorkshopCharterSchema.parse(h.charter.value);
         expect(charter.opening_basis).toEqual(charter.production_operation);
         expect(charter.opening_basis.version).toBe(1);

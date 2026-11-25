@@ -8,6 +8,10 @@ import {
   workshopRef,
   type WorkshopView,
 } from "../../packages/engine/src/owners/workshop/publication.ts";
+import {
+  WorkshopChoiceSchema,
+  type WorkshopChoice,
+} from "../../packages/engine/src/owners/workshop/wait-decision.ts";
 import type { WorkshopLaneXFixture } from "../../packages/engine/src/owners/workshop/lane-x.ts";
 
 import {
@@ -77,7 +81,16 @@ export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true
       office: ReturnType<typeof workshopRef>;
     }
   >();
+  const choices = new Map<string, ReturnType<typeof signBody>>();
   const fixture: WorkshopLaneXFixture = {
+    choiceSource: {
+      verificationId: "fixture:workshop-choice:" + sha256Canonical(keys.publicKeySpkiBase64),
+      read(ref) {
+        const proof = choices.get(ref);
+        if (!proof || !verified(proof)) return undefined;
+        return WorkshopChoiceSchema.parse(JSON.parse(proof.bytes.toString("utf8")));
+      },
+    },
     ...(economyDraft ? { economyDraft: true } : {}),
     noticeSource: {
       verificationId: "fixture:C54:" + sha256Canonical(keys.publicKeySpkiBase64),
@@ -139,6 +152,21 @@ export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true
   };
   return {
     fixture,
+    choose(opportunity: WorkshopChoice["opportunity"], confirmation: string) {
+      const choice = WorkshopChoiceSchema.parse({
+        purpose: "CONTINUE_INTERRUPTED_WORKSHOP_WAIT",
+        opportunity,
+        choice: "CONTINUE",
+        confirmation: sha256Canonical(confirmation),
+      });
+      const proof = signBody(choice);
+      const ref = sha256Canonical([
+        proof.bytes.toString("base64"),
+        proof.signature.toString("base64"),
+      ]);
+      choices.set(ref, proof);
+      return ref;
+    },
     withholdC54() {
       boundaryAvailable = false;
     },

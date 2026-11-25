@@ -11,8 +11,6 @@ import {
   StageKeySchema,
   TemporalObjectSchema,
   temporalGmWaitMarkerKey,
-  temporalObjectKey,
-  timeEquals,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
   type CommitGroup,
@@ -32,6 +30,7 @@ import {
 import { groupSha256, type CampaignState } from "../../commit/campaign-core.ts";
 import { economyGroupCheck } from "../../economy/admission.ts";
 import { economyRealizationProvider } from "../../economy/provider.ts";
+import { gmWaitFenceOf } from "../../gm-wait-custody.ts";
 import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
 import { canonicalEqual, sha256Canonical } from "../../hash.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
@@ -40,6 +39,8 @@ import { productionCompletionProvider } from "../../production/provider.ts";
 import {
   IF6B_POLICY,
   if6bDueObjects,
+  if6bOccurrenceBoundary,
+  if6bWorkHorizon,
   type If6bAdmission,
   type If6bOwnerVerifier,
 } from "../../temporal/if6b-stage.ts";
@@ -63,10 +64,12 @@ import { workshopStageGroup, type WorkshopView } from "./publication.ts";
 import { WORKSHOP_NOTICE_RULE, type WorkshopFixtureIdentity } from "./source.ts";
 import { deriveWorkshopReceipt } from "./epistemic-notice.ts";
 import { workshopHost } from "./glassbell.ts";
+import { verifyWorkshopResume, type WorkshopChoiceSource } from "./wait-decision.ts";
 
 export interface WorkshopLaneXFixture {
   readonly noticeSource: WorkshopNoticeSource;
   readonly economyDraft?: true;
+  readonly choiceSource?: WorkshopChoiceSource;
 }
 
 const viewOf = (state: CampaignState): WorkshopView => ({
@@ -81,15 +84,6 @@ function preparation(marker: GmWaitMarker, state: CampaignState): boolean {
   const e = WorkshopNoticeEnrolmentSchema.safeParse(fact?.value);
   const slot = state.facts.get(workshopReservationKey(marker.campaign_id, marker.pc_id));
   const saved = WorkshopNoticeReservationSchema.safeParse(slot?.value);
-  const occurrenceObject = TemporalObjectSchema.safeParse(
-    state.facts.get(temporalObjectKey("obj-workshop-notice-" + marker.x))?.value,
-  );
-  if (
-    !occurrenceObject.success ||
-    !occurrenceObject.data.next_boundary ||
-    !timeEquals(occurrenceObject.data.next_boundary.at, marker.request.requested.target)
-  )
-    return false;
   return (
     p.kind === "OWNER_PENDING_ENROLMENT" &&
     p.owner === OWNER_WORLD_STATE &&
@@ -188,7 +182,12 @@ export function workshopLaneXAdmission(
         state.facts.get(temporalTransactionAuthorityKey(gmWaitTransactionId(marker.data.x)))?.value,
       );
       if (!authority.success) return undefined;
-      const earned = if6bDueObjects(state, authority.data.requested.target)
+      const cut = if6bOccurrenceBoundary(state, marker.data);
+      if (!cut) return undefined;
+      const earned = if6bDueObjects(
+        state,
+        if6bWorkHorizon(cut, authority.data.requested.target, gmWaitFenceOf(state).stages ?? []),
+      )
         .flatMap(({ entry, object }) =>
           (object?.dependencies ?? []).map((dep) => ({
             at: entry.at,
@@ -245,6 +244,10 @@ export function workshopLaneXAdmission(
         version: slot.version,
         group_id: slot.provenance.group_id,
       };
+      const occurrence =
+        spec.class === "RH_OCCURRENCE"
+          ? group.writes.find((w) => WorkshopNoticeOccurrenceSchema.safeParse(w.value).success)
+          : undefined;
       return {
         class: spec.class,
         policy: IF6B_POLICY,
@@ -258,6 +261,9 @@ export function workshopLaneXAdmission(
         ownerWriteKey: group.writes[0].key,
         reservation: marker.data.preparation.fact,
         predecessors: [predecessor],
+        ...(occurrence
+          ? { occurrence: { key: occurrence.key, version: 1, group_id: group.group_id } }
+          : {}),
       };
     },
   }));
@@ -265,6 +271,12 @@ export function workshopLaneXAdmission(
     ownerVerifiers,
     preparation,
     ...(fixture.economyDraft ? { fixtureEconomyDraft: true } : {}),
+    verifyResume(group, state, seal) {
+      return (
+        state.campaign_id === profile.campaignId &&
+        verifyWorkshopResume(viewOf(state), group, seal, fixture.choiceSource)
+      );
+    },
     verifyAftermath(group, state) {
       if (state.campaign_id !== profile.campaignId) return false;
       const view = viewOf(state);
@@ -415,7 +427,13 @@ export async function advanceWorkshopWaitStage(
   const enrolment = view.get(marker.data.preparation.fact.key);
   const slot = view.get(workshopReservationKey(state.campaign_id, marker.data.pc_id));
   if (!enrolment || !slot) return { status: "UNRESOLVED" as const };
-  const due = if6bDueObjects(state, opened.data.requested.target);
+  const boundary = if6bOccurrenceBoundary(state, marker.data);
+  const fence = gmWaitFenceOf(state);
+  if (!boundary || fence.active?.x !== x) return { status: "UNRESOLVED" as const };
+  const due = if6bDueObjects(
+    state,
+    if6bWorkHorizon(boundary, opened.data.requested.target, fence.stages ?? []),
+  );
   const stages = due.flatMap(({ entry, object }) =>
     (object?.dependencies ?? []).map((decl, order) => ({ entry, object: object!, order, decl })),
   );
