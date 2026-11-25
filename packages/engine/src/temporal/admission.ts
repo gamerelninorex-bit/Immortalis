@@ -8,6 +8,7 @@ import {
   PLAYER_CHOICE_AUTHORITY,
   POPULATION_CLOSE_BASIS,
   ResolutionTransactionSchema,
+  ResolutionTransactionStoredSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
@@ -328,7 +329,9 @@ function checkAuthority(
   }
   if (held) {
     const priorFact = state.facts.get(temporalTransactionKey(held.from_transaction));
-    const priorTx = priorFact ? ResolutionTransactionSchema.safeParse(priorFact.value) : undefined;
+    const priorTx = priorFact
+      ? ResolutionTransactionStoredSchema.safeParse(priorFact.value)
+      : undefined;
     if (!priorTx?.success)
       return bad("the held continuation's sealed transaction is not committed");
     const violation = continuationRequestViolation(priorTx.data, a.requested);
@@ -478,7 +481,9 @@ function checkTransaction(
   if (held) {
     // what is continued is the sealed prior transaction's unfinished request, verified against it
     const priorFact = state.facts.get(temporalTransactionKey(held.from_transaction));
-    const priorTx = priorFact ? ResolutionTransactionSchema.safeParse(priorFact.value) : undefined;
+    const priorTx = priorFact
+      ? ResolutionTransactionStoredSchema.safeParse(priorFact.value)
+      : undefined;
     if (!priorTx?.success) {
       return bad("the held continuation's sealed transaction is not committed", {
         held: held.from_transaction,
@@ -751,7 +756,9 @@ function indexConsistency(
  * No cancellation or supersession exists: this only verifies what is being continued.
  */
 export function continuationRequestViolation(
-  prior: ResolutionTransaction,
+  prior: Pick<ResolutionTransaction, "requested"> & {
+    outcome: Pick<ResolutionTransaction["outcome"], "remainder" | "unresolved_dependents">;
+  },
   requested: ResolutionTransaction["requested"],
 ): string | null {
   if (prior.outcome.unresolved_dependents.length > 0) {

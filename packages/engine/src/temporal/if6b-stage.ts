@@ -22,6 +22,9 @@ import {
   temporalGmWaitByPcKey,
   temporalGmWaitMarkerKey,
   timeEquals,
+  type BoundaryIndex,
+  type GmWaitMarker,
+  type GmWaitStagedTransaction,
   type CanonicalTime,
   type CommitGroup,
   type OwnerFact,
@@ -35,6 +38,8 @@ import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { stageGroupId, stageIntentId } from "./identity.ts";
 
 export const IF6B_POLICY = GM_WAIT_IF6B_POLICY;
+export const IF6B_OCCURRENCE_OPERATION = "world-state-occur-addressed-notice";
+export const IF6B_RESUME_TRIGGER = "PC_RESUME_INTERRUPTED_WAIT";
 
 export type If6bStageClass =
   "RH_RECOVERY" | "RH_OCCURRENCE" | "D3_COMPLETION" | "FIXTURE_ECONOMY_DRAFT";
@@ -55,6 +60,7 @@ export interface If6bStageWitness {
   readonly ownerWriteKey: string;
   readonly reservation: OriginalFact;
   readonly predecessors: readonly OriginalFact[];
+  readonly occurrence?: OriginalFact;
 }
 
 export interface If6bOwnerVerifier {
@@ -78,7 +84,7 @@ function permitted(source: If6bOwnerVerifier): boolean {
       return (
         source.owner === OWNER_WORLD_STATE &&
         source.facet === FACET_WORLD_LOCUS &&
-        source.operation === "world-state-occur-addressed-notice"
+        source.operation === IF6B_OCCURRENCE_OPERATION
       );
     case "D3_COMPLETION":
       return (
@@ -207,6 +213,11 @@ export function qualifyIf6bOwnerStage(
 export interface If6bAdmission {
   readonly ownerVerifiers: readonly If6bOwnerVerifier[];
   readonly fixtureEconomyDraft?: true;
+  readonly verifyResume?: (
+    group: CommitGroup,
+    state: CampaignState,
+    seal: GmWaitStagedTransaction,
+  ) => boolean;
   readonly verifyAftermath?: (group: CommitGroup, state: CampaignState) => boolean;
   readonly permitsReconcile?: (
     marker: import("@immortalis/contracts").GmWaitMarker,
@@ -242,6 +253,7 @@ export function if6bAdmissionOf(admission: HistoryAdmission | undefined) {
 
 export interface If6bCommittedStage {
   readonly at: CanonicalTime;
+  readonly occurrence?: OriginalFact;
   readonly record: StageRecord;
   readonly rule: SourceRef;
 }
@@ -255,6 +267,46 @@ export function if6bDueObjects(state: CampaignState, target: CanonicalTime) {
       const object = TemporalObjectSchema.safeParse(fact?.value);
       return { entry, fact, object: object.success ? object.data : undefined };
     });
+}
+
+/** Only the original enrolment's earned object is consulted before selecting the due interval. */
+export function if6bOccurrenceBoundary(
+  state: CampaignState,
+  marker: GmWaitMarker,
+): { entry: BoundaryIndex["entries"][number]; stage: StageKey } | undefined {
+  const objectId = "obj-workshop-notice-" + marker.x;
+  const object = TemporalObjectSchema.safeParse(
+    state.facts.get(temporalObjectKey(objectId))?.value,
+  );
+  const index = BoundaryIndexSchema.safeParse(state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY)?.value);
+  if (!object.success || !index.success || !object.data.next_boundary) return undefined;
+  const entry = index.data.entries.find((e) => e.object_id === objectId);
+  const declaration = object.data.dependencies[0];
+  if (
+    !entry ||
+    object.data.object_id !== objectId ||
+    object.data.owning_ref.owner !== OWNER_WORLD_STATE ||
+    object.data.owning_ref.process_id !== marker.preparation.fact.key ||
+    object.data.dependencies.length !== 1 ||
+    !declaration ||
+    declaration.stage.owner_operation.owner !== OWNER_WORLD_STATE ||
+    declaration.stage.owner_operation.operation !== IF6B_OCCURRENCE_OPERATION ||
+    entry.boundary_id !== object.data.next_boundary.boundary_id ||
+    !timeEquals(entry.at, object.data.next_boundary.at)
+  )
+    return undefined;
+  return { entry, stage: declaration.stage };
+}
+
+export function if6bWorkHorizon(
+  boundary: ReturnType<typeof if6bOccurrenceBoundary>,
+  target: CanonicalTime,
+  stages: readonly If6bCommittedStage[],
+) {
+  if (!boundary || compareTime(boundary.entry.at, target) !== -1) return target;
+  const settled = stages.find(({ record }) => canonicalEqual(record.stage, boundary.stage));
+  // The proven contrary owner branch can release the candidate cut. Missing proof cannot.
+  return settled && !settled.occurrence ? target : boundary.entry.at;
 }
 
 /** The exact indexed declaration, current source reads and prior durable stages qualify before the owner commits. */
@@ -279,7 +331,10 @@ export function if6bStageFor(
   )
     return undefined;
 
-  const due = if6bDueObjects(state, authority.data.requested.target);
+  const boundary = if6bOccurrenceBoundary(state, marker.data);
+  if (!boundary) return undefined;
+  const horizon = if6bWorkHorizon(boundary, authority.data.requested.target, fence.stages ?? []);
+  const due = if6bDueObjects(state, horizon);
   const declarations = due.flatMap(({ entry, object }) =>
     (object?.dependencies ?? []).map((decl) => ({ entry, decl })),
   );
@@ -295,7 +350,12 @@ export function if6bStageFor(
     !match ||
     credited(match.decl.stage) ||
     declarations.some(
-      ({ entry, decl }) => compareTime(entry.at, match.entry.at) === -1 && !credited(decl.stage),
+      ({ entry, decl }) =>
+        !credited(decl.stage) &&
+        (compareTime(entry.at, match.entry.at) === -1 ||
+          (timeEquals(entry.at, match.entry.at) &&
+            canonicalEqual(match.decl.stage, boundary.stage) &&
+            !canonicalEqual(decl.stage, boundary.stage))),
     ) ||
     group.writes.some((w) => !match.decl.produces.includes(w.key)) ||
     group.depends_on.length !== group.reads.length + 1 ||
@@ -326,6 +386,15 @@ export function if6bStageFor(
   );
   return witness &&
     canonicalEqual(witness.stage, match.decl.stage) &&
+    (!witness.occurrence ||
+      (witness.class === "RH_OCCURRENCE" &&
+        witness.occurrence.group_id === group.group_id &&
+        group.writes.some(
+          (w) =>
+            w.key === witness.occurrence?.key &&
+            w.expected_version === 0 &&
+            witness.occurrence.version === 1,
+        ))) &&
     (witness.class === "RH_OCCURRENCE" || group.writes.length === match.decl.produces.length)
     ? witness
     : undefined;
@@ -342,6 +411,7 @@ export function recordIf6bStage(
     .find((d) => canonicalEqual(d.stage, witness.stage));
   return {
     at: witness.at,
+    ...(witness.occurrence ? { occurrence: witness.occurrence } : {}),
     rule: group.rule,
     record: {
       stage: witness.stage,

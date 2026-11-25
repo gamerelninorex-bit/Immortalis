@@ -5,18 +5,26 @@ import {
   JsonValueSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   timeEquals,
+  type GmWaitMarker,
+  type TemporalState,
   type CommitGroup,
   type GmWaitTransactionAuthority,
   type SourceRef,
 } from "@immortalis/contracts";
 import type { CampaignState } from "../commit/campaign-core.ts";
 import { canonicalEqual } from "../hash.ts";
-import { if6bDueObjects, type If6bCommittedStage } from "./if6b-stage.ts";
+import {
+  if6bDueObjects,
+  if6bOccurrenceBoundary,
+  if6bWorkHorizon,
+  type If6bCommittedStage,
+} from "./if6b-stage.ts";
 
 /** A staged seal consumes the exact durable stage records. Incomplete work retains the OPEN fence. */
 export function if6bSettlement(
   state: CampaignState,
   authority: GmWaitTransactionAuthority,
+  marker: GmWaitMarker,
   stages: readonly If6bCommittedStage[],
   kernelRule: SourceRef,
 ) {
@@ -24,7 +32,14 @@ export function if6bSettlement(
   const indexFact = state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY);
   const index = BoundaryIndexSchema.safeParse(indexFact?.value);
   if (!stages.length || !index.success || !indexFact) return undefined;
-  const due = if6bDueObjects(state, target);
+  const boundary = if6bOccurrenceBoundary(state, marker);
+  if (!boundary) return undefined;
+  const horizon = if6bWorkHorizon(boundary, target, stages);
+  const occurrence = stages.find(
+    ({ record, occurrence }) => occurrence && canonicalEqual(record.stage, boundary.stage),
+  );
+  if (!timeEquals(horizon, target) && !occurrence) return undefined;
+  const due = if6bDueObjects(state, horizon);
   const writes: { key: string; version: number; value: CommitGroup["writes"][number]["value"] }[] =
     [];
   const matched = new Set<string>();
@@ -79,12 +94,32 @@ export function if6bSettlement(
     boundaries_crossed: due.map(({ entry }) => entry),
     stages: stages.map(({ record }) => record),
     rule_versions: rules,
-    outcome: {
-      actual_stop: target,
-      stop_reason: "TARGET_REACHED",
-      remainder: null,
-      unresolved_dependents: [],
-    },
+    outcome: timeEquals(horizon, target)
+      ? {
+          actual_stop: target,
+          stop_reason: "TARGET_REACHED",
+          remainder: null,
+          unresolved_dependents: [],
+        }
+      : {
+          actual_stop: horizon,
+          stop_reason: "INTERRUPTED",
+          remainder: { from: horizon, to: target },
+          unresolved_dependents: [],
+          interruption: {
+            object_id: boundary.entry.object_id,
+            boundary_id: boundary.entry.boundary_id,
+            occurrence_group_id: occurrence!.record.group_id,
+          },
+        },
   });
-  return candidate.success ? { transaction: candidate.data, writes } : undefined;
+  if (!candidate.success) return undefined;
+  const nextClock: TemporalState = {
+    canonical_time: horizon,
+    last_transaction: authority.transaction_id,
+    continuation: candidate.data.outcome.remainder
+      ? { from_transaction: authority.transaction_id, toward: target, unresolved_dependents: [] }
+      : null,
+  };
+  return { transaction: candidate.data, nextClock, writes };
 }

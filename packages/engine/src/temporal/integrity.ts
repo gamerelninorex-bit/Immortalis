@@ -201,8 +201,7 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       );
     } else if (prev && held) {
       // the same rule admission applies, re-verified against the sealed prior record
-      // a GM-origin seal is TARGET_REACHED with no remainder, so it is never the held prior: the prior is a legacy record here
-      const violation = continuationRequestViolation(prev as ResolutionTransaction, tx.requested);
+      const violation = continuationRequestViolation(prev, tx.requested);
       if (violation) bad(key, "TEMPORAL_TRANSACTION", violation);
     }
     if (

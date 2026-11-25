@@ -3,6 +3,9 @@ import { Id, Sha256, Version } from "./ids.ts";
 import { SourceRefSchema } from "./source-ref.ts";
 import {
   CanonicalTimeSchema,
+  compareTime,
+  timeAtOrBefore,
+  timeEquals,
   ResolutionTransactionSchema,
   StageRecordSchema,
   TransactionAuthoritySchema,
@@ -303,20 +306,68 @@ export const GmWaitStagedTransactionSchema = z
     boundaries_crossed: ResolutionTransactionSchema.shape.boundaries_crossed,
     stages: z.array(StageRecordSchema).min(1),
     rule_versions: ResolutionTransactionSchema.shape.rule_versions,
+    outcome: z.union([
+      GmWaitResolutionTransactionSchema.shape.outcome,
+      z.strictObject({
+        actual_stop: CanonicalTimeSchema,
+        stop_reason: z.literal("INTERRUPTED"),
+        remainder: z.strictObject({ from: CanonicalTimeSchema, to: CanonicalTimeSchema }),
+        unresolved_dependents: z.tuple([]),
+        interruption: z.strictObject({
+          object_id: EntityId,
+          boundary_id: Id,
+          occurrence_group_id: Id,
+        }),
+      }),
+    ]),
   })
   .superRefine(({ origin, x, context, stage_policy, ...t }, ctx) => {
     void origin;
     void x;
     void context;
     void stage_policy;
+    const outcome = t.outcome;
+    const interrupted = outcome.stop_reason === "INTERRUPTED";
+    if (interrupted) {
+      const event = outcome.interruption;
+      if (
+        !timeEquals(outcome.remainder.from, outcome.actual_stop) ||
+        !timeEquals(outcome.remainder.to, t.requested.target) ||
+        compareTime(outcome.actual_stop, t.requested.target) !== -1 ||
+        !t.boundaries_crossed.some(
+          (b) =>
+            b.object_id === event.object_id &&
+            b.boundary_id === event.boundary_id &&
+            timeEquals(b.at, outcome.actual_stop),
+        ) ||
+        t.boundaries_crossed.some((b) => !timeAtOrBefore(b.at, outcome.actual_stop)) ||
+        !t.stages.some((s) => s.group_id === event.occurrence_group_id)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "an interrupted seal requires its earned occurrence and exact target remainder",
+          path: ["outcome"],
+        });
+      }
+    }
     const checked = ResolutionTransactionSchema.safeParse({
       ...t,
+      requested: interrupted ? { target: outcome.actual_stop, condition: null } : t.requested,
+      outcome: interrupted
+        ? {
+            actual_stop: outcome.actual_stop,
+            stop_reason: "TARGET_REACHED",
+            remainder: null,
+            unresolved_dependents: [],
+          }
+        : outcome,
       context: PLAYER_CHOICE_AUTHORITY,
     });
     if (!checked.success)
       for (const issue of checked.error.issues)
         ctx.addIssue({ code: "custom", message: issue.message, path: issue.path });
   });
+export type GmWaitStagedTransaction = z.infer<typeof GmWaitStagedTransactionSchema>;
 export const GmWaitStoredTransactionSchema = z.union([
   GmWaitResolutionTransactionSchema,
   GmWaitStagedTransactionSchema,
