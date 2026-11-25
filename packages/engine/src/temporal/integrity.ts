@@ -19,7 +19,7 @@ import {
   timeEquals,
   temporalGmWaitByPcKey,
   temporalGmWaitMarkerKey,
-  type GmWaitResolutionTransaction,
+  type GmWaitStoredTransaction,
   type OwnerFact,
   type PendingConsequenceBarrier,
   type ResolutionTransaction,
@@ -52,7 +52,7 @@ import {
 import { GM_WAIT_CUSTODY_RULE } from "../gm-wait-custody.ts";
 
 /** A sealed transaction of either origin: the legacy player-origin record, or the strict prospective GM variant. */
-type StoredTransaction = ResolutionTransaction | GmWaitResolutionTransaction;
+type StoredTransaction = ResolutionTransaction | GmWaitStoredTransaction;
 
 /**
  * Re-verifies, from committed state and the journal alone, that the kernel-owned temporal state of a

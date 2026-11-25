@@ -39,6 +39,9 @@ export async function msHarness(
     workshop?: {
       profileBytes: Uint8Array;
       campaignId: string;
+      laneX?: (
+        keys: ReturnType<typeof generateFixtureRunnerKeys>,
+      ) => NonNullable<Parameters<typeof fixtureMsCanonicalAdmission>[3]>;
       open(
         admission: ReturnType<typeof fixtureMsCanonicalAdmission>,
       ): ReturnType<typeof openFixtureCampaign>;
@@ -95,7 +98,13 @@ export async function msHarness(
     },
   };
   const actorRunner = new MsActorRunner({ ...keys, driver: actorDriver, outboxDir, macKey });
-  const base = fixtureMsCanonicalAdmission(actorRunner.binding, options.workshop?.profileBytes);
+  const laneX = options.workshop?.laneX?.(keys);
+  const base = fixtureMsCanonicalAdmission(
+    actorRunner.binding,
+    options.workshop?.profileBytes,
+    undefined,
+    laneX,
+  );
   let latest: CampaignState;
   const trace: { before: CampaignState; after: CampaignState; group: CommitGroup }[] = [];
   const admission = {
@@ -148,6 +157,7 @@ export async function msHarness(
   const setup = await h.service.advance(intake.setup_id!);
   return {
     ...h,
+    laneX,
     actorRunner,
     actorDriver,
     actorService,

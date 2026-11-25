@@ -1,6 +1,6 @@
 import {
   BoundaryIndexSchema,
-  GmWaitResolutionTransactionSchema,
+  GmWaitStoredTransactionSchema,
   GmWaitTransactionAuthoritySchema,
   OBSERVATION_TRIGGER_KIND,
   accessEventKey,
@@ -24,7 +24,7 @@ import {
   type CanonicalTime,
   type CommitGroup,
   type Failure,
-  type GmWaitResolutionTransaction,
+  type GmWaitStoredTransaction,
   type ResolutionTransaction,
   type PendingConsequenceBarrier,
   type TemporalObject,
@@ -204,7 +204,7 @@ export function temporalGroupCheck(
 
   if (stateW && txW && prior && newState) {
     const stored = isGmCustody
-      ? GmWaitResolutionTransactionSchema.parse(txW.value)
+      ? GmWaitStoredTransactionSchema.parse(txW.value)
       : ResolutionTransactionSchema.parse(txW.value);
     const r = checkTransaction(group, state, prior, newState, txW.key, stored, objWs, idxW);
     if (r) return r;
@@ -402,13 +402,13 @@ function checkTransaction(
   prior: TemporalState,
   newState: TemporalState,
   txKey: string,
-  stored: ResolutionTransaction | GmWaitResolutionTransaction,
+  stored: ResolutionTransaction | GmWaitStoredTransaction,
   objWs: CommitGroup["writes"],
   idxW: CommitGroup["writes"][number] | undefined,
 ): Rejection | null {
   // F-014B B2: a GM-origin seal is the strict prospective variant. It is judged by every rule below, and ADDITIONALLY always requires
   // its own durable opening (even with no stage): `tx` is the shared view, `legacy` the player-origin transaction or undefined.
-  const tx: ResolutionTransaction | GmWaitResolutionTransaction = stored;
+  const tx: ResolutionTransaction | GmWaitStoredTransaction = stored;
   const legacy: ResolutionTransaction | undefined = "origin" in stored ? undefined : stored;
   const isGm = legacy === undefined;
   // B1 S1: placement two of two. A stage-free transaction commits its state and its seal and NO authority record, so this
@@ -506,7 +506,7 @@ function checkTransaction(
           const a = GmWaitTransactionAuthoritySchema.safeParse(auth.fact.value);
           return (
             !a.success ||
-            gmWaitSealDepartsFromAuthority(stored as GmWaitResolutionTransaction, a.data, txWrite)
+            gmWaitSealDepartsFromAuthority(stored as GmWaitStoredTransaction, a.data, txWrite)
           );
         })();
     if (departs) {
@@ -788,7 +788,7 @@ function checkDueEngaged(
     ResolutionTransaction["engaged"][number],
     { boundary: "DUE_RECONCILED" | "DUE_UNRESOLVED" }
   >,
-  tx: Pick<ResolutionTransaction | GmWaitResolutionTransaction, "engaged" | "stages" | "outcome">,
+  tx: Pick<ResolutionTransaction | GmWaitStoredTransaction, "engaged" | "stages" | "outcome">,
   state: CampaignState,
   objWs: CommitGroup["writes"],
   priorIndex: BoundaryIndex,

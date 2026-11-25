@@ -246,6 +246,23 @@ export function workshopTemporalHistoryCheck(
       revision: state.revision,
       get: (key: string) => state.facts.get(key),
     };
+    if (write.expected_version > 0 && notice) {
+      const previous = TemporalObjectSchema.safeParse(state.facts.get(write.key)?.value);
+      if (
+        previous.success &&
+        previous.data.next_boundary &&
+        group.writes.some((w) => {
+          const v = w.value;
+          return !!v && typeof v === "object" && "stage_policy" in v;
+        }) &&
+        canonicalEqual(o.data, {
+          ...previous.data,
+          next_boundary: null,
+          last_resolved_basis: previous.data.next_boundary.at,
+        })
+      )
+        continue;
+    }
     const why = health
       ? workshopHealthObjectViolation(o.data, view, write.expected_version === 0)
       : workshopNoticeObjectViolation(o.data, view);

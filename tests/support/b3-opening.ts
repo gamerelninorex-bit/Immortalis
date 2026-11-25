@@ -75,6 +75,7 @@ const host = { host_id: "fixture:workshop-referee", claimed_model: null };
 export async function openWorkshop(
   mode: "quiet" | "glassbell",
   opts: {
+    readonly laneX?: NonNullable<NonNullable<Parameters<typeof msHarness>[0]>["workshop"]>["laneX"];
     readonly admissionOverride?: (
       admission: import("@immortalis/engine").WriteAdmission,
     ) => import("@immortalis/engine").WriteAdmission;
@@ -102,6 +103,7 @@ export async function openWorkshop(
     workshop: {
       profileBytes: bytes,
       campaignId: profile.campaignId,
+      ...(opts.laneX ? { laneX: opts.laneX } : {}),
       async open(admission) {
         const dir = tempDir();
         const campaign = await must(

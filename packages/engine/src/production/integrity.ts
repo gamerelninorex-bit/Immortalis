@@ -4,7 +4,7 @@ import {
   ProductionClaimSchema,
   ProductionOperationSchema,
   ProductionReserveSchema,
-  ResolutionTransactionSchema,
+  ResolutionTransactionStoredSchema,
   TemporalObjectSchema,
   compareTime,
   productionBoundaryId,
@@ -71,7 +71,7 @@ export function verifyProductionIntegrity(store: CampaignStore): readonly Integr
   const transactions = all
     .filter((f) => kindOf(f) === "resolution_transaction")
     .flatMap((f) => {
-      const t = parsed(f, ResolutionTransactionSchema);
+      const t = parsed(f, ResolutionTransactionStoredSchema);
       return t ? [t] : [];
     });
   const cited = (groupId: string) =>

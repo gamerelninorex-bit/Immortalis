@@ -1,3 +1,4 @@
+import { workshopSealedCut } from "./lane-x.ts";
 // Health owns the Glassbell condition, its recovery and event-specific auditory assessment.
 import {
   READ_MODE_NOW,
@@ -258,7 +259,9 @@ export function verifyWorkshopRecovery(group: CommitGroup, state: CampaignState)
     w.unit === prior.unit &&
     w.basis === prior.basis &&
     w.secrecy === prior.secrecy &&
-    canonicalEqual(group.reads, [{ key: cause.key, version: cause.version }]) &&
+    (group.cause.startsWith("transaction:gm-wait:")
+      ? group.reads.some((r) => r.key === cause.key && r.version === cause.version)
+      : canonicalEqual(group.reads, [{ key: cause.key, version: cause.version }])) &&
     group.depends_on.includes(cause.provenance.group_id) &&
     stageAuthorityViolation(group, stage, state.facts, at, "ADMISSION") === null &&
     canonicalEqual(w.value, expected)
@@ -385,7 +388,19 @@ export function deriveWorkshopClose(
     return undefined;
   const wait = view.get(temporalGmWaitByPcKey(subject.pc));
   const index = GmWaitByPcIndexSchema.safeParse(wait?.value);
-  if (!wait || !index.success || index.data.state !== "OPEN" || index.data.x !== event.data.x)
+  const settled = workshopSealedCut(view, subject.pc, event.data.x);
+  if (
+    !wait ||
+    !index.success ||
+    !settled ||
+    !settled.settlement.stages.some((s) => s.group_id === occurrence.provenance.group_id) ||
+    view.get(
+      workshopCloseKey(
+        subject.pc,
+        sha256Canonical([view.campaign_id, occurrence.key, subject.host.key, "AUDITORY"]),
+      ),
+    )
+  )
     return undefined;
 
   const anchor = anchorKey ? view.get(anchorKey) : undefined;

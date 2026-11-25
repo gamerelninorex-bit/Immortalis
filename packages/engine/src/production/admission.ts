@@ -10,7 +10,7 @@ import {
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
   TemporalStateSchema,
-  TransactionAuthoritySchema,
+  TransactionAuthorityStoredSchema,
   WORLD_OPERATION_ACCEPT_FALLBACK,
   WorldLocusSchema,
   compareTime,
@@ -374,7 +374,7 @@ export function stageAuthorityViolation(
   const id = group.cause.slice("transaction:".length);
   const key = temporalTransactionAuthorityKey(id);
   const fact = facts.get(key);
-  const authority = fact ? TransactionAuthoritySchema.safeParse(fact.value) : undefined;
+  const authority = fact ? TransactionAuthorityStoredSchema.safeParse(fact.value) : undefined;
   if (!fact || !authority?.success || authority.data.transaction_id !== id) {
     return "an owner stage commits only under the durable authority of its open transaction: the kernel opens the transaction before its first stage";
   }

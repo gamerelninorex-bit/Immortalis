@@ -22,6 +22,7 @@ import {
   type BroadcastExposureEvent,
   type OwnerFact,
 } from "@immortalis/contracts";
+import { WorkshopNoticeOccurrenceSchema } from "../../../contracts/src/workshop-opening.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   EPISTEMIC_ACCESS_BROADCAST_RULE,
@@ -293,7 +294,20 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         committed_by: capFact.provenance.group_id,
       };
     }
-    if (revisionOf(eventFact) >= revisionOf(pf)) {
+    const source = byKey.get(event.data.source.fact_key);
+    const workshopOccurrence =
+      eventId.startsWith("workshop-notice:") &&
+      WorkshopNoticeOccurrenceSchema.safeParse(source?.value);
+    const atomicWorkshopReceipt =
+      workshopOccurrence &&
+      workshopOccurrence.success &&
+      source &&
+      eventId === "workshop-notice:" + workshopOccurrence.data.notice_id &&
+      source.version === event.data.source.version &&
+      revisionOf(source) < revisionOf(eventFact) &&
+      eventFact.provenance.group_id === pf.provenance.group_id &&
+      store.ruleCheckedGroupIds?.().has(pf.provenance.group_id) === true;
+    if (!atomicWorkshopReceipt && revisionOf(eventFact) >= revisionOf(pf)) {
       bad(pf.key, "the event was not committed before the packet formed from it");
     }
     const derived = deriveAccessProducts({
@@ -318,6 +332,8 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
     }
     const boundary = recipientBoundaryViolation(factsBefore(revisionOf(pf)), event.data);
     if (boundary) bad(pf.key, boundary);
+    // Workshop packets are published atomically with their event under the verified staged aftermath rule.
+    if (atomicWorkshopReceipt) continue;
     // formed only as its IM-02 stage, under the durable authority of the transaction that opened it
     const stage = accessPacketStage(eventId, recipient);
     const group = store.committedGroup(pf.provenance.intent_id);

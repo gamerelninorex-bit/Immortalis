@@ -1,9 +1,10 @@
+import { workshopStageGroup } from "./lane-x.ts";
 // World-State is the sole owner of notice enrolment, reservation and occurrence.
 import {
   FACET_WORLD_LOCUS,
   GmWaitByPcIndexSchema,
   GmWaitMarkerSchema,
-  GmWaitResolutionTransactionSchema,
+  GmWaitStoredTransactionSchema,
   GmWaitTransactionAuthoritySchema,
   OWNER_WORLD_STATE,
   gmWaitIndexIsTerminal,
@@ -96,7 +97,14 @@ export function deriveNoticeEnrolment(
   const present = workshopNoticePresentBasis(view, dutyKey);
   const clock = workshopClock(view);
   const evidence = source?.prepare(view, x, dutyKey);
-  if (!present || !clock || !evidence || !currentWitnesses(view, evidence.refs)) return undefined;
+  if (
+    !present ||
+    !clock ||
+    !evidence ||
+    evidence.refs.length === 0 ||
+    !currentWitnesses(view, evidence.refs)
+  )
+    return undefined;
   const { pc, d, duty, presence, operation, noticeId, acceptanceKey } = present;
   const key = workshopEnrolmentKey(pc.worldId, pc.locusId, x);
   const slotKey = workshopReservationKey(view.campaign_id, pc.pc);
@@ -248,6 +256,7 @@ export function deriveNoticeOccurrence(
   const verdict = workshopNoticeBoundary(view, b);
   if (
     !witnesses ||
+    witnesses.length === 0 ||
     !currentWitnesses(view, witnesses) ||
     verdict.status !== "DUE" ||
     !a.data.requested.target ||
@@ -314,12 +323,18 @@ export function deriveNoticeOccurrence(
     ],
   );
   const stage = workshopNoticeStage(b);
-  return {
-    ...group,
-    group_id: stageGroupId(stage),
-    intent_id: stageIntentId(stage),
-    cause: transactionCause(tx),
-  };
+  return workshopStageGroup(
+    {
+      ...group,
+      group_id: stageGroupId(stage),
+      intent_id: stageIntentId(stage),
+      cause: transactionCause(tx),
+    },
+    view,
+    p.enrolment,
+    p.slot,
+    opened,
+  );
 }
 
 export function deriveNoticeSettlement(view: WorkshopView, key: string, abort: boolean) {
@@ -370,7 +385,7 @@ export function deriveNoticeSettlement(view: WorkshopView, key: string, abort: b
     return undefined;
 
   const seal = view.get(sealKey);
-  const sealed = GmWaitResolutionTransactionSchema.safeParse(seal?.value);
+  const sealed = GmWaitStoredTransactionSchema.safeParse(seal?.value);
   const terminal =
     idx.data.state === "NO_OPEN" && !seal && !view.get(authorityKey)
       ? marker

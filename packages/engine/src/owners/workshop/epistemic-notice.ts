@@ -1,3 +1,4 @@
+import { workshopSealedCut } from "./lane-x.ts";
 // Epistemic Access owns the one bounded recipient event and its packet.
 import {
   ACCESS_CLASS_ACTOR_ACCESSIBLE,
@@ -25,11 +26,10 @@ import {
   workshopCloseKey,
   type WorkshopNoticeBinding,
 } from "../../../../contracts/src/workshop-opening.ts";
-import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
 import { sha256Canonical } from "../../hash.ts";
 import { EPISTEMIC_ACCESS_RULE } from "../registry.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
-import { stageGroupId, stageIntentId, transactionCause } from "../../temporal/identity.ts";
+import { stageGroupId, stageIntentId } from "../../temporal/identity.ts";
 import {
   workshopMatches,
   workshopGroup,
@@ -50,7 +50,7 @@ export interface WorkshopRecipientSource {
   ):
     | {
         readonly witnesses: readonly OwnerFact[];
-        readonly capability: CapabilityCloseRead;
+        readonly capability: CapabilityCloseRead | null;
       }
     | undefined;
 }
@@ -73,6 +73,7 @@ export function deriveWorkshopReceipt(
   const host = workshopHost(view);
   if (!occurrence || !event.success || !host || event.data.pc_id !== host.pc) return undefined;
   const e = event.data;
+  const settled = workshopSealedCut(view, host.pc, e.x);
   const enrolment = view.get(workshopEnrolmentKey(e.world_id, e.locus_id, e.x));
   const enrolled = WorkshopNoticeEnrolmentSchema.safeParse(enrolment?.value);
   const wait = view.get(temporalGmWaitByPcKey(host.pc));
@@ -85,7 +86,9 @@ export function deriveWorkshopReceipt(
     !wait ||
     !index.success ||
     index.data.x !== e.x ||
-    index.data.state !== "OPEN"
+    index.data.state !== "OPEN" ||
+    !settled ||
+    !settled.settlement.stages.some((s) => s.group_id === occurrence.provenance.group_id)
   )
     return undefined;
   const close = view.get(
@@ -112,17 +115,19 @@ export function deriveWorkshopReceipt(
     !authority.witnesses.every((f) => workshopMatches(view.get(f.key), workshopRef(f)))
   )
     return undefined;
-  const capability = view.get(authority.capability.fact.key);
+  const capability = authority.capability && view.get(authority.capability.fact.key);
   const cap = PcCapabilitySchema.safeParse(capability?.value);
   if (
-    !capability ||
-    !cap.success ||
-    capability.version !== authority.capability.fact.version ||
-    capability.provenance.group_id !== authority.capability.committed_by ||
-    !authority.witnesses.some((f) => f.key === capability.key)
+    authority.capability &&
+    (!capability ||
+      !cap.success ||
+      capability.version !== authority.capability.fact.version ||
+      capability.provenance.group_id !== authority.capability.committed_by ||
+      !authority.witnesses.some((f) => f.key === capability.key))
   )
     return undefined;
   const eventId = `workshop-notice:${e.notice_id}`;
+  if (view.get(accessEventKey(eventId))) return undefined;
   const value = AccessEventSchema.parse({
     event_id: eventId,
     mode: MODE_BOUNDED_SHARED_ACCESS,
@@ -135,21 +140,26 @@ export function deriveWorkshopReceipt(
       content: "The workshop job's output has been accepted into custody here.",
       presented_attribution: null,
     },
-    representation: { capability_id: authority.capability.fact.value.capability_id },
+    representation: authority.capability
+      ? { capability_id: authority.capability.fact.value.capability_id }
+      : null,
     recipient_role: RECIPIENT_ROLE_PLAYER_CHARACTER,
   });
   const eventKey = accessEventKey(eventId);
   const products = deriveAccessProducts({
     event: { key: eventKey, owner: OWNER_EPISTEMIC_ACCESS, version: 1, value },
-    capability: {
-      committed_by: capability.provenance.group_id,
-      fact: {
-        key: capability.key,
-        owner: capability.owner,
-        version: capability.version,
-        value: cap.data,
-      },
-    },
+    capability:
+      capability && cap.success
+        ? {
+            committed_by: capability.provenance.group_id,
+            fact: {
+              key: capability.key,
+              owner: capability.owner,
+              version: capability.version,
+              value: cap.data,
+            },
+          }
+        : null,
   });
   if (!products.ok) return undefined;
   const writes = [
@@ -178,7 +188,7 @@ export function deriveWorkshopReceipt(
     ...plan,
     group_id: stageGroupId(stage),
     intent_id: stageIntentId(stage),
-    cause: transactionCause(gmWaitTransactionId(e.x)),
+    cause: plan.cause,
     writes: plan.writes.map((w, i) => ({
       ...w,
       secrecy: i === 1 ? ACCESS_CLASS_ACTOR_ACCESSIBLE : ACCESS_CLASS_ENGINE_SEALED,

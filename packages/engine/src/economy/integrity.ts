@@ -10,7 +10,7 @@ import {
   ProductionOperationSchema,
   ProductionRequestSchema,
   ProductionReserveSchema,
-  ResolutionTransactionSchema,
+  ResolutionTransactionStoredSchema,
   TemporalObjectSchema,
   economyDemandKey,
   economyRealizationStage,
@@ -74,7 +74,7 @@ export function verifyEconomyIntegrity(store: CampaignStore): readonly Integrity
   const transactions = all
     .filter((f) => kindOf(f) === "resolution_transaction")
     .flatMap((f) => {
-      const t = parsed(f, ResolutionTransactionSchema);
+      const t = parsed(f, ResolutionTransactionStoredSchema);
       return t ? [t] : [];
     });
   const cited = (groupId: string) =>
