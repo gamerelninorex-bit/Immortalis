@@ -9,8 +9,11 @@ import {
   type WorkshopView,
 } from "../../packages/engine/src/owners/workshop/publication.ts";
 import type { WorkshopLaneXFixture } from "../../packages/engine/src/owners/workshop/lane-x.ts";
-import type { WorkshopNoticeOccurrence } from "../../packages/contracts/src/workshop-opening.ts";
-import { WorkshopNoticeOccurrenceSchema } from "../../packages/contracts/src/workshop-opening.ts";
+
+import {
+  WorkshopInstructionSchema,
+  WorkshopNoticeOccurrenceSchema,
+} from "../../packages/contracts/src/workshop-opening.ts";
 
 export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true) {
   const privateKey = createPrivateKey({
@@ -65,6 +68,15 @@ export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true
         host: string;
       }
     | undefined;
+  let boundaryAvailable = true;
+  const revocations = new Map<
+    string,
+    {
+      body: ReturnType<typeof signBody>;
+      instruction: ReturnType<typeof workshopRef>;
+      office: ReturnType<typeof workshopRef>;
+    }
+  >();
   const fixture: WorkshopLaneXFixture = {
     ...(economyDraft ? { economyDraft: true } : {}),
     noticeSource: {
@@ -81,7 +93,21 @@ export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true
           return undefined;
         return inputs;
       },
+      revocationSource: {
+        authorize(view, instruction, requestId) {
+          const exact = revocations.get(requestId);
+          const office = exact && view.get(exact.office.key);
+          return exact &&
+            office &&
+            workshopMatches(instruction, exact.instruction) &&
+            workshopMatches(office, exact.office) &&
+            verified(exact.body)
+            ? [office]
+            : undefined;
+        },
+      },
       atBoundary(view, b) {
+        if (!boundaryAvailable) return undefined;
         const original = proofs.get(b.x);
         if (
           !original ||
@@ -113,13 +139,32 @@ export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true
   };
   return {
     fixture,
+    withholdC54() {
+      boundaryAvailable = false;
+    },
+    authorizeRevocation(view: WorkshopView, instruction: OwnerFact) {
+      const parsed = WorkshopInstructionSchema.parse(instruction.value);
+      const office = view.get(parsed.office.key);
+      if (!office) throw new Error("missing the original office at this cut");
+      const exact = { instruction: workshopRef(instruction), office: workshopRef(office) };
+      const request = sha256Canonical(["fixture:original-office-act", exact]);
+      revocations.set(request, {
+        ...exact,
+        body: signBody({ purpose: "fixture:revocation", request, exact }),
+      });
+      return request;
+    },
     authorize(view: WorkshopView, x: string, duty: string) {
       const original = preparation(view, x, duty);
       if (!original) throw new Error("missing original C54 source facts");
       proofs.set(x, original);
       return original.rootRequestSha256;
     },
-    authorizeRecipient(occurrence: OwnerFact, event: WorkshopNoticeOccurrence, witness: OwnerFact) {
+    authorizeRecipient(
+      occurrence: OwnerFact,
+      event: ReturnType<typeof WorkshopNoticeOccurrenceSchema.parse>,
+      witness: OwnerFact,
+    ) {
       const refs = [workshopRef(witness)];
       const exact = workshopRef(occurrence);
       delivered = {

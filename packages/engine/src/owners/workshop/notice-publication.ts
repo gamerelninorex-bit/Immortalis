@@ -1,4 +1,4 @@
-import { workshopStageGroup } from "./lane-x.ts";
+import { workshopStageGroup } from "./publication.ts";
 // World-State is the sole owner of notice enrolment, reservation and occurrence.
 import {
   FACET_WORLD_LOCUS,

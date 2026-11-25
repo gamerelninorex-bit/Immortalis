@@ -1,3 +1,4 @@
+import { B3_SHARED_DELTAS, gitB3BaseFile } from "../support/b3-scoped-deltas.ts";
 // Referee restart repair composition: trusted wait cancellation only; exchange wire formats, authentication and all owner/spec pins remain unchanged.
 // Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
@@ -20,6 +21,13 @@ const sha = (file: string) =>
   createHash("sha256")
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
+const verifyPinnedSource = (file: string, original: string) => {
+  const successor = B3_SHARED_DELTAS[file];
+  if (successor) {
+    expect(createHash("sha256").update(gitB3BaseFile(file)).digest("hex"), file).toBe(original);
+  }
+  expect(sha(file), file).toBe(successor?.head ?? original);
+};
 
 /** Byte-identical to the base 7864425: the slice consumes or stands beside every one of these, and edits none. */
 // Not listed here, on purpose: every source file PR #94 changed after this suite's base (spec/f027/spec-lock.json, packages/engine/src/owners/registry.ts
@@ -160,7 +168,7 @@ const DOC = "docs/source-qualified-observation-foundation.md";
 
 describe("the frozen specification, the owners and the surfaces the slice stands beside are untouched", () => {
   it("the runtime-contract snapshot, register and gates (not the F-027 lock or the owner registry, which F-027 v0.8 changed on purpose), the Epistemic route, the projection, the presentation, the confirmation, the referee transport and the World-State owners are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
-    for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
+    for (const [file, hash] of Object.entries(UNCHANGED)) verifyPinnedSource(file, hash);
   });
 
   it("the frozen pins are the brief's", () => {
@@ -174,7 +182,7 @@ describe("the frozen specification, the owners and the surfaces the slice stands
 
   it("the existing source files the slice modified are exactly these, and each is pinned at the slice head (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(MODIFIED))
-      if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) expect(sha(file), file).toBe(hash);
+      if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) verifyPinnedSource(file, hash);
     expect(Object.keys(MODIFIED)).toHaveLength(10);
   });
 

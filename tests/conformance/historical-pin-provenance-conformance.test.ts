@@ -9,6 +9,11 @@
 //      suite names a base commit, the value at THAT commit. A shallow checkout skips these and says so; it never claims them;
 //   4. present-day identities are stated only in tests/support/present-day-identities.ts, and the table matches the working tree;
 //   5. a contemporary hash substituted into a historical assertion is caught, and the genuine historical values are not flagged.
+import {
+  atMergedB2,
+  IF6B_SHARED_DELTAS,
+  if6bSuccessorIdentity,
+} from "../support/if6b-scoped-delta.ts";
 import { B3_PACKAGE_PATHS, B3_SHARED_DELTAS, gitB3BaseFile } from "../support/b3-scoped-deltas.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -175,7 +180,13 @@ describe("census of the examined suites as they stand: changed paths hold only h
     // the exempted unchanged paths are exactly that: not touched by PR #94, and the pin is still what the working tree holds
     for (const r of exempt) {
       expect(existsSync(r.path), `${r.suite} ${r.path}`).toBe(true);
-      expect(r.value, `${r.suite} ${r.path}`).toBe(identityOf(r.path));
+      const successor = IF6B_SHARED_DELTAS[r.path] ?? B3_SHARED_DELTAS[r.path];
+      if (successor) {
+        expect(r.value, r.path).toBe(sha256(atMergedB2(r.path)));
+        expect(identityOf(r.path), r.path).toBe(successor.head);
+      } else {
+        expect(r.value, `${r.suite} ${r.path}`).toBe(identityOf(r.path));
+      }
     }
   });
 
@@ -232,7 +243,7 @@ describe("A26-CB1 preserves the historical identities and pins the current admis
         expect(sha256(gitB3BaseFile(path)), path).toBe(b2Identity);
         expect(identityOf(path), path).toBe(successor.head);
       } else {
-        expect(identityOf(path), path).toBe(b2Identity);
+        expect(identityOf(path), path).toBe(if6bSuccessorIdentity(path, b2Identity));
       }
     }
   });

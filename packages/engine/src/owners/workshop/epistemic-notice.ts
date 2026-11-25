@@ -1,4 +1,4 @@
-import { workshopSealedCut } from "./lane-x.ts";
+import { workshopSealedCut } from "./publication.ts";
 // Epistemic Access owns the one bounded recipient event and its packet.
 import {
   ACCESS_CLASS_ACTOR_ACCESSIBLE,

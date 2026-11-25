@@ -1,5 +1,9 @@
 import {
   CANON_WRITE_AUTHORITY,
+  GmWaitByPcIndexSchema,
+  GmWaitStoredTransactionSchema,
+  temporalGmWaitByPcKey,
+  temporalTransactionKey,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
   type CommitGroup,
@@ -9,6 +13,7 @@ import {
 import type { WorkshopFactRef } from "../../../../contracts/src/workshop-opening.ts";
 import type { CampaignState } from "../../commit/campaign-core.ts";
 import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../gm-wait-catalogue-current.ts";
+import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
 import { canonicalEqual, sha256Canonical } from "../../hash.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
 
@@ -79,4 +84,40 @@ export function workshopGroup(
       secrecy: "sealed",
     })),
   };
+}
+
+/** Compose owner reads with the committed preparation, slot and OPEN. Every read retains its own dependency position. */
+export function workshopStageGroup(
+  group: CommitGroup,
+  view: WorkshopView,
+  enrolment: OwnerFact,
+  slot: OwnerFact,
+  authority: OwnerFact,
+): CommitGroup | undefined {
+  const readKeys = [...new Set([...group.reads.map((r) => r.key), enrolment.key, slot.key])];
+  const facts = readKeys.map((key) => view.get(key));
+  if (facts.some((f) => !f)) return undefined;
+  return {
+    ...group,
+    reads: facts.map((f) => ({ key: f!.key, version: f!.version })),
+    depends_on: [...facts.map((f) => f!.provenance.group_id), authority.provenance.group_id],
+  };
+}
+
+/** The original event can trigger its post-seal Health and Epistemic owner records before by-PC reconciliation. */
+export function workshopSealedCut(view: WorkshopView, pc: string, x: string) {
+  const indexFact = view.get(temporalGmWaitByPcKey(pc));
+  const index = GmWaitByPcIndexSchema.safeParse(indexFact?.value);
+  const seal = view.get(temporalTransactionKey(gmWaitTransactionId(x)));
+  const settled = GmWaitStoredTransactionSchema.safeParse(seal?.value);
+  return indexFact &&
+    index.success &&
+    index.data.state === "OPEN" &&
+    index.data.x === x &&
+    settled.success &&
+    "stage_policy" in settled.data &&
+    settled.data.x === x &&
+    seal
+    ? { indexFact, seal, settlement: settled.data }
+    : undefined;
 }

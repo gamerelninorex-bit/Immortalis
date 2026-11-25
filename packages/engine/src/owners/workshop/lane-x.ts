@@ -4,16 +4,15 @@ import {
   CANON_WRITE_AUTHORITY,
   FACET_WORLD_LOCUS,
   OWNER_EPISTEMIC_ACCESS,
-  GmWaitByPcIndexSchema,
   GmWaitMarkerSchema,
-  GmWaitStoredTransactionSchema,
   GmWaitTransactionAuthoritySchema,
   JsonValueSchema,
   OWNER_WORLD_STATE,
   StageKeySchema,
   TemporalObjectSchema,
-  temporalGmWaitByPcKey,
   temporalGmWaitMarkerKey,
+  temporalObjectKey,
+  timeEquals,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
   type CommitGroup,
@@ -60,7 +59,7 @@ import {
   WORKSHOP_OCCURRENCE_OPERATION,
   type WorkshopNoticeSource,
 } from "./notice-publication.ts";
-import { type WorkshopView } from "./publication.ts";
+import { workshopStageGroup, type WorkshopView } from "./publication.ts";
 import { WORKSHOP_NOTICE_RULE, type WorkshopFixtureIdentity } from "./source.ts";
 import { deriveWorkshopReceipt } from "./epistemic-notice.ts";
 import { workshopHost } from "./glassbell.ts";
@@ -82,6 +81,15 @@ function preparation(marker: GmWaitMarker, state: CampaignState): boolean {
   const e = WorkshopNoticeEnrolmentSchema.safeParse(fact?.value);
   const slot = state.facts.get(workshopReservationKey(marker.campaign_id, marker.pc_id));
   const saved = WorkshopNoticeReservationSchema.safeParse(slot?.value);
+  const occurrenceObject = TemporalObjectSchema.safeParse(
+    state.facts.get(temporalObjectKey("obj-workshop-notice-" + marker.x))?.value,
+  );
+  if (
+    !occurrenceObject.success ||
+    !occurrenceObject.data.next_boundary ||
+    !timeEquals(occurrenceObject.data.next_boundary.at, marker.request.requested.target)
+  )
+    return false;
   return (
     p.kind === "OWNER_PENDING_ENROLMENT" &&
     p.owner === OWNER_WORLD_STATE &&
@@ -104,30 +112,32 @@ function preparation(marker: GmWaitMarker, state: CampaignState): boolean {
   );
 }
 
-const owners = [
-  {
-    provider: workshopHealthRecoveryProvider,
-    class: "RH_RECOVERY",
-    verify: (group: CommitGroup, state: CampaignState) => verifyWorkshopRecovery(group, state),
-  },
-  {
-    provider: productionCompletionProvider,
-    class: "D3_COMPLETION",
-    verify: (group: CommitGroup, state: CampaignState) =>
-      productionGroupCheck(group, state) === null,
-  },
-  {
-    provider: worldFallbackAcceptanceProvider,
-    class: "D3_COMPLETION",
-    verify: (group: CommitGroup, state: CampaignState) =>
-      worldEntityGroupCheck(group, state) === null,
-  },
-  {
-    provider: economyRealizationProvider,
-    class: "FIXTURE_ECONOMY_DRAFT",
-    verify: (group: CommitGroup, state: CampaignState) => economyGroupCheck(group, state) === null,
-  },
-] as const;
+const nativeOwners = () =>
+  [
+    {
+      provider: workshopHealthRecoveryProvider,
+      class: "RH_RECOVERY",
+      verify: (group: CommitGroup, state: CampaignState) => verifyWorkshopRecovery(group, state),
+    },
+    {
+      provider: productionCompletionProvider,
+      class: "D3_COMPLETION",
+      verify: (group: CommitGroup, state: CampaignState) =>
+        productionGroupCheck(group, state) === null,
+    },
+    {
+      provider: worldFallbackAcceptanceProvider,
+      class: "D3_COMPLETION",
+      verify: (group: CommitGroup, state: CampaignState) =>
+        worldEntityGroupCheck(group, state) === null,
+    },
+    {
+      provider: economyRealizationProvider,
+      class: "FIXTURE_ECONOMY_DRAFT",
+      verify: (group: CommitGroup, state: CampaignState) =>
+        economyGroupCheck(group, state) === null,
+    },
+  ] as const;
 
 export function workshopLaneXAdmission(
   profile: WorkshopFixtureIdentity,
@@ -135,6 +145,7 @@ export function workshopLaneXAdmission(
   historyId: string,
 ): If6bAdmission {
   const notice = fixture.noticeSource;
+  const owners = nativeOwners();
   const specs = [
     ...owners.map(({ provider, ...entry }) => ({
       owner: provider.owner,
@@ -311,24 +322,6 @@ export function workshopLaneXAdmission(
   };
 }
 
-/** Compose owner reads with the committed preparation, slot and OPEN. Every read retains its own dependency position. */
-export function workshopStageGroup(
-  group: CommitGroup,
-  view: WorkshopView,
-  enrolment: OwnerFact,
-  slot: OwnerFact,
-  authority: OwnerFact,
-): CommitGroup | undefined {
-  const readKeys = [...new Set([...group.reads.map((r) => r.key), enrolment.key, slot.key])];
-  const facts = readKeys.map((key) => view.get(key));
-  if (facts.some((f) => !f)) return undefined;
-  return {
-    ...group,
-    reads: facts.map((f) => ({ key: f!.key, version: f!.version })),
-    depends_on: [...facts.map((f) => f!.provenance.group_id), authority.provenance.group_id],
-  };
-}
-
 function prepareNativeStage(
   state: CampaignState,
   provider: StageProvider,
@@ -433,6 +426,7 @@ export async function advanceWorkshopWaitStage(
         Number(b.decl.stage.owner_operation.operation === WORKSHOP_OCCURRENCE_OPERATION) ||
       a.order - b.order,
   );
+  const owners = nativeOwners();
   for (const { object, decl } of stages) {
     const committed = store.committedGroup(stageIntentId(decl.stage));
     if (committed) {
@@ -454,22 +448,4 @@ export async function advanceWorkshopWaitStage(
     return { status: "STAGE" as const, stage: decl.stage, result: await store.commit(group) };
   }
   return { status: "READY_TO_SEAL" as const };
-}
-
-/** The original event can trigger its post-seal Health and Epistemic owner records before by-PC reconciliation. */
-export function workshopSealedCut(view: WorkshopView, pc: string, x: string) {
-  const indexFact = view.get(temporalGmWaitByPcKey(pc));
-  const index = GmWaitByPcIndexSchema.safeParse(indexFact?.value);
-  const seal = view.get(temporalTransactionKey(gmWaitTransactionId(x)));
-  const settled = GmWaitStoredTransactionSchema.safeParse(seal?.value);
-  return indexFact &&
-    index.success &&
-    index.data.state === "OPEN" &&
-    index.data.x === x &&
-    settled.success &&
-    "stage_policy" in settled.data &&
-    settled.data.x === x &&
-    seal
-    ? { indexFact, seal, settlement: settled.data }
-    : undefined;
 }

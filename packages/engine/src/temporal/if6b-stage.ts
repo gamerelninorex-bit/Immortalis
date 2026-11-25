@@ -308,6 +308,7 @@ export function if6bStageFor(
     }) ||
     match.decl.reads.some(
       (r) =>
+        r.mode !== "AS-OF-NOW" ||
         !group.reads.some(
           (g) => g.key === r.source.fact_key && state.facts.get(g.key)?.owner === r.source.owner,
         ),
@@ -336,6 +337,9 @@ export function recordIf6bStage(
   witness: If6bStageWitness,
   receipt: import("@immortalis/contracts").CommitReceipt,
 ): If6bCommittedStage {
+  const declaration = if6bDueObjects(state, witness.at)
+    .flatMap(({ object }) => object?.dependencies ?? [])
+    .find((d) => canonicalEqual(d.stage, witness.stage));
   return {
     at: witness.at,
     rule: group.rule,
@@ -352,7 +356,8 @@ export function recordIf6bStage(
           version: r.version,
           committed_by: state.facts.get(r.key)!.provenance.group_id,
         },
-        invalidators: [],
+        invalidators:
+          declaration?.reads.find((d) => d.source.fact_key === r.key)?.invalidators ?? [],
       })),
       writes: group.writes.map((w) => ({ key: w.key, version: w.expected_version + 1 })),
       validation: { invariants: receipt.invariants.map((i) => i.name) },

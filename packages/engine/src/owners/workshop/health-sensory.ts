@@ -1,4 +1,4 @@
-import { workshopSealedCut } from "./lane-x.ts";
+import { workshopSealedCut } from "./publication.ts";
 // Health owns the Glassbell condition, its recovery and event-specific auditory assessment.
 import {
   READ_MODE_NOW,

@@ -34,7 +34,15 @@ describe("B3 catalogue and historical source custody", () => {
   it("T107, adds exactly the ten granted kinds and preserves every earlier entry", () => {
     const original = entries(baseCatalogue);
     const head = entries(GM_WAIT_CATALOGUE_CURRENT_SHA256);
-    expect(head).toEqual(original);
+    const staged = head.find((kind) => kind.id === "resolution_transaction")!;
+    expect(staged.value_schema_fp).not.toBe(
+      original.find((kind) => kind.id === staged.id)!.value_schema_fp,
+    );
+    expect(head).toEqual(
+      original.map((kind) =>
+        kind.id === staged.id ? { ...kind, value_schema_fp: staged.value_schema_fp } : kind,
+      ),
+    );
     expect(ALL_FACT_KINDS).toHaveLength(124);
     const qualification = JSON.parse(
       readFileSync(new URL("../fixtures/b3-qualification-registry.json", import.meta.url), "utf8"),

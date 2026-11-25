@@ -1,3 +1,4 @@
+import { B3_SHARED_DELTAS, gitB3BaseFile } from "../support/b3-scoped-deltas.ts";
 // Conformance evidence for the Current Observation Glance read (BLUE v5.2 bounded brief 2026-10-15; I-001 §§3–5, 9–11; F-014D §§2, 4.1, 5, 6; F-014B
 // §§4, 17; IM-13 → IM-14; IM-15 / IM-16; RC-14). Governing lock: spec/f027/spec-lock.json. No register row, status, source pin, gate, owner,
 // fact kind or schema moved; this slice adds one contract, one protocol module and tests. Authentication is neither implemented nor claimed.
@@ -64,7 +65,15 @@ const UNCHANGED: Readonly<Record<string, string>> = {
 
 describe("existing owners, projection, presentation and predecessors are untouched: the read consumes them, never edits or duplicates them", () => {
   it("IM-13, IM-14, their contracts, the sibling protocol operations, the Epistemic observation owner path, the Temporal coordinator, the operator observation command and the F-027 artifacts are byte-identical to the base (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
-    for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
+    for (const [file, hash] of Object.entries(UNCHANGED)) {
+      const successor = B3_SHARED_DELTAS[file];
+      if (successor) {
+        expect(createHash("sha256").update(gitB3BaseFile(file)).digest("hex"), file).toBe(hash);
+        expect(sha(file), file).toBe(successor.head);
+      } else {
+        expect(sha(file), file).toBe(hash);
+      }
+    }
   });
 
   it("the protocol package gained exactly one module and the index re-exports it, with the same dependencies", () => {

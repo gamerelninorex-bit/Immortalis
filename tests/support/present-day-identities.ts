@@ -16,7 +16,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/index.ts":
     "6d99c68407b6d15b01c06cb7ba62d14b4068986d130f6eef95d35410b8e6c19b",
   "packages/engine/src/owners/admission.ts":
-    "6e6ac9c666ea034efe3ac5cba3705304773b01f4f14ae86a5f9ac1d92e0c5b59",
+    "0a8ee04b3cb3d6b21dbb7750b277a9a9b0fb1af25c6c8cd4505367c1c9d8f968",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
@@ -51,7 +51,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
     "7c0354e4ecc73ff6329a5c781f3b273ede3f55ae67393bba3a814ea4bf6e633d",
   // directory trees (sorted `path\0sha256(bytes)\n`, the algorithm auditory-premises-conformance uses)
   "packages/engine/src/epistemic":
-    "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
+    "eb6d2891e806cf338b5eaa239570ea6ab7d9eda45c462c8b8cbc84b374225bd6",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
   "packages/operator/src": "ecee21e9fe9dd03dbad8e175072e1b640d61e39b7c9a1bf8295dc458ddac75bc",
   "packages/protocol/src": "566471504652371ea4ad1979354d247b6d94696dcf78f93aabc12c8ab38b7784",

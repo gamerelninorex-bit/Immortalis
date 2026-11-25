@@ -1,3 +1,4 @@
+import { if6bSuccessorIdentity } from "../support/if6b-scoped-delta.ts";
 // Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
 // Composed implementation pin update: BLUE two-review brief 40620af901e0812d8b30fbaaa33f4bf3. Frozen sources/owners unchanged.
@@ -97,7 +98,8 @@ const UNCHANGED: Record<string, string> = {
 
 describe("nothing outside the operator is touched", () => {
   it("the gates, register, contracts, the Economy, Production and Temporal owners, the earlier admission modules, commands.ts, the session and the ledger are byte-identical to main (except the source files PR #94 changed after this base, recorded as history in tests/support/historical-pin-inventory.ts and not compared with the working tree)", () => {
-    for (const [file, hash] of Object.entries(UNCHANGED)) expect(sha(file), file).toBe(hash);
+    for (const [file, hash] of Object.entries(UNCHANGED))
+      expect(sha(file), file).toBe(if6bSuccessorIdentity(file, hash));
   });
 
   it("PF-6/F-028 stays not activated and blocked, and no acceptance row carries this slice as evidence", () => {

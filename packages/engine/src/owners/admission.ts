@@ -552,7 +552,12 @@ function buildCanonicalAdmission(
   const workshopHistoryId = workshop
     ? `${historyVerificationId}+B3-WORKSHOP-OWNER-V1:${workshop.sha256}${noticeSource ? `:${noticeSource.verificationId}` : ""}`
     : historyVerificationId;
-  const selectedHistoryId = laneX ? workshopHistoryId + "+" + IF6B_POLICY : workshopHistoryId;
+  const selectedHistoryId = laneX
+    ? workshopHistoryId +
+      (laneX.economyDraft ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1" : "") +
+      "+" +
+      IF6B_POLICY
+    : workshopHistoryId;
   // F-014B B2: what qualifies a marker's original-owner preparation. The production admission qualifies NONE (D3(b) is not adopted, so
   // no pending enrolment and no authorized quiet variant can exist); only the TESTKIT-ONLY fixture admission qualifies a synthetic one.
   const if6b =
