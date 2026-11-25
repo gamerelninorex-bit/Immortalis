@@ -8,6 +8,8 @@ import {
 import { groupSha256 } from "@immortalis/engine";
 import {
   IF6B_POLICY,
+  if6bWorkHorizon,
+  type If6bCommittedStage,
   qualifyIf6bOwnerStage,
   type If6bOwnerVerifier,
   type If6bStageWitness,
@@ -108,5 +110,42 @@ describe("IF-6b E1 TEST-ONLY owner witness structure", () => {
     } finally {
       await rig.campaign.close();
     }
+  });
+});
+
+describe("IF-6b earned interruption cut", () => {
+  it("holds the early cut through unresolved source and occurrence, and releases it only on verified contrary evidence", () => {
+    const stage = {
+      causal_process_id: "original-enrolment",
+      owner_operation: { owner: "world_state", operation: "world-state-occur-addressed-notice" },
+      prospective_result_id: "original-occurrence",
+    };
+    const boundary = {
+      entry: { object_id: "notice-object", boundary_id: "notice-boundary", at: at(100) },
+      stage,
+    };
+    const makeRecord = (occurrence?: If6bCommittedStage["occurrence"]): If6bCommittedStage => ({
+      at: boundary.entry.at,
+      rule: foreignGroup(101).rule,
+      record: {
+        stage,
+        reads: [],
+        group_id: "original-occurrence-group",
+        intent_id: "original-occurrence-intent",
+        revision: 5,
+        group_sha256: "0".repeat(64),
+        writes: [{ key: "original-enrolment", version: 2 }],
+        validation: { invariants: ["original-owner"] },
+      },
+      ...(occurrence ? { occurrence } : {}),
+    });
+    expect(if6bWorkHorizon(boundary, at(200), [])).toEqual(at(100));
+    expect(
+      if6bWorkHorizon(boundary, at(200), [
+        makeRecord({ key: "owner-occurrence", version: 1, group_id: "original-occurrence-group" }),
+      ]),
+    ).toEqual(at(100));
+    expect(if6bWorkHorizon(boundary, at(200), [makeRecord()])).toEqual(at(200));
+    expect(if6bWorkHorizon(boundary, at(90), [])).toEqual(at(90));
   });
 });
