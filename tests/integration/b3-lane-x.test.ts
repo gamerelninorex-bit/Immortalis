@@ -177,6 +177,21 @@ describe("B3 Lane X with signed disposable owner sources", () => {
           expect(next.result.ok, JSON.stringify(next)).toBe(true);
           if (!next.result.ok) throw new Error(JSON.stringify(next.result.error));
           credited.push(next.result.value.receipt.group_id);
+          if (n === 1 && mode === "positive") {
+            const published = store.committedGroup(next.result.value.receipt.intent_id)!;
+            const head = store.head();
+            expect(
+              await store.commit({
+                ...published,
+                group_id: "duplicate:second-writer",
+                intent_id: "duplicate:second-writer",
+              }),
+            ).toMatchObject({
+              ok: false,
+              error: { details: { reason: "GM_WAIT_STAGE_CLAIM_UNSOURCED" } },
+            });
+            expect(store.head()).toEqual(head);
+          }
           if (n === 0 && mode === "positive") {
             const head = store.head();
             await active.close();
