@@ -30,7 +30,6 @@ import {
 import { groupSha256, type CampaignState } from "../../commit/campaign-core.ts";
 import { economyGroupCheck } from "../../economy/admission.ts";
 import { economyRealizationProvider } from "../../economy/provider.ts";
-import { gmWaitFenceOf } from "../../gm-wait-custody.ts";
 import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
 import { canonicalEqual, sha256Canonical } from "../../hash.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
@@ -38,9 +37,7 @@ import { productionGroupCheck } from "../../production/admission.ts";
 import { productionCompletionProvider } from "../../production/provider.ts";
 import {
   IF6B_POLICY,
-  if6bDueObjects,
-  if6bOccurrenceBoundary,
-  if6bWorkHorizon,
+  if6bDueForOpenWait,
   type If6bAdmission,
   type If6bOwnerVerifier,
 } from "../../temporal/if6b-stage.ts";
@@ -182,13 +179,9 @@ export function workshopLaneXAdmission(
         state.facts.get(temporalTransactionAuthorityKey(gmWaitTransactionId(marker.data.x)))?.value,
       );
       if (!authority.success) return undefined;
-      const cut = if6bOccurrenceBoundary(state, marker.data);
-      if (!cut) return undefined;
-      const earned = if6bDueObjects(
-        state,
-        if6bWorkHorizon(cut, authority.data.requested.target, gmWaitFenceOf(state).stages ?? []),
-      )
-        .flatMap(({ entry, object }) =>
+      const due = if6bDueForOpenWait(state, marker.data, authority.data.requested.target);
+      const earned = due
+        ?.flatMap(({ entry, object }) =>
           (object?.dependencies ?? []).map((dep) => ({
             at: entry.at,
             stage: dep.stage,
@@ -427,13 +420,8 @@ export async function advanceWorkshopWaitStage(
   const enrolment = view.get(marker.data.preparation.fact.key);
   const slot = view.get(workshopReservationKey(state.campaign_id, marker.data.pc_id));
   if (!enrolment || !slot) return { status: "UNRESOLVED" as const };
-  const boundary = if6bOccurrenceBoundary(state, marker.data);
-  const fence = gmWaitFenceOf(state);
-  if (!boundary || fence.active?.x !== x) return { status: "UNRESOLVED" as const };
-  const due = if6bDueObjects(
-    state,
-    if6bWorkHorizon(boundary, opened.data.requested.target, fence.stages ?? []),
-  );
+  const due = if6bDueForOpenWait(state, marker.data, opened.data.requested.target);
+  if (!due) return { status: "UNRESOLVED" as const };
   const stages = due.flatMap(({ entry, object }) =>
     (object?.dependencies ?? []).map((decl, order) => ({ entry, object: object!, order, decl })),
   );

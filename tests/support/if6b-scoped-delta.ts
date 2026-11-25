@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 export const IF6B_BASE_COMMIT = "728104565662fece3e76be5b94c28f3c4201dbb7";
 export const IF6B_ENGINE_PATH = "packages/engine/src/temporal/if6b-stage.ts";
 export const IF6B_ENGINE_SHA256 =
-  "59c8abe2bff6924fe8631f06a16c3b64c732115cba8459553695a1896c6da37d";
+  "1b08002314846f77252d9512fa8e633c84852bf6d31fbf334c025087167fef53";
 export const IF6B_SETTLEMENT_PATH = "packages/engine/src/temporal/if6b-settlement.ts";
 export const IF6B_SETTLEMENT_SHA256 =
   "d2cb6a9c0ce253287b7621a338805c35b541056b37454f142783a180dcf6f7d1";
@@ -50,6 +50,7 @@ export const IF6B_PACKAGE_PATHS: readonly string[] = [
   "packages/contracts/src/temporal-custody.ts",
   "packages/engine/gm-wait-catalogue/manifests/3b30e70540dbc87fd778792b264c71a73047b9433c75eb086a797aa4dc50e46c.json",
   "packages/engine/gm-wait-catalogue/manifests/50a4f44ee76a590b31a88b719d53e42ddb5d475269feb49b6544312176a3d3f5.json",
+  "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
   "packages/engine/gm-wait-catalogue/manifests/818c03456cffd2084af2f8e5e1c5f2a5489fa043d5ff6c298cbe307e04437c78.json",
   "packages/engine/gm-wait-catalogue/manifests/acecb5c9010cc6239544c7d926bb72971a8fe8c32cbcced38c43eec2ebd90748.json",
   "packages/engine/src/commit/campaign-core.ts",
