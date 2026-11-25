@@ -4,6 +4,7 @@
 //
 // History checks use the Git objects named in tests/support/a0-scoped-deltas.ts; a shallow checkout (no history) skips them and says so,
 // it never claims them.
+import { if6bSuccessorIdentity } from "../support/if6b-scoped-delta.ts";
 import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -72,7 +73,7 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
   it("each recorded head is the file's bytes now, and differs from its base", () => {
     for (const [path, d] of Object.entries(A0_SCOPED_DELTAS)) {
       // F-014B B2 (a later slice) changed four of these files again: A0's head is then exactly B2's base (tests/conformance/b2-scope-conformance.test.ts)
-      expect(fileSha(path), path).toBe(bytesNowGiven(path, d.head));
+      expect(fileSha(path), path).toBe(if6bSuccessorIdentity(path, bytesNowGiven(path, d.head)));
       expect(d.base, path).not.toBe(d.head);
     }
     expect(Object.keys(A0_SCOPED_DELTAS)).toHaveLength(15);
@@ -258,12 +259,12 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     for (const p of FORBIDDEN) {
       // a forbidden path moves by nothing, except the declared A1-1 and A1-2a inclusions that lie inside it
       // (F-014B B2, a later slice, also changes files inside the temporal, persistence and commit trees: its table polices them)
-      const declared = [
-        ...A1_1_PACKAGE_PATHS,
-        ...A1_2A_PACKAGE_PATHS,
-        ...B2_PACKAGE_PATHS,
-        ...IF6B_PACKAGE_PATHS,
-      ]
+      const declared = unionPaths(
+        A1_1_PACKAGE_PATHS,
+        A1_2A_PACKAGE_PATHS,
+        B2_PACKAGE_PATHS,
+        IF6B_PACKAGE_PATHS,
+      )
         .filter((a) => a === p || a.startsWith(`${p}/`))
         .sort();
       expect(
@@ -274,7 +275,7 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     }
   });
 
-  it("the Temporal directory retains the original list plus the inert IF-6b verifier, and the three D-3 gateways are among the untouched", () => {
+  it("the Temporal directory retains the original list plus the IF-6b verifier and settlement, and the three D-3 gateways are among the untouched", () => {
     expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
       "admission.ts",
       "bootstrap.ts",
@@ -282,6 +283,7 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
       "coordinator.ts",
       "graph.ts",
       "identity.ts",
+      "if6b-settlement.ts",
       "if6b-stage.ts",
       "integrity.ts",
       "partition.ts",

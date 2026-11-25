@@ -318,13 +318,7 @@ describe("IA-23 / CAL-01 temporal approximation calibration: not used, not inven
 
   it("declares no calibration constant: no numeric threshold, cadence, timeout, capacity or default in the temporal modules", () => {
     for (const f of TEMPORAL_SOURCES) {
-      let text = code(f);
-      if (f === "packages/engine/src/temporal/if6b-stage.ts") {
-        // The authorization timestamp belongs to a policy identity string, never to a clock threshold.
-        const policy = '"F-014B-IF-6b-D2-AD5@2026-11-23T11:42:34.869Z"';
-        expect(text.split(policy), "exactly one policy identity").toHaveLength(2);
-        text = text.replace(policy, '"IF6b policy identity"');
-      }
+      const text = code(f);
       // numeric literals other than structural ones: 0/1/2 (indices, counters, comparisons), 5 (diagnostic
       // issue-list length) and 64 (sha256 hex digest length)
       const numbers = [...text.matchAll(/(?<![\w.$"'`-])(\d+(?:\.\d+)?)(?![\w"'`])/g)].map(
@@ -380,6 +374,7 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "coordinator.ts",
       "graph.ts",
       "identity.ts",
+      "if6b-settlement.ts",
       "if6b-stage.ts",
       "integrity.ts",
       "partition.ts",

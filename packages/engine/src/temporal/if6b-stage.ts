@@ -3,6 +3,7 @@ import {
   FACET_PRODUCTION_STATE,
   GM_WAIT_IF6B_POLICY,
   FACET_WORLD_LOCUS,
+  FACET_WORLD_FALLBACK_ENTITY,
   GmWaitByPcIndexSchema,
   GmWaitMarkerSchema,
   GmWaitTransactionAuthoritySchema,
@@ -85,7 +86,7 @@ function permitted(source: If6bOwnerVerifier): boolean {
           source.facet === FACET_PRODUCTION_STATE &&
           source.operation === PRODUCTION_OPERATION_COMPLETE) ||
         (source.owner === OWNER_WORLD_STATE &&
-          source.facet === FACET_WORLD_LOCUS &&
+          source.facet === FACET_WORLD_FALLBACK_ENTITY &&
           source.operation === WORLD_OPERATION_ACCEPT_FALLBACK)
       );
     case "FIXTURE_ECONOMY_DRAFT":
@@ -206,6 +207,11 @@ export function qualifyIf6bOwnerStage(
 export interface If6bAdmission {
   readonly ownerVerifiers: readonly If6bOwnerVerifier[];
   readonly fixtureEconomyDraft?: true;
+  readonly verifyAftermath?: (group: CommitGroup, state: CampaignState) => boolean;
+  readonly permitsReconcile?: (
+    marker: import("@immortalis/contracts").GmWaitMarker,
+    state: CampaignState,
+  ) => boolean;
   readonly preparation: (
     marker: import("@immortalis/contracts").GmWaitMarker,
     state: CampaignState,
@@ -291,7 +297,7 @@ export function if6bStageFor(
     declarations.some(
       ({ entry, decl }) => compareTime(entry.at, match.entry.at) === -1 && !credited(decl.stage),
     ) ||
-    !canonicalEqual(group.writes.map((w) => w.key).sort(), [...match.decl.produces].sort()) ||
+    group.writes.some((w) => !match.decl.produces.includes(w.key)) ||
     group.depends_on.length !== group.reads.length + 1 ||
     group.depends_on.at(-1) !== x.authorityGroupId ||
     group.reads.some((r, i) => {
@@ -302,6 +308,7 @@ export function if6bStageFor(
     }) ||
     match.decl.reads.some(
       (r) =>
+        r.mode !== "AS-OF-NOW" ||
         !group.reads.some(
           (g) => g.key === r.source.fact_key && state.facts.get(g.key)?.owner === r.source.owner,
         ),
@@ -317,7 +324,11 @@ export function if6bStageFor(
     fence,
     match.entry.at,
   );
-  return witness && canonicalEqual(witness.stage, match.decl.stage) ? witness : undefined;
+  return witness &&
+    canonicalEqual(witness.stage, match.decl.stage) &&
+    (witness.class === "RH_OCCURRENCE" || group.writes.length === match.decl.produces.length)
+    ? witness
+    : undefined;
 }
 
 export function recordIf6bStage(
@@ -326,6 +337,9 @@ export function recordIf6bStage(
   witness: If6bStageWitness,
   receipt: import("@immortalis/contracts").CommitReceipt,
 ): If6bCommittedStage {
+  const declaration = if6bDueObjects(state, witness.at)
+    .flatMap(({ object }) => object?.dependencies ?? [])
+    .find((d) => canonicalEqual(d.stage, witness.stage));
   return {
     at: witness.at,
     rule: group.rule,
@@ -342,7 +356,8 @@ export function recordIf6bStage(
           version: r.version,
           committed_by: state.facts.get(r.key)!.provenance.group_id,
         },
-        invalidators: [],
+        invalidators:
+          declaration?.reads.find((d) => d.source.fact_key === r.key)?.invalidators ?? [],
       })),
       writes: group.writes.map((w) => ({ key: w.key, version: w.expected_version + 1 })),
       validation: { invariants: receipt.invariants.map((i) => i.name) },

@@ -14,6 +14,11 @@
 //   B0-72  every B0 test file labels every test title with one of the three permitted prefixes, carries its header comment, and uses none of the
 //          forbidden words in a title or in code.
 // Each scanner is first run on a specimen that it must flag and a specimen that it must not, so a scanner that matched nothing could not pass.
+import {
+  atMergedB2,
+  IF6B_SHARED_DELTAS,
+  if6bSuccessorIdentity,
+} from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -178,13 +183,19 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
       for (const path of unchanged) {
         const atBase = atRef(BASE, path);
         expect(atBase, `${path} exists at the base`).not.toBeNull();
-        expect(sameBytes(atBase, readFileSync(path)), path).toBe(true);
+        const successor = IF6B_SHARED_DELTAS[path];
+        expect(sameBytes(atBase, successor ? atMergedB2(path) : readFileSync(path)), path).toBe(
+          true,
+        );
+        if (successor) expect(sha256(readFileSync(path)), path).toBe(successor.head);
       }
       // the four declared B2 edits: the integrity verifier is bound to the B2 table (its base IS this contract's base, its head the bytes now), and each
       // of the three protocol suites differs from the base by exactly the replacement of one two-line pin by one comment line
       const integrity = "packages/engine/src/temporal/integrity.ts";
       expect(sha256(atRef(BASE, integrity)!), integrity).toBe(B2_SCOPED_DELTAS[integrity]!.base);
-      expect(sha256(readFileSync(integrity)), integrity).toBe(B2_SCOPED_DELTAS[integrity]!.head);
+      expect(sha256(readFileSync(integrity)), integrity).toBe(
+        if6bSuccessorIdentity(integrity, B2_SCOPED_DELTAS[integrity]!.head),
+      );
       for (const path of b2Edits.filter((p) => p.startsWith("tests/"))) {
         const stat = lines(git("diff", "--numstat", BASE, "--", path)).map((l) => l.split("\t"));
         expect(stat, `${path} numstat`).toEqual([["1", "2", path]]);
@@ -242,7 +253,9 @@ describe("B0 refusal-only: the files that B0 must not change", () => {
         const delta = A0_SCOPED_DELTAS[path];
         if (delta !== undefined) {
           expect(sha256(atBase!), `${path} original identity`).toBe(delta.base);
-          expect(sha256(now), `${path} present-day identity`).toBe(bytesNowGiven(path, delta.head));
+          expect(sha256(now), `${path} present-day identity`).toBe(
+            if6bSuccessorIdentity(path, bytesNowGiven(path, delta.head)),
+          );
         }
       }
       expect(identityOf("packages/engine/src/owners/admission.ts")).toBe(

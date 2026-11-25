@@ -40,7 +40,12 @@ import {
   type Result,
   type SourceRef,
 } from "@immortalis/contracts";
-import { if6bStageFor, recordIf6bStage, type If6bCommittedStage } from "./temporal/if6b-stage.ts";
+import {
+  if6bAdmissionOf,
+  if6bStageFor,
+  recordIf6bStage,
+  type If6bCommittedStage,
+} from "./temporal/if6b-stage.ts";
 import { if6bSettlement } from "./temporal/if6b-settlement.ts";
 import type { CampaignState, CommitErrorCode } from "./commit/campaign-core.ts";
 import {
@@ -460,6 +465,13 @@ export function gmWaitFenceViolation(
     const claim = gmWaitClaimOf(group, live);
     if (claim !== null) {
       if (state && if6bStageFor(group, state, fence, admission)) return null;
+      if (
+        state &&
+        !fence.active &&
+        fence.unknown === null &&
+        if6bAdmissionOf(admission)?.verifyAftermath?.(group, state)
+      )
+        return null;
       return refuse(
         "KEY_NOT_ADMITTED",
         "GM_WAIT_STAGE_CLAIM_UNSOURCED",
@@ -1141,6 +1153,12 @@ function reconcileCheck(
   const authority = state.facts.get(temporalTransactionAuthorityKey(tx));
   const seal = state.facts.get(temporalTransactionKey(tx));
   const parsedSeal = seal ? GmWaitStoredTransactionSchema.safeParse(seal.value) : undefined;
+  if (
+    parsedSeal?.success &&
+    "stage_policy" in parsedSeal.data &&
+    !ctx.policy.if6b?.permitsReconcile?.(marker, state)
+  )
+    return bad("GM_WAIT_SEAL", "the original owner aftermath of this staged seal has not settled");
   if (
     !authority ||
     !seal ||

@@ -8,7 +8,13 @@ import { A26_ADMISSION_DELTAS } from "../support/a26-scoped-deltas.ts";
 import { FREIGHT_SCOPED_DELTAS } from "../support/freight-scoped-deltas.ts";
 import { A0_SCOPED_DELTAS } from "../support/a0-scoped-deltas.ts";
 import { B2_SCOPED_DELTAS, bytesNowGiven } from "../support/b2-scoped-deltas.ts";
-import { IF6B_ENGINE_PATH, IF6B_ENGINE_SHA256 } from "../support/if6b-scoped-delta.ts";
+import {
+  IF6B_ENGINE_PATH,
+  IF6B_ENGINE_SHA256,
+  IF6B_SETTLEMENT_PATH,
+  IF6B_SETTLEMENT_SHA256,
+  if6bSuccessorIdentity,
+} from "../support/if6b-scoped-delta.ts";
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 // F-014B A0 (CAL-TIME T-1) changed temporal/bootstrap.ts and temporal/captured-chronology.ts after the M-S slice: their pins were replaced by this
 // comment, as the freight slice did for admission.ts and coordinator.ts, and the two paths are pinned instead as scoped deltas in
@@ -57,7 +63,9 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
     ]);
     const a26Delta = "packages/engine/src/commit/campaign-core.ts";
     // (F-014B B2, a later slice, changed the commit core again: its head is then exactly B2's base, tests/conformance/b2-scope-conformance.test.ts)
-    expect(sha(a26Delta)).toBe(bytesNowGiven(a26Delta, A26_ADMISSION_DELTAS[a26Delta].head));
+    expect(sha(a26Delta)).toBe(
+      if6bSuccessorIdentity(a26Delta, bytesNowGiven(a26Delta, A26_ADMISSION_DELTAS[a26Delta].head)),
+    );
     // F-014B A0 changed two more temporal files (bootstrap.ts, captured-chronology.ts): pinned in tests/support/a0-scoped-deltas.ts
     const a0Only = Object.keys(A0_SCOPED_DELTAS).filter(
       (p) =>
@@ -81,6 +89,7 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
     );
     expect(b2Only).toEqual(["packages/engine/src/temporal/integrity.ts"]);
     expect(sha(IF6B_ENGINE_PATH)).toBe(IF6B_ENGINE_SHA256);
+    expect(sha(IF6B_SETTLEMENT_PATH)).toBe(IF6B_SETTLEMENT_SHA256);
     expect(Object.keys(composed)).toHaveLength(2);
     expect(Object.keys(unchanged)).toHaveLength(5);
     expect(
@@ -91,6 +100,7 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
         ...b2Only,
         a26Delta,
         IF6B_ENGINE_PATH,
+        IF6B_SETTLEMENT_PATH,
       ].sort(),
     ).toEqual(actual);
   });

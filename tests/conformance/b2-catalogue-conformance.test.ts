@@ -48,6 +48,8 @@ describe("B2-T08 regeneration and the retained archives", () => {
       expect.arrayContaining([OLD_V1, OLD_V2, g.digest]),
     );
     expect(retainedDigests().sort()).toEqual([...GM_WAIT_CATALOGUE_RETAINED_SHA256].sort());
+    for (const digest of GM_WAIT_CATALOGUE_RETAINED_SHA256)
+      expect(sha256(read(digest)), digest).toBe(digest);
     expect(sha256(read(OLD_V1))).toBe(OLD_V1);
     expect(sha256(read(OLD_V2))).toBe(OLD_V2);
     expect(read(OLD_V1).length).toBe(330227);
@@ -211,7 +213,9 @@ describe("B2-T08 the generator's drift detection is falsifiable (private copies,
     rmSync(join(missing, MANIFEST_DIR, `${OLD_V1}.json`));
     expect(checkDrift(g, locs(missing)).join("\n")).toMatch(/missing required v1 archive/);
     expect(readdirSync(join(missing, MANIFEST_DIR)).sort()).toEqual(
-      [OLD_V2, B2_CATALOGUE, g.digest].map((digest) => `${digest}.json`).sort(),
+      GM_WAIT_CATALOGUE_RETAINED_SHA256.filter((digest) => digest !== OLD_V1)
+        .map((digest) => digest + ".json")
+        .sort(),
     );
   });
 });

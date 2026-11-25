@@ -4,6 +4,7 @@
 //
 // History checks use the Git objects named in tests/support/b2-scoped-deltas.ts; a shallow checkout (no history) skips them and says so, it never
 // claims them.
+import { if6bSuccessorIdentity } from "../support/if6b-scoped-delta.ts";
 import { IF6B_BASE_COMMIT, IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -61,7 +62,7 @@ describe("the B2 scoped-delta table: every pin is a real byte change, recorded o
       const original = git("show", `${IF6B_BASE_COMMIT}:${path}`);
       expect(original === null ? null : sha(original), path).toBe(d.head);
       if (path !== "packages/engine/src/gm-wait-catalogue-current.ts")
-        expect(sha(readFileSync(path)), path).toBe(d.head);
+        expect(sha(readFileSync(path)), path).toBe(if6bSuccessorIdentity(path, d.head));
       expect(d.base, path).not.toBe(d.head);
     }
     expect(Object.keys(B2_SCOPED_DELTAS)).toHaveLength(10);
@@ -180,7 +181,13 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     for (const p of FORBIDDEN) {
-      expect(diffNames(p), p).toEqual([]);
+      expect(
+        lines(git("diff", "--name-only", B2_BASE_COMMIT, IF6B_BASE_COMMIT, "--", p)),
+        p,
+      ).toEqual([]);
+      expect(diffNames(p), p).toEqual(
+        IF6B_PACKAGE_PATHS.filter((f) => f === p || f.startsWith(p + "/")).sort(),
+      );
       expect(untracked(p), p).toEqual([]);
     }
   });
@@ -300,7 +307,7 @@ describe("the registry, the rules and the sunset rows are exactly what the brief
       "providers.ts",
     ]);
     expect(readdirSync("packages/engine/src/temporal").sort()).toEqual(
-      [...atB2, "if6b-stage.ts"].sort(),
+      [...atB2, "if6b-stage.ts", "if6b-settlement.ts"].sort(),
     );
   });
 });
