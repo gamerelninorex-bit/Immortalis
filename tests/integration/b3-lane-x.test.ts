@@ -210,7 +210,7 @@ describe("B3 Lane X with signed disposable owner sources", () => {
           error: { details: { reason: "GM_WAIT_STAGE_CLAIM_UNSOURCED" } },
         });
         if (mode === "c54-unresolved") signed.withholdC54();
-        const credited = [];
+        const credited: string[] = [];
         expect(await clock.sealOwn(x)).toMatchObject({ ok: false });
         for (let n = 0; n < 5; n++) {
           const before = store.head().revision;
