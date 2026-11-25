@@ -1,0 +1,2098 @@
+{
+  "aggregate": {
+    "accepted": false,
+    "blockers": [
+      "EVALUATOR_NOT_INTEGRATED",
+      "EXTENSION_HISTORY_UNRETIRED",
+      "FULL_P7_AND_S4_HOLD",
+      "MEMBER_PROOFS_OPEN"
+    ],
+    "status": "NOT_ACCEPTED"
+  },
+  "by_family": {
+    "ACCESS_CLASS": { "closed": 0, "members": 4, "open": 4 },
+    "AUDIENCE_FACT_KIND": { "closed": 0, "members": 3, "open": 3 },
+    "CLOSE": { "closed": 0, "members": 6, "open": 6 },
+    "CULTURE_ROUTE": { "closed": 0, "members": 1, "open": 1 },
+    "EPISTEMIC_ROUTE": { "closed": 0, "members": 4, "open": 4 },
+    "EVENT_TRIGGER": { "closed": 0, "members": 1, "open": 1 },
+    "EXTENSION_DISPATCH": { "closed": 0, "members": 1, "open": 1 },
+    "HISTORICAL_POLICY": { "closed": 0, "members": 1, "open": 1 },
+    "KIND": { "closed": 0, "members": 124, "open": 124 },
+    "OBJECT_ROUTE": { "closed": 0, "members": 30, "open": 30 },
+    "OWNER_FACET": { "closed": 0, "members": 37, "open": 37 },
+    "PROVIDER": { "closed": 0, "members": 17, "open": 17 },
+    "SITE": { "closed": 0, "members": 18, "open": 18 }
+  },
+  "by_owner": [
+    { "closed": 0, "members": 3, "open": 3, "owner": "causal_draw_kernel" },
+    { "closed": 0, "members": 4, "open": 4, "owner": "culture" },
+    { "closed": 0, "members": 2, "open": 2, "owner": "culture_adjudication_kernel" },
+    { "closed": 0, "members": 8, "open": 8, "owner": "diplomacy" },
+    { "closed": 0, "members": 22, "open": 22, "owner": "economy" },
+    { "closed": 0, "members": 9, "open": 9, "owner": "epistemic_access" },
+    { "closed": 0, "members": 10, "open": 10, "owner": "gip" },
+    { "closed": 0, "members": 5, "open": 5, "owner": "kti" },
+    { "closed": 0, "members": 10, "open": 10, "owner": "logistics" },
+    { "closed": 0, "members": 6, "open": 6, "owner": "named_actor" },
+    { "closed": 0, "members": 21, "open": 21, "owner": "pc_existence" },
+    { "closed": 0, "members": 10, "open": 10, "owner": "population" },
+    { "closed": 0, "members": 17, "open": 17, "owner": "production" },
+    { "closed": 0, "members": 3, "open": 3, "owner": "referee_adjudication_kernel" },
+    { "closed": 0, "members": 2, "open": 2, "owner": "role_registry" },
+    { "closed": 0, "members": 9, "open": 9, "owner": "temporal_kernel" },
+    { "closed": 0, "members": 41, "open": 41, "owner": "world_state" }
+  ],
+  "catalogue": {
+    "code_drift": "CHECKED_CLEAN",
+    "digest_verdict": "OK_CURRENT",
+    "manifest_version": 2,
+    "sentinels": {
+      "default_disposition": "UNDECLARED",
+      "epistemic": "ACTIONABLE_OR_UNSAFE",
+      "evaluator_id": "NONE_SECTION_10_NOT_ACCEPTED",
+      "extension_historical_coverage": "UNRETIRED_DENY",
+      "live_admission_id": "NOT_INSTALLED_NO_GM_WRITER"
+    },
+    "sha256": "7707ff8ec86a9564dae2b026e730386f26fadfd4011c2934d0cc19dd5a6f09ed"
+  },
+  "fixture_dependent_members": [],
+  "format": "immortalis-p7-section10-gap-report",
+  "members": [
+    {
+      "facet": null,
+      "family": "ACCESS_CLASS",
+      "member": "ACCESS_CLASS:culture.engine-sealed",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "ACCESS_CLASS",
+      "member": "ACCESS_CLASS:epistemic.actor-accessible",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "ACCESS_CLASS",
+      "member": "ACCESS_CLASS:epistemic.engine-sealed",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "ACCESS_CLASS",
+      "member": "ACCESS_CLASS:kti.engine-sealed",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "AUDIENCE_FACT_KIND",
+      "member": "AUDIENCE_FACT_KIND:population_cohort",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "AUDIENCE_FACT_KIND",
+      "member": "AUDIENCE_FACT_KIND:population_ledger",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "AUDIENCE_FACT_KIND",
+      "member": "AUDIENCE_FACT_KIND:world_locus",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "CLOSE",
+      "member": "CLOSE:ACTOR_PROFILE_CAPABILITY_CLOSE",
+      "owner": null,
+      "signature": 1,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "CLOSE",
+      "member": "CLOSE:COMMUNICATIVE_CONVENTION_CLOSE",
+      "owner": null,
+      "signature": 1,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "CLOSE",
+      "member": "CLOSE:ENTITY_TRANSITION_CLOSE_NAME",
+      "owner": null,
+      "signature": 1,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "CLOSE",
+      "member": "CLOSE:KTI_RESULT_CLOSE",
+      "owner": null,
+      "signature": 1,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "CLOSE",
+      "member": "CLOSE:PC_CAPABILITY_CLOSE",
+      "owner": null,
+      "signature": 1,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "CLOSE",
+      "member": "CLOSE:POPULATION_CLOSE_NAME",
+      "owner": null,
+      "signature": 1,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "CULTURE_ROUTE",
+      "member": "CULTURE_ROUTE:culture|culture-commit-communicative-convention-close",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "EPISTEMIC_ROUTE",
+      "member": "EPISTEMIC_ROUTE:AUDIENCE_PROJECTION",
+      "owner": "epistemic_access",
+      "signature": 2,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "EPISTEMIC_ROUTE",
+      "member": "EPISTEMIC_ROUTE:BROADCAST_EXPOSURE",
+      "owner": "epistemic_access",
+      "signature": 2,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "EPISTEMIC_ROUTE",
+      "member": "EPISTEMIC_ROUTE:DIRECT_OBSERVATION",
+      "owner": "epistemic_access",
+      "signature": 2,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "EPISTEMIC_ROUTE",
+      "member": "EPISTEMIC_ROUTE:NON_OBSERVATION_ACCESS",
+      "owner": "epistemic_access",
+      "signature": 2,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "EVENT_TRIGGER",
+      "member": "EVENT_TRIGGER:direct-observation",
+      "owner": null,
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "EXTENSION_DISPATCH",
+      "member": "EXTENSION_DISPATCH:storeBindings",
+      "owner": null,
+      "signature": 3,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "HISTORICAL_POLICY",
+      "member": "HISTORICAL_POLICY:canonical",
+      "owner": null,
+      "signature": 4,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:actor_physical_presence",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:actor_raw_sensory_state",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:actor_setup_placement",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "draw_provenance",
+      "family": "KIND",
+      "member": "KIND:causal_draw_precommit",
+      "owner": "causal_draw_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "draw_provenance",
+      "family": "KIND",
+      "member": "KIND:causal_draw_result",
+      "owner": "causal_draw_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "adjudication_provenance",
+      "family": "KIND",
+      "member": "KIND:culture_adjudication_decision",
+      "owner": "culture_adjudication_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "culture_social",
+      "family": "KIND",
+      "member": "KIND:culture_shared_meaning",
+      "owner": "culture",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "culture_social",
+      "family": "KIND",
+      "member": "KIND:culture_update_context",
+      "owner": "culture",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_externalized_claim_dispute",
+      "family": "KIND",
+      "member": "KIND:diplomacy_claim_dispute",
+      "owner": "diplomacy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_external_recognition",
+      "family": "KIND",
+      "member": "KIND:diplomacy_external_recognition",
+      "owner": "diplomacy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_framework",
+      "family": "KIND",
+      "member": "KIND:diplomacy_framework",
+      "owner": "diplomacy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_relation_edge",
+      "family": "KIND",
+      "member": "KIND:diplomacy_relation_edge",
+      "owner": "diplomacy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_accepted_output_holding",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_demand",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_destination_adequacy",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_encumbrance",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_allocation",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_cargo_slot",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_close",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_directive_use_slot",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_request",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_requirement_slot",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_result",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_use_consumption",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_freight_withdrawal",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_holding",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_origin_allocation",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_origin_lot_slot",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_realization",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_reallocation",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "KIND",
+      "member": "KIND:economy_request",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "KIND",
+      "member": "KIND:epistemic_access_event",
+      "owner": "epistemic_access",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "KIND",
+      "member": "KIND:epistemic_accessible_packet",
+      "owner": "epistemic_access",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "KIND",
+      "member": "KIND:epistemic_sealed_provenance",
+      "owner": "epistemic_access",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_governance_instrument",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_institution_identity",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_instrument_clause",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_legal_readiness_seal",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_office_authority_locus",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_opening_basis",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_scope_binding",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "KIND",
+      "member": "KIND:gip_sunset_enrollment",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_actor_setup",
+      "family": "KIND",
+      "member": "KIND:initial_actor_setup_issue",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_actor_setup",
+      "family": "KIND",
+      "member": "KIND:initial_actor_setup_response",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_setup",
+      "family": "KIND",
+      "member": "KIND:initial_locality_completion",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_setup",
+      "family": "KIND",
+      "member": "KIND:initial_setup_disposition",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_setup",
+      "family": "KIND",
+      "member": "KIND:initial_setup_grant",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_setup",
+      "family": "KIND",
+      "member": "KIND:initial_setup_input",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_setup",
+      "family": "KIND",
+      "member": "KIND:initial_setup_invocation",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_setup",
+      "family": "KIND",
+      "member": "KIND:initial_setup_response",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "kti_development",
+      "family": "KIND",
+      "member": "KIND:kti_development_object",
+      "owner": "kti",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "kti_development",
+      "family": "KIND",
+      "member": "KIND:kti_transfer_basis",
+      "owner": "kti",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "kti_development",
+      "family": "KIND",
+      "member": "KIND:kti_transfer_package",
+      "owner": "kti",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "KIND",
+      "member": "KIND:logistics_commitment",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "KIND",
+      "member": "KIND:logistics_delivery",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "KIND",
+      "member": "KIND:logistics_freight_dispatch_enrollment",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "KIND",
+      "member": "KIND:logistics_service_basis",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "KIND",
+      "member": "KIND:logistics_service_slot",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "KIND",
+      "member": "KIND:logistics_transfer",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "KIND",
+      "member": "KIND:logistics_unused_release",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "actor_profile",
+      "family": "KIND",
+      "member": "KIND:named_actor_capability",
+      "owner": "named_actor",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "actor_profile",
+      "family": "KIND",
+      "member": "KIND:named_actor_capability_basis",
+      "owner": "named_actor",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "actor_existence",
+      "family": "KIND",
+      "member": "KIND:named_actor_existence_basis",
+      "owner": "named_actor",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_capability_profile",
+      "family": "KIND",
+      "member": "KIND:pc_capability",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_capability_profile",
+      "family": "KIND",
+      "member": "KIND:pc_capability_basis",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_voluntary_commitment",
+      "family": "KIND",
+      "member": "KIND:pc_collection_cessation",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_voluntary_commitment",
+      "family": "KIND",
+      "member": "KIND:pc_collection_commitment",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_collection_mechanism",
+      "family": "KIND",
+      "member": "KIND:pc_collection_cycle_attestation",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_collection_mechanism",
+      "family": "KIND",
+      "member": "KIND:pc_collection_mechanism",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "referee_provenance",
+      "family": "KIND",
+      "member": "KIND:pc_collection_reach_decision",
+      "owner": "referee_adjudication_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_voluntary_commitment",
+      "family": "KIND",
+      "member": "KIND:pc_collection_request",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_intrinsic_clarification",
+      "family": "KIND",
+      "member": "KIND:pc_delegated_clarification",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "existence_contract",
+      "family": "KIND",
+      "member": "KIND:pc_existence_contract",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_intrinsic_clarification",
+      "family": "KIND",
+      "member": "KIND:pc_intrinsic_clarification",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_voluntary_commitment",
+      "family": "KIND",
+      "member": "KIND:pc_movement_commitment",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_voluntary_commitment",
+      "family": "KIND",
+      "member": "KIND:pc_movement_request",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "standing_instruction_ledger",
+      "family": "KIND",
+      "member": "KIND:pc_standing_instruction_ledger_head",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "standing_instruction_ledger",
+      "family": "KIND",
+      "member": "KIND:pc_standing_instruction_ledger_version",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "player_character_binding",
+      "family": "KIND",
+      "member": "KIND:player_character_binding",
+      "owner": "role_registry",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_state",
+      "family": "KIND",
+      "member": "KIND:population_close",
+      "owner": "population",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_state",
+      "family": "KIND",
+      "member": "KIND:population_cohort",
+      "owner": "population",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_state",
+      "family": "KIND",
+      "member": "KIND:population_ledger",
+      "owner": "population",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_pc_occupancy",
+      "family": "KIND",
+      "member": "KIND:population_pc_occupancy",
+      "owner": "population",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_pc_occupancy",
+      "family": "KIND",
+      "member": "KIND:population_pc_representation",
+      "owner": "population",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_workforce_scope",
+      "family": "KIND",
+      "member": "KIND:population_workforce_scope",
+      "owner": "population",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_claim",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_completion",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_extraction",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_extraction_basis",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_input_lot",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_material_specification",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_operation",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_pc_collection_lapse",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_pc_collection_termination",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_pc_collection_work",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_reserve",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_source_account",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "KIND",
+      "member": "KIND:production_source_delta",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "referee_provenance",
+      "family": "KIND",
+      "member": "KIND:referee_decision",
+      "owner": "referee_adjudication_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:resolution_transaction",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:temporal_boundary_index",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:temporal_gm_wait_marker",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:temporal_gm_wait_pc_index",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:temporal_object",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:temporal_origin",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:temporal_state",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "KIND",
+      "member": "KIND:temporal_transaction_authority",
+      "owner": "temporal_kernel",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_locus",
+      "family": "KIND",
+      "member": "KIND:world_acoustic_emission",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:world_actor_coupling",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_locus",
+      "family": "KIND",
+      "member": "KIND:world_corridor",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:world_entity_transition",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:world_fallback_entity",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_governing_premise",
+      "family": "KIND",
+      "member": "KIND:world_governing_premise",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_governing_premise",
+      "family": "KIND",
+      "member": "KIND:world_governing_premise_head",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_locus",
+      "family": "KIND",
+      "member": "KIND:world_locus",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_opening_provenance",
+      "family": "KIND",
+      "member": "KIND:world_opening_attestation",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:world_pc_current_viewing",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:world_pc_locus_custody",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_profile",
+      "family": "KIND",
+      "member": "KIND:world_profile",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_scene_closure",
+      "family": "KIND",
+      "member": "KIND:world_scene_closure",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "KIND",
+      "member": "KIND:world_setup_closure",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_site_condition",
+      "family": "KIND",
+      "member": "KIND:world_site_condition",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_source_condition",
+      "family": "KIND",
+      "member": "KIND:world_source_condition",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_source_condition",
+      "family": "KIND",
+      "member": "KIND:world_source_delivery",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:object_literal@packages/engine/src/gip/declaration.ts",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:object_literal@packages/engine/src/logistics/declaration.ts",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:object_literal@packages/engine/src/population/declaration.ts",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:object_literal@packages/engine/src/production/declaration.ts",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:object_literal@packages/engine/src/source-drawdown/declaration.ts",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:object_literal@packages/engine/src/world/entity-transition.ts",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/actor/declaration.ts#namedActorCapabilityDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/culture/declaration.ts#cultureConventionDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/economy/declaration.ts#economyRealizationDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/epistemic/declaration.ts#epistemicPacketDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/freight/economy.ts#economyFreightReceiptDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/gip/declaration.ts#gipSunsetDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/kti/declaration.ts#ktiTransferDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/logistics/declaration.ts#logisticsDeliveryDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/logistics/declaration.ts#logisticsRetirementDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/pc-capability/declaration.ts#pcCapabilityDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/population/declaration.ts#populationReconcileDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/production/declaration.ts#productionCompletionDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/production/declaration.ts#worldAcceptanceDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/source-drawdown/declaration.ts#reserveInflowDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/source-drawdown/declaration.ts#sourceDeliveryDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/source-drawdown/declaration.ts#sourceDeltaDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/temporal/coordinator.ts##stage",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:produces@packages/engine/src/world/entity-transition.ts#entityTransitionDeclaration",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:register_object@packages/engine/src/freight/bridge.ts#position",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:register_object@packages/engine/src/freight/bridge.ts#position@2",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:register_object@packages/engine/src/gip/adapter.ts##registerSunset",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:register_object@packages/protocol/src/pc-collection.ts#enroll",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:register_object@packages/protocol/src/pc-corridor-relocation.ts#enrollTransfer",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "OBJECT_ROUTE",
+      "member": "OBJECT_ROUTE:register_object@packages/protocol/src/pc-relocation.ts#enrollTransfer",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "draw_provenance",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:causal_draw_kernel|draw_provenance",
+      "owner": "causal_draw_kernel",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "adjudication_provenance",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:culture_adjudication_kernel|adjudication_provenance",
+      "owner": "culture_adjudication_kernel",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "culture_social",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:culture|culture_social",
+      "owner": "culture",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_external_recognition",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:diplomacy|diplomacy_external_recognition",
+      "owner": "diplomacy",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_externalized_claim_dispute",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:diplomacy|diplomacy_externalized_claim_dispute",
+      "owner": "diplomacy",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_framework",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:diplomacy|diplomacy_framework",
+      "owner": "diplomacy",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "diplomacy_relation_edge",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:diplomacy|diplomacy_relation_edge",
+      "owner": "diplomacy",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:economy|economy_state",
+      "owner": "economy",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:epistemic_access|epistemic_access",
+      "owner": "epistemic_access",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:gip|gip_institution_identity",
+      "owner": "gip",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "kti_development",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:kti|kti_development",
+      "owner": "kti",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:logistics|logistics_state",
+      "owner": "logistics",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "actor_existence",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:named_actor|actor_existence",
+      "owner": "named_actor",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "actor_profile",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:named_actor|actor_profile",
+      "owner": "named_actor",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "existence_contract",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:pc_existence|existence_contract",
+      "owner": "pc_existence",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_capability_profile",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:pc_existence|pc_capability_profile",
+      "owner": "pc_existence",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_collection_mechanism",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:pc_existence|pc_collection_mechanism",
+      "owner": "pc_existence",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_intrinsic_clarification",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:pc_existence|pc_intrinsic_clarification",
+      "owner": "pc_existence",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_voluntary_commitment",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:pc_existence|pc_voluntary_commitment",
+      "owner": "pc_existence",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "standing_instruction_ledger",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:pc_existence|standing_instruction_ledger",
+      "owner": "pc_existence",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_pc_occupancy",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:population|population_pc_occupancy",
+      "owner": "population",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_state",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:population|population_state",
+      "owner": "population",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_workforce_scope",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:population|population_workforce_scope",
+      "owner": "population",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:production|production_state",
+      "owner": "production",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "referee_provenance",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:referee_adjudication_kernel|referee_provenance",
+      "owner": "referee_adjudication_kernel",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "player_character_binding",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:role_registry|player_character_binding",
+      "owner": "role_registry",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "temporal_coordination",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:temporal_kernel|temporal_coordination",
+      "owner": "temporal_kernel",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_fallback_physical_entity",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_governing_premise",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_governing_premise",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_actor_setup",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_initial_actor_setup",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_initial_setup",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_initial_setup",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_locus",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_locus",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_opening_provenance",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_opening_provenance",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_profile",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_profile",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_scene_closure",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_scene_closure",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_site_condition",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_site_condition",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_source_condition",
+      "family": "OWNER_FACET",
+      "member": "OWNER_FACET:world_state|world_source_condition",
+      "owner": "world_state",
+      "signature": 0,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "culture_social",
+      "family": "PROVIDER",
+      "member": "PROVIDER:culture|culture-commit-communicative-convention-close",
+      "owner": "culture",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:economy|economy-record-freight-receipt",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "economy_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:economy|economy-record-realized-access",
+      "owner": "economy",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "epistemic_access",
+      "family": "PROVIDER",
+      "member": "PROVIDER:epistemic_access|epistemic-form-accessible-packet",
+      "owner": "epistemic_access",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "gip_institution_identity",
+      "family": "PROVIDER",
+      "member": "PROVIDER:gip|gip-expire-instrument-at-sunset",
+      "owner": "gip",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "kti_development",
+      "family": "PROVIDER",
+      "member": "PROVIDER:kti|kti-publish-transfer-result-close",
+      "owner": "kti",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:logistics|logistics-establish-delivery",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "logistics_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:logistics|logistics-retire-transfer",
+      "owner": "logistics",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "actor_profile",
+      "family": "PROVIDER",
+      "member": "PROVIDER:named_actor|named-actor-publish-capability-close",
+      "owner": "named_actor",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "pc_capability_profile",
+      "family": "PROVIDER",
+      "member": "PROVIDER:pc_existence|pc-publish-capability-close",
+      "owner": "pc_existence",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "population_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:population|population-reconcile-close",
+      "owner": "population",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:production|production-complete-operation",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:production|production-credit-reserve-inflow",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "production_state",
+      "family": "PROVIDER",
+      "member": "PROVIDER:production|production-emit-source-delta",
+      "owner": "production",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "PROVIDER",
+      "member": "PROVIDER:world_state|world-state-accept-fallback-durable",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_fallback_physical_entity",
+      "family": "PROVIDER",
+      "member": "PROVIDER:world_state|world-state-commit-entity-transition",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": "world_source_condition",
+      "family": "PROVIDER",
+      "member": "PROVIDER:world_state|world-state-deliver-source-drawdown",
+      "owner": "world_state",
+      "signature": 5,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/engine/src/epistemic/direct-observation.ts#formObservedPacket",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/engine/src/freight/bridge.ts#freightStageProviders",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/engine/src/gip/adapter.ts##registerSunset",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/engine/src/temporal/captured-chronology.ts#initializeCapturedChronology",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/operator/src/collection-preparation.ts#prepareCollection",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/operator/src/commands.ts#pendingBoundary",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/operator/src/commands.ts#temporalState",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/operator/src/initial-timed-governance.ts#dryRun",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/operator/src/time-initialization.ts#initializeTime",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/active-pc-target-advance.ts#ownerProviders",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/null-pc-ooc-advance.ts#ownerProviders",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/null-pc-ooc-held-continuation.ts#ownerProviders",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/pc-collection.ts#ceaseConfirmedPcCollection",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/pc-collection.ts#enroll",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/pc-collection.ts#settleOne",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/pc-corridor-relocation.ts#enrollTransfer",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/pc-relocation.ts#enrollTransfer",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    },
+    {
+      "facet": null,
+      "family": "SITE",
+      "member": "SITE:packages/protocol/src/pc-transfer-advance.ts#ownerProviders",
+      "owner": null,
+      "signature": 6,
+      "status": "NOT_PROVEN"
+    }
+  ],
+  "signatures": [
+    { "id": 0, "members": 46, "open": { "OWNER_STAGE_ROUTE": "CONSTITUENT_OPEN" } },
+    {
+      "id": 1,
+      "members": 6,
+      "open": {
+        "EFFECT_CLOSE_INVALIDATOR": "NO_CERTIFICATE",
+        "HISTORICAL_POLICY": "NO_CERTIFICATE",
+        "NEGATIVE_TWINS": "NO_CERTIFICATE",
+        "OWNER_STAGE_ROUTE": "NO_CERTIFICATE",
+        "SOURCE_POLICY": "NO_CERTIFICATE"
+      }
+    },
+    {
+      "id": 2,
+      "members": 4,
+      "open": {
+        "FIRST_PC_OPTION": "NO_CERTIFICATE",
+        "HISTORICAL_POLICY": "NO_CERTIFICATE",
+        "NEGATIVE_TWINS": "NO_CERTIFICATE",
+        "RECIPIENT_ABILITY": "NO_CERTIFICATE",
+        "RECIPIENT_KNOWLEDGE_LATENCY": "NO_CERTIFICATE",
+        "SOURCE_POLICY": "NO_CERTIFICATE"
+      }
+    },
+    {
+      "id": 3,
+      "members": 1,
+      "open": { "HISTORICAL_POLICY": "EXTENSION_HISTORY_SKIPPED_IN_SOURCE" }
+    },
+    { "id": 4, "members": 1, "open": { "HISTORICAL_POLICY": "NO_CERTIFICATE" } },
+    {
+      "id": 5,
+      "members": 141,
+      "open": {
+        "EFFECT_CLOSE_INVALIDATOR": "NO_CERTIFICATE",
+        "FIRST_PC_OPTION": "NO_CERTIFICATE",
+        "HISTORICAL_POLICY": "NO_CERTIFICATE",
+        "NEGATIVE_TWINS": "NO_CERTIFICATE",
+        "OWNER_STAGE_ROUTE": "NO_CERTIFICATE",
+        "RECIPIENT_ABILITY": "NO_CERTIFICATE",
+        "RECIPIENT_KNOWLEDGE_LATENCY": "NO_CERTIFICATE",
+        "SOURCE_POLICY": "NO_CERTIFICATE"
+      }
+    },
+    { "id": 6, "members": 48, "open": { "OWNER_STAGE_ROUTE": "ROUTE_ATTRIBUTION_NOT_DEFINED" } }
+  ],
+  "status": "INTERNAL_CANDIDATE_NONWRITING_MECHANISM_ONLY",
+  "supplied_by_later_work": [
+    "B3: the actual original-owner evidence and new kinds (a pending B3 candidate kind joins the census as a new UNDECLARED member and is not certified by existing on a draft branch)",
+    "IF-6b: the original-owner stage witness for the stage route and the same-instant predecessor evidence",
+    "P-5/P6: one genuine first native PC option and its original history (the first-option authority is unproven by default)",
+    "R-H: an installed Health owner and a coverage anchor (the ability authority reads UNKNOWN by default)",
+    "P-6/T85: per-segment original-policy identity and closure of the extension-owned history group (history is unretired by default)",
+    "S4/full P-7: independent Source-Fidelity PASS, evaluator integration, genuine GM-host and retained-restart acceptance"
+  ],
+  "totals": { "members": 247, "not_proven": 247, "proof_closed_candidate": 0 },
+  "unmatched_certificates": [],
+  "version": 1
+}
