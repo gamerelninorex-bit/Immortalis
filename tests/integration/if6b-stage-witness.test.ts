@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   FACET_PRODUCTION_STATE,
   FACET_WORLD_LOCUS,
@@ -11,7 +11,6 @@ import {
   PRODUCTION_OPERATION_COMPLETE,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
-  TemporalStateSchema,
   temporalGmWaitMarkerKey,
   temporalObjectKey,
   temporalTransactionAuthorityKey,
@@ -24,12 +23,8 @@ import {
 } from "@immortalis/contracts";
 import { factKind, groupSha256, type CampaignState } from "@immortalis/engine";
 import { engagedObject } from "@immortalis/testkit";
-import {
-  buildSealGroup,
-  deriveGmWaitFence,
-  registerGmWaitFence,
-} from "../../packages/engine/src/gm-wait-custody.ts";
-import { checkTransaction } from "../../packages/engine/src/temporal/admission.ts";
+import * as gmWait from "../../packages/engine/src/gm-wait-custody.ts";
+import { temporalGroupCheck } from "../../packages/engine/src/temporal/admission.ts";
 import { if6bSettlement } from "../../packages/engine/src/temporal/if6b-settlement.ts";
 import { stageGroupId, stageIntentId } from "../../packages/engine/src/temporal/identity.ts";
 import {
@@ -46,6 +41,7 @@ import {
 import {
   at,
   authorityGroupOf,
+  custodyPolicy,
   FIXTURE_PC_ID,
   foreignGroup,
   lifecycle,
@@ -297,9 +293,9 @@ describe("IF-6b settlement and stage admission", () => {
 
   it("checks interrupted retirement even when the future index suffix needs no object reads", async () => {
     await withInterruptedStage(({ state, x, record }) => {
-      registerGmWaitFence(state, { ...deriveGmWaitFence(state), stages: [record] });
+      gmWait.registerGmWaitFence(state, { ...gmWait.deriveGmWaitFence(state), stages: [record] });
       const rule = factKind("temporal_state").rule;
-      const built = buildSealGroup(state.facts, x, rule, state);
+      const built = gmWait.buildSealGroup(state.facts, x, rule, state);
       if (!built.ok) throw new Error(built.error.message);
       const seal = built.value;
       const txKey = temporalTransactionKey(txOf(x));
@@ -307,23 +303,37 @@ describe("IF-6b settlement and stage admission", () => {
         seal.writes.find((w) => w.key === txKey)?.value,
       );
       expect(tx.outcome.stop_reason).toBe("INTERRUPTED");
-      const prior = TemporalStateSchema.parse(state.facts.get(TEMPORAL_STATE_KEY)?.value);
-      const next = TemporalStateSchema.parse(
-        seal.writes.find((w) => w.key === TEMPORAL_STATE_KEY)?.value,
-      );
-      const objectWrites = seal.writes.filter((w) => w.key.startsWith("temporal/object/"));
       const indexWrite = seal.writes.find((w) => w.key === TEMPORAL_BOUNDARY_INDEX_KEY)!;
       const check = (index: typeof indexWrite | undefined) =>
-        checkTransaction(seal, state, prior, next, txKey, tx, objectWrites, index);
-      expect(check(indexWrite)).toBeNull();
-      expect(check(undefined)).toMatchObject({
-        message: "resolved boundaries must leave the active boundary index",
-      });
-      expect(
-        check({ ...indexWrite, value: state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY)!.value }),
-      ).toMatchObject({
-        message: "the index may lose only the resolved boundaries of retired objects",
-      });
+        temporalGroupCheck(
+          {
+            ...seal,
+            writes: [
+              ...seal.writes.filter((write) => write !== indexWrite),
+              ...(index ? [index] : []),
+            ],
+          },
+          state,
+          {
+            policy: { ...custodyPolicy(), preparation: "FIXTURE", isCanonicalOwner: () => true },
+            live: true,
+          },
+        );
+      // Isolate the generic transaction check from custody's independent seal reconstruction.
+      const custody = vi.spyOn(gmWait, "gmWaitCustodyCheck").mockReturnValue(null);
+      try {
+        expect(check(indexWrite)).toBeNull();
+        expect(check(undefined)).toMatchObject({
+          message: "resolved boundaries must leave the active boundary index",
+        });
+        expect(
+          check({ ...indexWrite, value: state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY)!.value }),
+        ).toMatchObject({
+          message: "the index may lose only the resolved boundaries of retired objects",
+        });
+      } finally {
+        custody.mockRestore();
+      }
     });
   });
 
@@ -338,7 +348,7 @@ describe("IF-6b settlement and stage admission", () => {
         value: { ...marker, policy: { ...marker.policy, history_verification_id: scope } },
       });
       const basis = { ...state, facts };
-      const fence = deriveGmWaitFence(basis);
+      const fence = gmWait.deriveGmWaitFence(basis);
       const original = foreignGroup(101);
       const write = {
         ...original.writes[0]!,

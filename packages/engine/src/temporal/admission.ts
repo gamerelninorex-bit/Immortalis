@@ -401,7 +401,7 @@ function completesItsOwnOpenedAuthority(
   );
 }
 
-export function checkTransaction(
+function checkTransaction(
   group: CommitGroup,
   state: CampaignState,
   prior: TemporalState,
