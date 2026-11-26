@@ -32,14 +32,16 @@ import {
   epistemicPacketDeclaration,
   isObservationEarnedFact,
 } from "../../../packages/engine/src/epistemic/declaration.ts";
+import { verifyNativeReceipt, type NativeEvidence } from "./native-observation.ts";
 
 /**
  * F-014B P-7 E0 - the source-closed per-member proof checker and the all-enrolled coverage / gap report for the Temporal section 10
  * evaluator (BLUE P-7 brief at native pin 2026-11-24T00:22:21.665Z; Two-Blocker v0.3 section 8.1(2); RED terminal R-9, P-7, T74, T85;
  * BLUE final decision N9.1-N9.8).
  *
- * MECHANISM ONLY and NON-WRITING. Every function here is a pure function of its arguments: no clock, no randomness, no filesystem, no
- * store, no network, no canonical write. It installs no writer, registers no owner/facet/kind, classifies no member INERT,
+ * MECHANISM ONLY and NON-WRITING. Every function here is a pure function of its arguments (the DIRECT_OBSERVATION route additionally calls
+ * the one statically imported, read-only native receipt verifier of P7-E1; there is no installer, setter or callback): no clock, no
+ * randomness, no filesystem, no store of its own, no network, no canonical write. It installs no writer, registers no owner/facet/kind, classifies no member INERT,
  * PASSIVE_PROVEN or INTERRUPTION_GUARDED, and edits no manifest. The shared catalogue sentinels (`UNDECLARED`, `ACTIONABLE_OR_UNSAFE`,
  * `NONE_SECTION_10_NOT_ACCEPTED`, `NOT_INSTALLED_NO_GM_WRITER`, `UNRETIRED_DENY`) are READ and reported, never changed. This module is
  * deliberately NOT exported from the package index.
@@ -285,6 +287,9 @@ export const REASON_CODES = [
   "ROUTE_ATTRIBUTION_NOT_DEFINED",
   "EXTENSION_HISTORY_SKIPPED_IN_SOURCE",
   "AUTHORITY_READING_MISMATCH",
+  // P7-E1: the native receipt witness for the DIRECT_OBSERVATION route. Diagnostic only, never a canonical classification.
+  "NATIVE_RECEIPT_EVIDENCE_ABSENT",
+  "NATIVE_RECEIPT_NOT_PROVEN",
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 
@@ -469,6 +474,15 @@ export interface CheckerContext {
   readonly abilityAuthority?: AbilityAuthority;
   readonly firstOptionAuthority?: FirstOptionAuthority;
   readonly history?: HistoryReader;
+  /**
+   * P7-E1: what a DIRECT_OBSERVATION receipt must additionally rest on. A receipt that a derivation COULD produce from a committed event
+   * is not the receipt the owner actually COMMITTED. This is OPAQUE evidence issued only by the native module (`bindNativeEvidence`): one
+   * authentic campaign, one valid exact journal cut and THE ledger over it. The CHECKER calls the one STATICALLY IMPORTED native verifier
+   * itself, with the event it re-read from its own ledger, that ledger and its canonical `cut`. There is no installer, setter or callback
+   * anywhere: no caller-supplied verdict exists, a value that was not issued by the native module is refused, the `ledger` above must be the
+   * evidence's own ledger, and an absent or invalid canonical `cut` refuses. Absent evidence: the route never closes.
+   */
+  readonly nativeEvidence?: NativeEvidence;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1036,8 +1050,20 @@ function knowledgeResult(
   if (route === "DIRECT_OBSERVATION") {
     const k = readCandidateKnowledge(env.m, env.ctx.ledger, eventRef, pcId, null);
     if (!k.ok) return open(o, k.reason, k.detail);
-    if (!isObservationEarnedFact(env.ctx.ledger.get(eventRef.key)!))
+    const eventFact = env.ctx.ledger.get(eventRef.key)!;
+    if (!isObservationEarnedFact(eventFact))
       return open(o, "EVENT_NOT_OBSERVATION_EARNED", eventRef.key);
+    // P7-E1: derivable is not committed. The route closes only when the actual journal shows the receipt the owner committed, verified HERE
+    // by the one statically imported native verifier against the one issued evidence the checker's own ledger belongs to.
+    const evidence = env.ctx.nativeEvidence;
+    if (evidence === undefined) return open(o, "NATIVE_RECEIPT_EVIDENCE_ABSENT", eventRef.key);
+    const native = verifyNativeReceipt(evidence, {
+      event: eventFact,
+      pc_id: pcId,
+      ledger: env.ctx.ledger,
+      canonical_cut: env.ctx.cut,
+    });
+    if (!native.ok) return open(o, "NATIVE_RECEIPT_NOT_PROVEN", `${native.code}: ${native.detail}`);
     return closedResult(o);
   }
   const w = temporalWitness(env, evidence);
