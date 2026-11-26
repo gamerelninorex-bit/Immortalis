@@ -4,6 +4,8 @@
 //
 // History checks use the Git objects named in tests/support/b2-scoped-deltas.ts; a shallow checkout (no history) skips them and says so, it never
 // claims them.
+import { if6bSuccessorIdentity } from "../support/if6b-scoped-delta.ts";
+import { IF6B_BASE_COMMIT, IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
@@ -57,7 +59,10 @@ const untracked = (...paths: string[]): string[] =>
 describe("the B2 scoped-delta table: every pin is a real byte change, recorded once, chained to the earlier slices", () => {
   it("each recorded head is the file's bytes now, and differs from its base", () => {
     for (const [path, d] of Object.entries(B2_SCOPED_DELTAS)) {
-      expect(sha(readFileSync(path)), path).toBe(d.head);
+      const original = git("show", `${IF6B_BASE_COMMIT}:${path}`);
+      expect(original === null ? null : sha(original), path).toBe(d.head);
+      if (path !== "packages/engine/src/gm-wait-catalogue-current.ts")
+        expect(sha(readFileSync(path)), path).toBe(if6bSuccessorIdentity(path, d.head));
       expect(d.base, path).not.toBe(d.head);
     }
     expect(Object.keys(B2_SCOPED_DELTAS)).toHaveLength(10);
@@ -119,7 +124,11 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
     const changed = diffNames("apps", "packages");
     const added = untracked("apps", "packages");
     // later slices (an A-/B-series package after this one) extend the allow-list through their own tables; at this head there is none
-    expect([...changed, ...added].sort()).toEqual([...B2_PACKAGE_PATHS].sort());
+    expect([...changed, ...added].sort()).toEqual(unionPaths(B2_PACKAGE_PATHS, IF6B_PACKAGE_PATHS));
+    const merged = lines(
+      git("diff", "--name-only", B2_BASE_COMMIT, IF6B_BASE_COMMIT, "--", "apps", "packages"),
+    );
+    expect(merged.sort()).toEqual([...B2_PACKAGE_PATHS].sort());
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
     for (const p of [...Object.keys(B2_SCOPED_DELTAS), ...B2_PRESENT_DAY_FILES])
       expect(changed.includes(p), p).toBe(true);
@@ -172,7 +181,13 @@ describe("this slice changed exactly the recorded paths, and nothing it is forbi
     if (!historyAvailable)
       return console.warn("SKIPPED: shallow checkout, the base commit is not reachable");
     for (const p of FORBIDDEN) {
-      expect(diffNames(p), p).toEqual([]);
+      expect(
+        lines(git("diff", "--name-only", B2_BASE_COMMIT, IF6B_BASE_COMMIT, "--", p)),
+        p,
+      ).toEqual([]);
+      expect(diffNames(p), p).toEqual(
+        IF6B_PACKAGE_PATHS.filter((f) => f === p || f.startsWith(p + "/")).sort(),
+      );
       expect(untracked(p), p).toEqual([]);
     }
   });
@@ -277,7 +292,10 @@ describe("the registry, the rules and the sunset rows are exactly what the brief
   });
 
   it("the Temporal directory gained no file: the custody and identity modules live at the engine source root, as the B1 catalogue modules do", () => {
-    expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
+    const atB2 = lines(
+      git("ls-tree", "--name-only", `${IF6B_BASE_COMMIT}:packages/engine/src/temporal`),
+    );
+    expect(atB2.sort()).toEqual([
       "admission.ts",
       "bootstrap.ts",
       "captured-chronology.ts",
@@ -288,5 +306,8 @@ describe("the registry, the rules and the sunset rows are exactly what the brief
       "partition.ts",
       "providers.ts",
     ]);
+    expect(readdirSync("packages/engine/src/temporal").sort()).toEqual(
+      [...atB2, "if6b-stage.ts", "if6b-settlement.ts"].sort(),
+    );
   });
 });

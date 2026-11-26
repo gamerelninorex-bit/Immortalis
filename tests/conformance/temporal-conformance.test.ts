@@ -374,6 +374,8 @@ describe("scope: nothing outside the bounded slice was implemented", () => {
       "coordinator.ts",
       "graph.ts",
       "identity.ts",
+      "if6b-settlement.ts",
+      "if6b-stage.ts",
       "integrity.ts",
       "partition.ts",
       "providers.ts",

@@ -2,6 +2,7 @@
 // Conformance evidence for ROADBED R3-T25 (BLUE Formal Universal Hard Preflight v6.2): the first-profile institutional freight capability
 // (Foundation F + Integration I) under R2-D18 v1.2.1 / R3-T2 / R3-T17. MECHANISM ONLY: structural and source-faithfulness checks of what was
 // built and what was deliberately NOT built. Behavioural evidence lives in tests/integration/freight-*.test.ts.
+import { IF6B_SHARED_DELTAS } from "../support/if6b-scoped-delta.ts";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -211,7 +212,11 @@ describe("predecessor modules: exactly the recorded scoped deltas, pinned here",
       // a LATER slice (S-4) changed two of these files after the freight slice head: the freight head is then the S-4 base, the chain is
       // checked in pc-standing-ledger-conformance, and the working tree is pinned by that slice's table instead
       // (and F-014B B2, a later one still, changed the checkpoint package: its table's base is then the freight head)
-      const later = S4_SCOPED_DELTAS[path] ?? A0_SCOPED_DELTAS[path] ?? B2_SCOPED_DELTAS[path];
+      const later =
+        S4_SCOPED_DELTAS[path] ??
+        A0_SCOPED_DELTAS[path] ??
+        B2_SCOPED_DELTAS[path] ??
+        IF6B_SHARED_DELTAS[path];
       if (later) expect(later.base, path).toBe(pin.head);
       else expect(sha(path), path).toBe(pin.head);
       expect(pin.base, path).not.toBe(pin.head);

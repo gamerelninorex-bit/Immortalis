@@ -1,6 +1,6 @@
 import {
   BoundaryIndexSchema,
-  GmWaitResolutionTransactionSchema,
+  GmWaitStoredTransactionSchema,
   GmWaitTransactionAuthoritySchema,
   OBSERVATION_TRIGGER_KIND,
   accessEventKey,
@@ -8,6 +8,7 @@ import {
   PLAYER_CHOICE_AUTHORITY,
   POPULATION_CLOSE_BASIS,
   ResolutionTransactionSchema,
+  ResolutionTransactionStoredSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_STATE_KEY,
   TemporalObjectSchema,
@@ -24,7 +25,7 @@ import {
   type CanonicalTime,
   type CommitGroup,
   type Failure,
-  type GmWaitResolutionTransaction,
+  type GmWaitStoredTransaction,
   type ResolutionTransaction,
   type PendingConsequenceBarrier,
   type TemporalObject,
@@ -204,10 +205,12 @@ export function temporalGroupCheck(
 
   if (stateW && txW && prior && newState) {
     const stored = isGmCustody
-      ? GmWaitResolutionTransactionSchema.parse(txW.value)
+      ? GmWaitStoredTransactionSchema.parse(txW.value)
       : ResolutionTransactionSchema.parse(txW.value);
     const r = checkTransaction(group, state, prior, newState, txW.key, stored, objWs, idxW);
-    if (r) return r;
+    // The interrupted seal already proves the exact retirement and the unchanged suffix
+    // of the index. Future object values are outside this cut and need no revalidation.
+    if (r || (isGmCustody && stored.outcome.stop_reason === "INTERRUPTED")) return r;
   } else {
     // Registration: new objects (and their index entries) against the current basis.
     const pinned = requirePrerequisite(group, state, TEMPORAL_STATE_KEY, "the temporal state");
@@ -328,7 +331,9 @@ function checkAuthority(
   }
   if (held) {
     const priorFact = state.facts.get(temporalTransactionKey(held.from_transaction));
-    const priorTx = priorFact ? ResolutionTransactionSchema.safeParse(priorFact.value) : undefined;
+    const priorTx = priorFact
+      ? ResolutionTransactionStoredSchema.safeParse(priorFact.value)
+      : undefined;
     if (!priorTx?.success)
       return bad("the held continuation's sealed transaction is not committed");
     const violation = continuationRequestViolation(priorTx.data, a.requested);
@@ -402,13 +407,13 @@ function checkTransaction(
   prior: TemporalState,
   newState: TemporalState,
   txKey: string,
-  stored: ResolutionTransaction | GmWaitResolutionTransaction,
+  stored: ResolutionTransaction | GmWaitStoredTransaction,
   objWs: CommitGroup["writes"],
   idxW: CommitGroup["writes"][number] | undefined,
 ): Rejection | null {
   // F-014B B2: a GM-origin seal is the strict prospective variant. It is judged by every rule below, and ADDITIONALLY always requires
   // its own durable opening (even with no stage): `tx` is the shared view, `legacy` the player-origin transaction or undefined.
-  const tx: ResolutionTransaction | GmWaitResolutionTransaction = stored;
+  const tx: ResolutionTransaction | GmWaitStoredTransaction = stored;
   const legacy: ResolutionTransaction | undefined = "origin" in stored ? undefined : stored;
   const isGm = legacy === undefined;
   // B1 S1: placement two of two. A stage-free transaction commits its state and its seal and NO authority record, so this
@@ -478,7 +483,9 @@ function checkTransaction(
   if (held) {
     // what is continued is the sealed prior transaction's unfinished request, verified against it
     const priorFact = state.facts.get(temporalTransactionKey(held.from_transaction));
-    const priorTx = priorFact ? ResolutionTransactionSchema.safeParse(priorFact.value) : undefined;
+    const priorTx = priorFact
+      ? ResolutionTransactionStoredSchema.safeParse(priorFact.value)
+      : undefined;
     if (!priorTx?.success) {
       return bad("the held continuation's sealed transaction is not committed", {
         held: held.from_transaction,
@@ -506,7 +513,7 @@ function checkTransaction(
           const a = GmWaitTransactionAuthoritySchema.safeParse(auth.fact.value);
           return (
             !a.success ||
-            gmWaitSealDepartsFromAuthority(stored as GmWaitResolutionTransaction, a.data, txWrite)
+            gmWaitSealDepartsFromAuthority(stored as GmWaitStoredTransaction, a.data, txWrite)
           );
         })();
     if (departs) {
@@ -751,7 +758,9 @@ function indexConsistency(
  * No cancellation or supersession exists: this only verifies what is being continued.
  */
 export function continuationRequestViolation(
-  prior: ResolutionTransaction,
+  prior: Pick<ResolutionTransaction, "requested"> & {
+    outcome: Pick<ResolutionTransaction["outcome"], "remainder" | "unresolved_dependents">;
+  },
   requested: ResolutionTransaction["requested"],
 ): string | null {
   if (prior.outcome.unresolved_dependents.length > 0) {
@@ -788,7 +797,7 @@ function checkDueEngaged(
     ResolutionTransaction["engaged"][number],
     { boundary: "DUE_RECONCILED" | "DUE_UNRESOLVED" }
   >,
-  tx: Pick<ResolutionTransaction | GmWaitResolutionTransaction, "engaged" | "stages" | "outcome">,
+  tx: Pick<ResolutionTransaction | GmWaitStoredTransaction, "engaged" | "stages" | "outcome">,
   state: CampaignState,
   objWs: CommitGroup["writes"],
   priorIndex: BoundaryIndex,

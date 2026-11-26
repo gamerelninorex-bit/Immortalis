@@ -25,6 +25,7 @@ import {
 import { tempDir } from "../support/tmp.ts";
 
 const OLD_V2 = "e9049723f8b217d0557bcd4dcbfd126a58cb9777b82663e5c6f17a6842510500";
+const B2_CATALOGUE = "7707ff8ec86a9564dae2b026e730386f26fadfd4011c2934d0cc19dd5a6f09ed";
 const OLD_V1 = "f3393ad446efcd3915ecf081c5ce35fd041a5952a1a38848f9da1a8bf5c56062";
 const sha256 = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
 const read = (digest: string) => readFileSync(join(REPO_ROOT, MANIFEST_DIR, `${digest}.json`));
@@ -47,6 +48,8 @@ describe("B2-T08 regeneration and the retained archives", () => {
       expect.arrayContaining([OLD_V1, OLD_V2, g.digest]),
     );
     expect(retainedDigests().sort()).toEqual([...GM_WAIT_CATALOGUE_RETAINED_SHA256].sort());
+    for (const digest of GM_WAIT_CATALOGUE_RETAINED_SHA256)
+      expect(sha256(read(digest)), digest).toBe(digest);
     expect(sha256(read(OLD_V1))).toBe(OLD_V1);
     expect(sha256(read(OLD_V2))).toBe(OLD_V2);
     expect(read(OLD_V1).length).toBe(330227);
@@ -57,7 +60,7 @@ describe("B2-T08 regeneration and the retained archives", () => {
 describe("B2-T08 what changed in the census, exactly", () => {
   const manifest = (digest: string): any => JSON.parse(read(digest).toString("utf8"));
   const prior = () => manifest(OLD_V2);
-  const now = () => manifest(g.digest);
+  const now = () => manifest(B2_CATALOGUE);
 
   it("the registry gained EXACTLY the two Temporal kinds, enumerated with their owner, facet, lifecycle, key grammar, RC/IM lineage and a registered source rule", () => {
     const before: any[] = prior().kinds;
@@ -209,6 +212,10 @@ describe("B2-T08 the generator's drift detection is falsifiable (private copies,
     const missing = root();
     rmSync(join(missing, MANIFEST_DIR, `${OLD_V1}.json`));
     expect(checkDrift(g, locs(missing)).join("\n")).toMatch(/missing required v1 archive/);
-    expect(readdirSync(join(missing, MANIFEST_DIR)).length).toBe(2);
+    expect(readdirSync(join(missing, MANIFEST_DIR)).sort()).toEqual(
+      GM_WAIT_CATALOGUE_RETAINED_SHA256.filter((digest) => digest !== OLD_V1)
+        .map((digest) => digest + ".json")
+        .sort(),
+    );
   });
 });

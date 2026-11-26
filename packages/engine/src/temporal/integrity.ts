@@ -19,7 +19,7 @@ import {
   timeEquals,
   temporalGmWaitByPcKey,
   temporalGmWaitMarkerKey,
-  type GmWaitResolutionTransaction,
+  type GmWaitStoredTransaction,
   type OwnerFact,
   type PendingConsequenceBarrier,
   type ResolutionTransaction,
@@ -52,7 +52,7 @@ import {
 import { GM_WAIT_CUSTODY_RULE } from "../gm-wait-custody.ts";
 
 /** A sealed transaction of either origin: the legacy player-origin record, or the strict prospective GM variant. */
-type StoredTransaction = ResolutionTransaction | GmWaitResolutionTransaction;
+type StoredTransaction = ResolutionTransaction | GmWaitStoredTransaction;
 
 /**
  * Re-verifies, from committed state and the journal alone, that the kernel-owned temporal state of a
@@ -201,8 +201,7 @@ export function verifyTemporalIntegrity(store: CampaignStore): readonly Integrit
       );
     } else if (prev && held) {
       // the same rule admission applies, re-verified against the sealed prior record
-      // a GM-origin seal is TARGET_REACHED with no remainder, so it is never the held prior: the prior is a legacy record here
-      const violation = continuationRequestViolation(prev as ResolutionTransaction, tx.requested);
+      const violation = continuationRequestViolation(prev, tx.requested);
       if (violation) bad(key, "TEMPORAL_TRANSACTION", violation);
     }
     if (

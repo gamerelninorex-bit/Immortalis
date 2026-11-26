@@ -295,10 +295,18 @@ export class CampaignCore {
 
   /** Re-registers an already-committed entry (used when replaying a journal on load). */
   adopt(entry: JournalEntry, nextState: CampaignState): void {
+    const before = this.#state;
     this.#state = nextState;
     this.#headSha256 = entry.entry_sha256;
     this.#register(entry.group, entry.receipt);
-    this.#fence = advanceGmWaitFence(this.#fence, entry.group, nextState);
+    this.#fence = advanceGmWaitFence(
+      this.#fence,
+      entry.group,
+      nextState,
+      before,
+      this.#params.admission,
+      entry.receipt,
+    );
     registerGmWaitFence(nextState, this.#fence);
   }
 
@@ -586,7 +594,13 @@ export class CampaignCore {
       );
     }
     // F-014B B2 W2: the common fence precedes every owner, registry and admission rule, for a live publication AND for a replayed entry.
-    const fenced = gmWaitFenceViolation(group, this.#fence, this.#params.admission, checkRegistry);
+    const fenced = gmWaitFenceViolation(
+      group,
+      this.#fence,
+      this.#params.admission,
+      checkRegistry,
+      state,
+    );
     if (fenced) return fenced;
     if (checkRegistry && !this.#params.owners.get(group.owner)?.has(group.facet)) {
       return bad("OWNER_NOT_REGISTERED", "no registered owner/facet; there is no fallback owner", {

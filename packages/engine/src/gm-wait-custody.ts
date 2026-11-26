@@ -5,7 +5,8 @@ import {
   GM_WAIT_ORIGIN,
   GmWaitByPcIndexSchema,
   GmWaitMarkerSchema,
-  GmWaitResolutionTransactionSchema,
+  GmWaitStoredTransactionSchema,
+  GmWaitStagedTransactionSchema,
   GmWaitTransactionAuthoritySchema,
   OWNER_TEMPORAL_KERNEL,
   PLAYER_CHARACTER_BINDING_KEY,
@@ -15,6 +16,8 @@ import {
   TEMPORAL_GM_WAIT_MARKER_PREFIX,
   TEMPORAL_STATE_KEY,
   TemporalStateSchema,
+  ResolutionTransactionSchema,
+  TransactionAuthoritySchema,
   compareTime,
   fail,
   gmWaitIndexIsTerminal,
@@ -32,11 +35,22 @@ import {
   type GmWaitMarker,
   type GmWaitPreparation,
   type GmWaitResolutionTransaction,
+  type GmWaitStoredTransaction,
+  type CommitReceipt,
   type GmWaitTransactionAuthority,
   type OwnerFact,
   type Result,
   type SourceRef,
 } from "@immortalis/contracts";
+import {
+  IF6B_POLICY,
+  IF6B_RESUME_TRIGGER,
+  if6bAdmissionOf,
+  if6bStageFor,
+  recordIf6bStage,
+  type If6bCommittedStage,
+} from "./temporal/if6b-stage.ts";
+import { if6bSettlement } from "./temporal/if6b-settlement.ts";
 import type { CampaignState, CommitErrorCode } from "./commit/campaign-core.ts";
 import {
   GM_WAIT_CATALOGUE_CURRENT_SHA256,
@@ -250,6 +264,7 @@ export interface GmWaitFence {
   readonly protected: boolean;
   /** ACTIVE: a verified durable OPEN and no seal of the same X */
   readonly active: GmWaitActive | null;
+  readonly stages?: readonly If6bCommittedStage[];
   /** non-null when the committed custody facts are not mutually consistent: nothing may be published (HELD) */
   readonly unknown: string | null;
 }
@@ -345,13 +360,23 @@ export function advanceGmWaitFence(
   prior: GmWaitFence,
   group: CommitGroup,
   next: CampaignState,
+  before?: CampaignState,
+  admission?: { readonly historyVerificationId?: string },
+  receipt?: CommitReceipt,
 ): GmWaitFence {
   const sealKey = prior.active?.sealKey;
   gmWaitFenceMetrics.advances++;
   const changes = group.writes.some(
     (w) => isCustodyKey(w.key) || w.key === sealKey || isGmAuthorityWrite(w) || isGmSealWrite(w),
   );
-  if (!changes) return { ...prior, revision: next.revision };
+  if (!changes) {
+    const witness = before && receipt ? if6bStageFor(group, before, prior, admission) : undefined;
+    const stages =
+      witness && before && receipt
+        ? [...(prior.stages ?? []), recordIf6bStage(group, before, witness, receipt)]
+        : prior.stages;
+    return { ...prior, revision: next.revision, ...(stages ? { stages } : {}) };
+  }
   gmWaitFenceMetrics.rederivations++;
   return deriveGmWaitFence(next);
 }
@@ -373,8 +398,51 @@ export function gmWaitFenceOf(state: CampaignState): GmWaitFence {
 /** The checkpoint seam: a checkpoint state with an ACTIVE interval carries no ordered interval proof, so it must be replayed strictly. */
 export const gmWaitCheckpointNeedsStrictReplay = (state: CampaignState): boolean => {
   const fence = deriveGmWaitFence(state);
-  return fence.active !== null || fence.unknown !== null;
+  return fence.active !== null || fence.unknown !== null || interruptedWait(state) !== undefined;
 };
+
+/** A held interrupted GM seal is owned by the continuation already recorded on the one clock. */
+function interruptedWait(state: CampaignState) {
+  const clock = TemporalStateSchema.safeParse(state.facts.get(TEMPORAL_STATE_KEY)?.value);
+  const held = clock.success ? clock.data.continuation : null;
+  if (!held?.from_transaction.startsWith(GM_TRANSACTION_ID_PREFIX)) return undefined;
+  const seal = GmWaitStagedTransactionSchema.safeParse(
+    state.facts.get(temporalTransactionKey(held.from_transaction))?.value,
+  );
+  return seal.success && seal.data.outcome.stop_reason === "INTERRUPTED" ? seal.data : undefined;
+}
+
+function interruptedResumeDecision(
+  group: CommitGroup,
+  state: CampaignState,
+  admission: { readonly historyVerificationId?: string } | undefined,
+  live: boolean,
+): boolean | undefined {
+  if (group.owner !== OWNER_TEMPORAL_KERNEL) return undefined;
+  for (const w of group.writes) {
+    const id = transactionIdOfKey(w.key);
+    if (id === null) continue;
+    const parsed =
+      w.key === temporalTransactionAuthorityKey(id)
+        ? TransactionAuthoritySchema.safeParse(w.value)
+        : ResolutionTransactionSchema.safeParse(w.value);
+    if (!parsed.success) continue;
+    const held = interruptedWait(state);
+    if (!held) return live && parsed.data.trigger.kind === IF6B_RESUME_TRIGGER ? false : undefined;
+    return (
+      parsed.data.continues === held.transaction_id &&
+      parsed.data.trigger.kind === IF6B_RESUME_TRIGGER &&
+      !X_CAUSE_PREFIXES.some((prefix) => group.cause.startsWith(prefix)) &&
+      group.depends_on.every(
+        (dep) =>
+          !X_GROUP_ID_PREFIXES.some((prefix) => dep.startsWith(prefix)) ||
+          dep === transactionGroupId(held.transaction_id),
+      ) &&
+      if6bAdmissionOf(admission)?.verifyResume?.(group, state, held) === true
+    );
+  }
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------------------------
 // The common W2 fence predicate (live and historical; core, base admission and extension binding all call this one function)
@@ -399,6 +467,7 @@ export function gmWaitFenceViolation(
   fence: GmWaitFence,
   admission: { readonly historyVerificationId?: string } | undefined,
   live: boolean,
+  state?: CampaignState,
 ): Rejection | null {
   gmWaitFenceMetrics.checks++;
   gmWaitFenceMetrics.keyInspections += group.writes.length;
@@ -439,15 +508,34 @@ export function gmWaitFenceViolation(
   // with no scan), while ACTIVE, and after the seal. B2 has no source witness for an owner stage of a GM wait (no due roster, no B3 writer), so a stage
   // that merely carries the right cause and dependency is stage-shaped metadata, never evidence: it is refused here, ahead of every owner rule and every
   // extension early return, live and in original-policy historical verification.
-  if (!custody) {
+  const resume =
+    !custody && !fence.active && !fence.unknown && state
+      ? interruptedResumeDecision(group, state, admission, live)
+      : undefined;
+  if (resume === false)
+    return refuse(
+      "REFERENCE_INVALID",
+      "GM_WAIT_INTERRUPTED_RESUME_UNAUTHORIZED",
+      "the interrupted remainder requires a separately authenticated choice at its decision opportunity",
+    );
+  if (!custody && resume !== true) {
     const claim = gmWaitClaimOf(group, live);
-    if (claim !== null)
+    if (claim !== null) {
+      if (state && if6bStageFor(group, state, fence, admission)) return null;
+      if (
+        state &&
+        !fence.active &&
+        fence.unknown === null &&
+        if6bAdmissionOf(admission)?.verifyAftermath?.(group, state)
+      )
+        return null;
       return refuse(
         "KEY_NOT_ADMITTED",
         "GM_WAIT_STAGE_CLAIM_UNSOURCED",
         "only the Temporal kernel's own custody and seal groups may name a GM wait: an owner stage of a GM wait has no source witness in this build",
         { claim },
       );
+    }
   }
   if (fence.unknown !== null)
     return refuse(
@@ -545,6 +633,7 @@ export interface GmWaitCustodyPolicy {
    * refused. FIXTURE: the TESTKIT-ONLY admission qualifies one synthetic extension-owner fact; its history identity is distinct.
    */
   readonly preparation: "NONE" | "FIXTURE";
+  readonly if6b?: import("./temporal/if6b-stage.ts").If6bAdmission;
   readonly historyVerificationId: string;
   /** whether `owner` is a canonical or kernel owner (the fixture preparation must come from a non-canonical, synthetic owner) */
   readonly isCanonicalOwner: (owner: string) => boolean;
@@ -711,6 +800,10 @@ function preparationViolation(
     return unqualified(
       "no qualified original-owner pending enrolment or authorized quiet variant exists in this build: a production marker is refused",
     );
+  if (ctx.policy.if6b && marker.policy.history_verification_id === ctx.policy.historyVerificationId)
+    return ctx.policy.if6b.preparation(marker, state)
+      ? null
+      : unqualified("IF-6b requires the original qualified preparation at its committing cut");
   const p: GmWaitPreparation = marker.preparation;
   const fact = state.facts.get(p.fact.key);
   if (
@@ -1116,7 +1209,13 @@ function reconcileCheck(
   if (identity) return identity;
   const authority = state.facts.get(temporalTransactionAuthorityKey(tx));
   const seal = state.facts.get(temporalTransactionKey(tx));
-  const parsedSeal = seal ? GmWaitResolutionTransactionSchema.safeParse(seal.value) : undefined;
+  const parsedSeal = seal ? GmWaitStoredTransactionSchema.safeParse(seal.value) : undefined;
+  if (
+    parsedSeal?.success &&
+    "stage_policy" in parsedSeal.data &&
+    !ctx.policy.if6b?.permitsReconcile?.(marker, state)
+  )
+    return bad("GM_WAIT_SEAL", "the original owner aftermath of this staged seal has not settled");
   if (
     !authority ||
     !seal ||
@@ -1162,7 +1261,7 @@ function reconcileCheck(
  * it exactly; it never writes the index; and it is published under the identity derived from the transaction alone.
  */
 function sealCheck(group: CommitGroup, state: CampaignState, sealWrite: Write): Rejection | null {
-  const parsed = GmWaitResolutionTransactionSchema.safeParse(sealWrite.value);
+  const parsed = GmWaitStoredTransactionSchema.safeParse(sealWrite.value);
   if (!parsed.success)
     return bad("GM_WAIT_VALUE_INVALID", "the seal is not a strict GM transaction", {
       key: sealWrite.key,
@@ -1208,6 +1307,42 @@ function sealCheck(group: CommitGroup, state: CampaignState, sealWrite: Write): 
   const index = parseIndex(indexFact);
   if (!marker || !index || index.x !== x || index.state !== "OPEN")
     return bad("GM_WAIT_SEAL", "a GM seal seals an OPEN wait of the PC's current index");
+  const staged = gmWaitFenceOf(state).stages ?? [];
+  if (
+    staged.length ||
+    "stage_policy" in tx ||
+    marker.policy.history_verification_id.endsWith("+" + IF6B_POLICY)
+  ) {
+    const expected = if6bSettlement(state, authority.data, marker, staged, group.rule);
+    if (
+      !expected ||
+      !GmWaitStagedTransactionSchema.safeParse(tx).success ||
+      !canonicalEqual(tx, expected.transaction) ||
+      !canonicalEqual(
+        group.writes.filter((w) => w !== sealWrite),
+        [
+          stampWrite(
+            authority.data.publication,
+            TEMPORAL_STATE_KEY,
+            expected.nextClock,
+            state.facts.get(TEMPORAL_STATE_KEY)!.version,
+          ),
+          ...expected.writes.map((w) =>
+            stampWrite(authority.data.publication, w.key, w.value, w.version),
+          ),
+        ],
+      ) ||
+      !sameDeps(group.depends_on, [
+        authorityFact.provenance.group_id,
+        state.facts.get(TEMPORAL_STATE_KEY)!.provenance.group_id,
+        ...staged.map(({ record }) => record.group_id),
+      ])
+    )
+      return bad(
+        "GM_WAIT_SEAL",
+        "the staged seal must record all and only the original verified stages and due boundaries",
+      );
+  }
   if (group.writes.some((w) => w.key.startsWith(TEMPORAL_GM_WAIT_KEY_PREFIX)))
     return bad(
       "GM_WAIT_GROUP_SHAPE",
@@ -1218,7 +1353,7 @@ function sealCheck(group: CommitGroup, state: CampaignState, sealWrite: Write): 
 
 /** The comparison of a GM seal with its GM opening: true when it departs in any compared field. */
 export function gmWaitSealDepartsFromAuthority(
-  tx: GmWaitResolutionTransaction,
+  tx: GmWaitStoredTransaction,
   authority: GmWaitTransactionAuthority,
   txWrite: Write | undefined,
 ): boolean {
@@ -1592,6 +1727,7 @@ export function buildSealGroup(
   facts: GmWaitFactView,
   x: string,
   kernelRule: SourceRef,
+  actualState?: CampaignState,
 ): Result<CommitGroup, GmWaitErrorCode> {
   const o = openedOf(facts, x);
   if (!o.ok) return o;
@@ -1609,6 +1745,40 @@ export function buildSealGroup(
     );
   const a = authority.data;
   const target = a.requested.target;
+  const pub = a.publication;
+  const recorded = actualState ? (gmWaitFenceOf(actualState).stages ?? []) : [];
+  if (
+    actualState &&
+    (recorded.length || marker.policy.history_verification_id.endsWith("+" + IF6B_POLICY))
+  ) {
+    const settlement = if6bSettlement(actualState, a, marker, recorded, kernelRule);
+    if (!settlement) return fail("GM_WAIT_NOT_IN_STATE", "the due owner stages are incomplete");
+    return ok(
+      customGroup(
+        marker.campaign_id,
+        {
+          group: transactionGroupId(tx),
+          intent: transactionIntentId(tx),
+          cause: transactionCause(tx),
+        },
+        kernelRule,
+        [
+          { key: TEMPORAL_STATE_KEY, version: clockFact.version },
+          { key: authorityFact.key, version: 1 },
+        ],
+        [
+          clockFact.provenance.group_id,
+          authorityFact.provenance.group_id,
+          ...recorded.map(({ record }) => record.group_id),
+        ],
+        [
+          stampWrite(pub, TEMPORAL_STATE_KEY, settlement.nextClock, clockFact.version),
+          stampWrite(pub, temporalTransactionKey(tx), settlement.transaction, 0),
+          ...settlement.writes.map((w) => stampWrite(pub, w.key, w.value, w.version)),
+        ],
+      ),
+    );
+  }
   const transaction: GmWaitResolutionTransaction = {
     origin: GM_WAIT_ORIGIN,
     x,
@@ -1635,7 +1805,6 @@ export function buildSealGroup(
     last_transaction: tx,
     continuation: null,
   };
-  const pub = a.publication;
   return ok(
     customGroup(
       marker.campaign_id,
@@ -1784,7 +1953,12 @@ export class GmWaitCustody {
   async sealOwn(x: string): Promise<Result<GmWaitCommitted, GmWaitWriteError>> {
     const done = this.#original(transactionIntentId(gmWaitTransactionId(x)), x);
     if (done) return done;
-    const group = buildSealGroup({ get: (k) => this.#store.getFact(k) }, x, this.#kernelRule);
+    const group = buildSealGroup(
+      { get: (k) => this.#store.getFact(k) },
+      x,
+      this.#kernelRule,
+      this.#store.canonicalState?.(),
+    );
     if (!group.ok) return group;
     const committed = await this.#publish(group.value, undefined);
     return committed.ok ? ok(this.#result(committed.value, x)) : committed;

@@ -13,6 +13,7 @@
 // Custody is bytes, never ancestry: a squash merge keeps a base commit retrievable but does not keep it in the merged history, so no test
 // here asserts that any commit is an ancestor of HEAD. Where a base commit is needed for a diff and is not retrievable (a shallow checkout)
 // the comparison is SKIPPED and reported as skipped, never claimed.
+import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -213,6 +214,7 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
           B1_S2S3_PACKAGE_PATHS,
           A1_2A_PACKAGE_PATHS,
           B2_PACKAGE_PATHS,
+          IF6B_PACKAGE_PATHS,
         ),
       );
       // the declared allow-list is not a place to park files that did not change
@@ -232,6 +234,7 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
         ...A1_2A_PACKAGE_PATHS,
         ...B1_S2S3_OUTSIDE_PACKAGE_PATHS,
         ...B2_PACKAGE_PATHS,
+        ...IF6B_PACKAGE_PATHS,
       ]);
       const expected = new Set([...B1_S1_PACKAGE_PATHS, ...B1_S1_NON_PACKAGE_PATHS, ...s2s3]);
       expect(
@@ -258,6 +261,7 @@ describe("B1-S1 scope: one production file changed, by its declared amount, and 
         ...A1_2A_PACKAGE_PATHS,
         B1_V2_WORKFLOW_PATH,
         ...B2_PACKAGE_PATHS,
+        ...IF6B_PACKAGE_PATHS,
       ]);
       for (const p of B1_S1_UNTOUCHED) {
         expect(

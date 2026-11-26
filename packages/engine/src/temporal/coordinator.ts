@@ -3,6 +3,7 @@ import {
   CANON_WRITE_AUTHORITY,
   ResolutionRequestSchema,
   ResolutionTransactionSchema,
+  ResolutionTransactionStoredSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
   TEMPORAL_ORIGIN_KEY,
   TEMPORAL_STATE_KEY,
@@ -213,6 +214,11 @@ export class TemporalCoordinator {
     const fact = this.#store.getFact(temporalObjectKey(objectId));
     return fact ? { fact, value: TemporalObjectSchema.parse(fact.value) } : undefined;
   }
+  #continuationSource(transactionId: string) {
+    const fact = this.#store.getFact(temporalTransactionKey(transactionId));
+    return fact ? ResolutionTransactionStoredSchema.parse(fact.value) : undefined;
+  }
+
   transaction(transactionId: string): Typed<ResolutionTransaction> | undefined {
     const fact = this.#store.getFact(temporalTransactionKey(transactionId));
     if (!fact) return undefined;
@@ -472,7 +478,7 @@ export class TemporalCoordinator {
     }
     // Unresolved work is continued with its original request (target and condition); a plain
     // target remainder is continued toward that target.
-    const prior = this.transaction(held.from_transaction)?.value;
+    const prior = this.#continuationSource(held.from_transaction);
     const requested =
       prior && prior.outcome.unresolved_dependents.length > 0
         ? prior.requested
@@ -549,7 +555,7 @@ export class TemporalCoordinator {
         );
       }
       // the continuation is the sealed prior transaction's unfinished request: carry it forward
-      const priorTx = this.transaction(held.from_transaction)?.value;
+      const priorTx = this.#continuationSource(held.from_transaction);
       const violation = priorTx
         ? continuationRequestViolation(priorTx, req.requested)
         : "the held continuation's sealed transaction is not committed";
