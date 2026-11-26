@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const sha = (s: string | Buffer) => createHash("sha256").update(s).digest("hex");
 describe("briefing verification reuse preserves its source and complete verifier", () => {
-  it("retains all 26 owner checks, byte-identical to the selected main verifier body", () => {
+  it("retains every owner check in order and threads the same Workshop campaign into both verifiers", () => {
     const path = "packages/engine/src/world/canonical-campaign.ts";
     const s = gitB3BaseFile(path).toString("utf8");
     const head = readFileSync(path, "utf8");
@@ -28,8 +28,12 @@ describe("briefing verification reuse preserves its source and complete verifier
         "  extension: StageOwnerExtension | undefined,\n  workshopCampaign?: string,\n",
       )
       .replace(
-        "    ...verifyCanonicalIntegrity(store, {\n",
-        "    ...verifyCanonicalIntegrity(store, {\n      ...(workshopCampaign !== undefined ? { workshopCampaign } : {}),\n",
+        "  return [\n    ...verifyCanonicalIntegrity(store, {\n",
+        "  const workshopOptions = workshopCampaign !== undefined ? { workshopCampaign } : {};\n  return [\n    ...verifyCanonicalIntegrity(store, {\n      ...workshopOptions,\n",
+      )
+      .replace(
+        "    ...verifyEpistemicIntegrity(store),",
+        "    ...verifyEpistemicIntegrity(store, workshopOptions),",
       );
     expect(headBody).toBe(successor);
   });
