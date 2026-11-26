@@ -32,15 +32,16 @@ import {
   epistemicPacketDeclaration,
   isObservationEarnedFact,
 } from "../../../packages/engine/src/epistemic/declaration.ts";
+import { verifyNativeReceipt, type NativeEvidence } from "./native-observation.ts";
 
 /**
  * F-014B P-7 E0 - the source-closed per-member proof checker and the all-enrolled coverage / gap report for the Temporal section 10
  * evaluator (BLUE P-7 brief at native pin 2026-11-24T00:22:21.665Z; Two-Blocker v0.3 section 8.1(2); RED terminal R-9, P-7, T74, T85;
  * BLUE final decision N9.1-N9.8).
  *
- * MECHANISM ONLY and NON-WRITING. Every function here is a pure function of its arguments (the one exception, added by P7-E1, is the
- * write-once slot of the installed native receipt verifier, which holds a function and no data): no clock, no randomness, no filesystem, no
- * store, no network, no canonical write. It installs no writer, registers no owner/facet/kind, classifies no member INERT,
+ * MECHANISM ONLY and NON-WRITING. Every function here is a pure function of its arguments (the DIRECT_OBSERVATION route additionally calls
+ * the one statically imported, read-only native receipt verifier of P7-E1; there is no installer, setter or callback): no clock, no
+ * randomness, no filesystem, no store of its own, no network, no canonical write. It installs no writer, registers no owner/facet/kind, classifies no member INERT,
  * PASSIVE_PROVEN or INTERRUPTION_GUARDED, and edits no manifest. The shared catalogue sentinels (`UNDECLARED`, `ACTIONABLE_OR_UNSAFE`,
  * `NONE_SECTION_10_NOT_ACCEPTED`, `NOT_INSTALLED_NO_GM_WRITER`, `UNRETIRED_DENY`) are READ and reported, never changed. This module is
  * deliberately NOT exported from the package index.
@@ -458,48 +459,6 @@ export const NO_RETIRED_HISTORY: HistoryReader = Object.freeze({
   verifiesSegment: () => false,
 });
 
-/**
- * P7-E1: the opaque evidence a DIRECT_OBSERVATION receipt must additionally rest on, issued ONLY by the native verifier (the test-support
- * module `native-observation.ts`): one authentic campaign, one valid exact journal cut and THE ledger over it. The checker never looks
- * inside it and never trusts a verdict from the caller; it hands the value, the event it re-read from its own ledger and that ledger to the
- * one installed native verifier, which authenticates the evidence by identity against its own private registry and re-reads the journal.
- */
-export interface NativeEvidenceHandle {
-  readonly campaign_id: string;
-  readonly cut_revision: number;
-  readonly ledger: EvidenceLedger;
-}
-export interface NativeReceiptQuery {
-  readonly event: OwnerFact;
-  readonly pc_id: string;
-  /** the ledger the checker is reading from: it must be THE ledger of the evidence */
-  readonly ledger: EvidenceLedger;
-  /** the checker's canonical cut, when it has one: the evidence may not lie after it */
-  readonly canonical_cut?: CanonicalTime | undefined;
-}
-/** A diagnostic result: never a canonical classification. */
-export interface NativeReceiptVerdict {
-  readonly ok: boolean;
-  readonly code: string;
-  readonly detail: string;
-}
-export type NativeReceiptVerifier = (
-  evidence: NativeEvidenceHandle,
-  q: NativeReceiptQuery,
-) => NativeReceiptVerdict;
-
-/**
- * The ONE native receipt verifier, installed once by the native module when it loads. It is write-once: a second installation throws, so a
- * look-alike can never replace it silently, and a spoof installed first would break the native module's load. Absent (the module was not
- * loaded) the DIRECT_OBSERVATION route fails closed. This is the only state in this module; it carries no store and no clock.
- */
-let installedNativeVerifier: NativeReceiptVerifier | null = null;
-export function installNativeReceiptVerifier(verifier: NativeReceiptVerifier): void {
-  if (installedNativeVerifier !== null)
-    throw new Error("the native receipt verifier is already installed and cannot be replaced");
-  installedNativeVerifier = verifier;
-}
-
 export interface CheckerContext {
   /** the presented manifest (any value; it is parsed and validated here, never trusted) */
   readonly manifest: unknown;
@@ -517,12 +476,13 @@ export interface CheckerContext {
   readonly history?: HistoryReader;
   /**
    * P7-E1: what a DIRECT_OBSERVATION receipt must additionally rest on. A receipt that a derivation COULD produce from a committed event
-   * is not the receipt the owner actually COMMITTED. This is OPAQUE evidence issued only by the native verifier (`bindNativeEvidence`).
-   * The CHECKER has the installed native verifier check it; no caller-supplied verdict exists, a value that was not issued there is
-   * refused, and the `ledger` above must be the evidence's own ledger (a ledger, campaign and cut cannot be swapped independently).
-   * Absent evidence: the route never closes.
+   * is not the receipt the owner actually COMMITTED. This is OPAQUE evidence issued only by the native module (`bindNativeEvidence`): one
+   * authentic campaign, one valid exact journal cut and THE ledger over it. The CHECKER calls the one STATICALLY IMPORTED native verifier
+   * itself, with the event it re-read from its own ledger, that ledger and its canonical `cut`. There is no installer, setter or callback
+   * anywhere: no caller-supplied verdict exists, a value that was not issued by the native module is refused, the `ledger` above must be the
+   * evidence's own ledger, and an absent or invalid canonical `cut` refuses. Absent evidence: the route never closes.
    */
-  readonly nativeEvidence?: NativeEvidenceHandle;
+  readonly nativeEvidence?: NativeEvidence;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1094,16 +1054,10 @@ function knowledgeResult(
     if (!isObservationEarnedFact(eventFact))
       return open(o, "EVENT_NOT_OBSERVATION_EARNED", eventRef.key);
     // P7-E1: derivable is not committed. The route closes only when the actual journal shows the receipt the owner committed, verified HERE
-    // against the one issued evidence the checker's own ledger belongs to.
+    // by the one statically imported native verifier against the one issued evidence the checker's own ledger belongs to.
     const evidence = env.ctx.nativeEvidence;
     if (evidence === undefined) return open(o, "NATIVE_RECEIPT_EVIDENCE_ABSENT", eventRef.key);
-    if (installedNativeVerifier === null)
-      return open(
-        o,
-        "NATIVE_RECEIPT_NOT_PROVEN",
-        "NATIVE_VERIFIER_NOT_INSTALLED: the native module is not loaded",
-      );
-    const native = installedNativeVerifier(evidence, {
+    const native = verifyNativeReceipt(evidence, {
       event: eventFact,
       pc_id: pcId,
       ledger: env.ctx.ledger,

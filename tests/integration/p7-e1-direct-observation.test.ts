@@ -10,7 +10,7 @@
 // expected verdict. Each twin varies one real thing (a cut, a hidden record, a forged field, a revision, a clock, a receipt, a ledger) and the
 // verifier reads the real journal with the owners' own verifiers. Forgeries are read-only overlays: the SELF-CONSISTENT ones (group and receipt
 // hash rewritten to match) can be refused only by the layer under test; the INCONSISTENT ones are refused by the strict group/receipt layer.
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   AccessEventSchema,
   AccessiblePacketSchema,
@@ -45,7 +45,6 @@ import {
   NO_HEALTH_OWNER_AUTHORITY,
   NO_PROVEN_FIRST_OPTION_AUTHORITY,
   checkSection10,
-  installNativeReceiptVerifier,
   refOf,
 } from "../support/p7-section10/proof.ts";
 import {
@@ -125,14 +124,21 @@ const eventOf = (store: ReadOnlyStore): OwnerFact => store.getFact(EVENT_KEY)!;
 /** The verifier's diagnostic verdict for the journal's event at a cut (or for another presented event / character). */
 function verify(
   store: ReadOnlyStore,
-  o: { cut?: number; event?: OwnerFact; pc?: string; canonical_cut?: CanonicalTime } = {},
+  o: {
+    cut?: number;
+    event?: OwnerFact;
+    pc?: string;
+    /** the checker's explicit canonical cut (default: the observation's own basis); `null` supplies none */
+    canonical_cut?: CanonicalTime | null;
+  } = {},
 ) {
   const evidence = bind(store, o.cut);
+  const canonical = o.canonical_cut === undefined ? BASIS : o.canonical_cut;
   return verifyNativeReceipt(evidence, {
     event: o.event ?? eventOf(store),
     pc_id: o.pc ?? PC_ID,
     ledger: evidence.ledger,
-    ...(o.canonical_cut ? { canonical_cut: o.canonical_cut } : {}),
+    ...(canonical === null ? {} : { canonical_cut: canonical }),
   });
 }
 
@@ -143,7 +149,8 @@ function route(
     evidence?: NativeEvidence;
     ledger?: NativeLedger;
     pc?: string;
-    cut?: CanonicalTime;
+    /** the checker's canonical cut (default: the observation's own basis); `null` supplies none */
+    cut?: CanonicalTime | null;
     claims?: Record<string, unknown>;
     extra?: Record<string, unknown>;
   } = {},
@@ -166,7 +173,7 @@ function route(
     ledger,
     certificates: [certificate],
     pc: { entity_id: o.pc ?? PC_ID },
-    cut: o.cut ?? BASIS,
+    ...(o.cut === null ? {} : { cut: o.cut ?? BASIS }),
     ...(o.evidence ? { nativeEvidence: o.evidence } : {}),
     ...(o.extra ?? {}),
   } as never);
@@ -194,7 +201,12 @@ describe("E1-01 native positive: the committed receipt, not a derivable one, clo
       expect(AccessEventSchema.parse(event.value).channel).toBe("PERCEPTION");
       const evidence = bind(store);
       expect(
-        verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger }),
+        verifyNativeReceipt(evidence, {
+          event,
+          pc_id: PC_ID,
+          ledger: evidence.ledger,
+          canonical_cut: BASIS,
+        }),
       ).toMatchObject({ ok: true, code: "NATIVE_RECEIPT_COMMITTED" });
 
       const closed = route(event, { evidence });
@@ -358,8 +370,12 @@ describe("E1-04 wrong character, forged records and a record that is not the jou
       for (const [name, forged] of forgeries) {
         const evidence = bind(store);
         expect(
-          verifyNativeReceipt(evidence, { event: forged, pc_id: PC_ID, ledger: evidence.ledger })
-            .ok,
+          verifyNativeReceipt(evidence, {
+            event: forged,
+            pc_id: PC_ID,
+            ledger: evidence.ledger,
+            canonical_cut: BASIS,
+          }).ok,
           name,
         ).toBe(false);
         // the checker's own ledger is the evidence's, and E0 re-reads the event from it by owner, facet, version, committing group and
@@ -810,7 +826,12 @@ describe("E1-07 read-only: checking writes nothing, the native replay is a no-op
       };
       const event = eventOf(store);
       const evidence = bind(store);
-      verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger });
+      verifyNativeReceipt(evidence, {
+        event,
+        pc_id: PC_ID,
+        ledger: evidence.ledger,
+        canonical_cut: BASIS,
+      });
       route(event, { evidence });
       route(event, { ledger: evidence.ledger });
       verify(store, { cut: 1 });
@@ -931,22 +952,103 @@ describe("E1-09 BLUE F-1: a spoofed success, a swapped ledger or cut, an invalid
     });
   });
 
-  it("the native verifier cannot be replaced: a second installation throws and the real one keeps judging", async () => {
+  it("there is no installer to pre-empt: in a FRESH module graph that imports only the checker, an always-success callback has no door and the genuine verifier refuses", async () => {
+    await withPositive(async (store) => {
+      const event = eventOf(store);
+      const real = bind(store);
+      let called = 0;
+      const callback = () => {
+        called += 1;
+        return { ok: true, code: "SPOOF", detail: "" };
+      };
+      // a fresh graph: the checker is imported ALONE, before anything has had a chance to install or register anything
+      vi.resetModules();
+      const fresh: any = await import("../support/p7-section10/proof.ts");
+      expect(
+        Object.keys(fresh).filter((k) => /install|regist|setNative|verifier/i.test(k)),
+        "no installer, setter or registrar is exported by the checker",
+      ).toEqual([]);
+      const knowledge = (extra: Record<string, unknown>) => {
+        const result = fresh.checkSection10({
+          manifest: currentManifest(),
+          authority: currentAuthority(),
+          ledger: real.ledger,
+          certificates: [
+            {
+              format: "immortalis-p7-section10-proof",
+              version: 1,
+              catalogue_sha256: GM_WAIT_CATALOGUE_CURRENT_SHA256,
+              member: { family: "EPISTEMIC_ROUTE", id: "DIRECT_OBSERVATION" },
+              claims: { RECIPIENT_KNOWLEDGE_LATENCY: { evidence: [refOf(event)] } },
+            },
+          ],
+          pc: { entity_id: PC_ID },
+          cut: BASIS,
+          ...extra,
+        });
+        return result.verdicts
+          .get(MEMBER)
+          .obligations.find((x: any) => x.obligation === "RECIPIENT_KNOWLEDGE_LATENCY");
+      };
+      // the attacker offers an always-success callback in every slot the context could have: none is a door
+      for (const [name, extra] of [
+        [
+          "a callback in the retired witness field",
+          { nativeObservation: { id: "S", verify: callback } },
+        ],
+        ["a callback as a verifier", { nativeVerifier: callback, verify: callback }],
+        [
+          "look-alike evidence carrying a callback",
+          { nativeEvidence: { ...real, verify: callback, ok: true } },
+        ],
+        ["the real evidence of ANOTHER module graph", { nativeEvidence: real }],
+      ] as const) {
+        const k = knowledge(extra);
+        expect(k.status, name).toBe("OPEN");
+        expect(k.reason, name).toBe(
+          name.startsWith("a callback")
+            ? "NATIVE_RECEIPT_EVIDENCE_ABSENT"
+            : "NATIVE_RECEIPT_NOT_PROVEN",
+        );
+        if (k.reason === "NATIVE_RECEIPT_NOT_PROVEN")
+          expect(
+            k.detail,
+            `${name}: the GENUINE verifier answered, with no install step`,
+          ).toContain("NATIVE_EVIDENCE_NOT_ISSUED");
+      }
+      expect(called, "no callback was ever consulted").toBe(0);
+    });
+  });
+
+  it("the checker's canonical cut is explicit and valid: an absent or invalid cut refuses, a past observation at a later cut closes", async () => {
     await withPositive((store) => {
       const event = eventOf(store);
-      const early = bind(store, revisionOf(store, event)!);
-      let called = 0;
-      expect(() =>
-        installNativeReceiptVerifier(() => {
-          called += 1;
-          return { ok: true, code: "SPOOF", detail: "" };
-        }),
-      ).toThrow(/already installed/);
-      // the event-only cut still refuses, and the spoof was never consulted
-      const r = route(event, { evidence: early });
-      expect(r.knowledge.reason).toBe("NATIVE_RECEIPT_NOT_PROVEN");
-      expect(r.knowledge.detail).toContain("PACKET_ABSENT_AT_CUT");
-      expect(called).toBe(0);
+      const evidence = bind(store);
+      const absent = route(event, { evidence, cut: null });
+      expect(absent.knowledge.status).toBe("OPEN");
+      expect(absent.knowledge.reason).toBe("NATIVE_RECEIPT_NOT_PROVEN");
+      expect(absent.knowledge.detail).toContain("CANONICAL_CUT_ABSENT");
+      const invalid: [string, unknown][] = [
+        ["a non-integer value", { unit: BASIS.unit, value: BASIS.value + 0.5 }],
+        ["a negative value", { unit: BASIS.unit, value: -1 }],
+        ["a missing unit", { value: BASIS.value }],
+        ["an extra field", { unit: BASIS.unit, value: BASIS.value, extra: true }],
+        ["not an object", BASIS.value],
+      ];
+      for (const [name, cut] of invalid) {
+        const r = route(event, { evidence, cut: cut as CanonicalTime });
+        expect(r.knowledge.status, name).toBe("OPEN");
+        expect(r.knowledge.detail, name).toContain("CANONICAL_CUT_INVALID");
+      }
+      expect(verify(store, { canonical_cut: null })).toMatchObject({
+        ok: false,
+        code: "CANONICAL_CUT_ABSENT",
+      });
+      // lawful evidence of a PAST observation at a LATER canonical cut still closes; the same journal head is the pinned one
+      expect(
+        route(event, { evidence, cut: { unit: BASIS.unit, value: BASIS.value + 50 } }).knowledge
+          .status,
+      ).toBe("CLOSED");
     });
   });
 
@@ -991,7 +1093,12 @@ describe("E1-09 BLUE F-1: a spoofed success, a swapped ledger or cut, an invalid
         expect(r.knowledge.reason, name).toBe("NATIVE_RECEIPT_NOT_PROVEN");
         expect(r.knowledge.detail, name).toContain("CUT_INVALID");
         expect(
-          verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger }).code,
+          verifyNativeReceipt(evidence, {
+            event,
+            pc_id: PC_ID,
+            ledger: evidence.ledger,
+            canonical_cut: BASIS,
+          }).code,
           name,
         ).toBe("CUT_INVALID");
       }
@@ -1022,7 +1129,12 @@ describe("E1-09 BLUE F-1: a spoofed success, a swapped ledger or cut, an invalid
         expect(swapped.knowledge.status).toBe("OPEN");
         expect(swapped.knowledge.detail).toContain("LEDGER_NOT_THE_BOUND_ONE");
         expect(
-          verifyNativeReceipt(evA, { event: eventB, pc_id: PC_ID, ledger: evB.ledger }).code,
+          verifyNativeReceipt(evA, {
+            event: eventB,
+            pc_id: PC_ID,
+            ledger: evB.ledger,
+            canonical_cut: BASIS,
+          }).code,
         ).toBe("LEDGER_NOT_THE_BOUND_ONE");
         // and campaign A's ledger cannot be presented with campaign B's evidence either
         expect(route(eventA, { evidence: evB, ledger: evA.ledger }).knowledge.status).toBe("OPEN");
@@ -1030,37 +1142,70 @@ describe("E1-09 BLUE F-1: a spoofed success, a swapped ledger or cut, an invalid
     );
   });
 
-  it("the evidence is pinned to the journal it was issued at: another head or a rewound journal refuses", async () => {
+  it("the evidence is valid for the ONE journal head it was issued at: ANY changed head (advanced, foreign, rewound, another hash) refuses, and reissue on the new head closes", async () => {
     await withPositive((store) => {
       const event = eventOf(store);
+      const real = store.head();
       const swappable = {
-        journal: store.head().journal_head_sha256,
-        revision: store.head().revision,
-        campaign: store.head().campaign_id,
+        journal: real.journal_head_sha256,
+        state: real.state_sha256,
+        revision: real.revision,
+        campaign: real.campaign_id,
       };
       const wrapped: ReadOnlyStore = {
         ...overlayStore(store, {}),
         head: () => ({
           ...store.head(),
           journal_head_sha256: swappable.journal,
+          state_sha256: swappable.state,
           revision: swappable.revision,
           campaign_id: swappable.campaign,
         }),
       };
       const evidence = bind(wrapped);
-      const ask = () =>
-        verifyNativeReceipt(evidence, { event, pc_id: PC_ID, ledger: evidence.ledger });
+      const ask = (e: NativeEvidence = evidence) =>
+        verifyNativeReceipt(e, {
+          event,
+          pc_id: PC_ID,
+          ledger: e.ledger,
+          canonical_cut: BASIS,
+        });
       expect(ask()).toMatchObject({ ok: true });
+      // another hash at the same revision
       swappable.journal = "0".repeat(64);
       expect(ask()).toMatchObject({ ok: false, code: "JOURNAL_NOT_THE_PINNED_ONE" });
-      swappable.journal = store.head().journal_head_sha256;
-      swappable.revision = store.head().revision - 1;
+      swappable.journal = real.journal_head_sha256;
+      swappable.state = "1".repeat(64);
+      expect(ask()).toMatchObject({ ok: false, code: "JOURNAL_NOT_THE_PINNED_ONE" });
+      swappable.state = real.state_sha256;
+      // a rewound journal
+      swappable.revision = real.revision - 1;
       expect(ask()).toMatchObject({ ok: false, code: "JOURNAL_REWOUND" });
-      swappable.revision = store.head().revision;
+      // a HIGHER-revision foreign head (another journal that shares nothing but the keys): no ancestry is proven, so it refuses, whatever
+      // the cached view would still show, and through the checker the route does not close either
+      swappable.revision = real.revision + 7;
+      swappable.journal = "2".repeat(64);
+      swappable.state = "3".repeat(64);
+      expect(ask()).toMatchObject({ ok: false, code: "JOURNAL_HEAD_ADVANCED" });
+      const viaChecker = route(event, { evidence });
+      expect(viaChecker.knowledge.status).toBe("OPEN");
+      expect(viaChecker.knowledge.detail).toContain("JOURNAL_HEAD_ADVANCED");
+      // even the SAME hashes at a higher revision are not trusted: ancestry is never inferred
+      swappable.journal = real.journal_head_sha256;
+      swappable.state = real.state_sha256;
+      expect(ask()).toMatchObject({ ok: false, code: "JOURNAL_HEAD_ADVANCED" });
+      // reissuing on the changed head is the only way forward, and it verifies the journal as it now is
+      const reissued = bind(wrapped);
+      expect(ask(reissued)).toMatchObject({ ok: true });
+      expect(route(event, { evidence: reissued }).knowledge.status).toBe("CLOSED");
+      // the old evidence never recovers by the head changing back to a different journal's identity
+      swappable.revision = real.revision;
+      expect(ask(reissued)).toMatchObject({ ok: false, code: "JOURNAL_REWOUND" });
+      // the campaign swapped between issue and verify
       swappable.campaign = "another-campaign";
-      expect(ask()).toMatchObject({ ok: false, code: "CAMPAIGN_MISMATCH" });
-      swappable.campaign = store.head().campaign_id;
-      expect(ask()).toMatchObject({ ok: true });
+      swappable.revision = real.revision + 7;
+      expect(ask(bind(wrapped))).toMatchObject({ ok: false });
+      expect(ask(evidence)).toMatchObject({ ok: false, code: "CAMPAIGN_MISMATCH" });
     });
   });
 });

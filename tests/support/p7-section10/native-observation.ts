@@ -13,12 +13,14 @@
 //   - the seal records that exact stage, group, receipt, realized reads and writes, with no object, boundary or elapsed time.
 //
 // WHO CALLS IT. The CHECKER does, from its own context: `CheckerContext.nativeEvidence` is an OPAQUE value issued only by
-// `bindNativeEvidence`, and the checker calls the installed `verifyNativeReceipt` itself (this module installs it into the E0 checker once,
-// write-once, when it loads; the E0 module therefore gained no import and its own boundary suite is untouched). There is no caller-supplied
-// verdict, callback or success flag anywhere: an object that was not issued here is refused, and the one evidence value carries the ONE
-// ledger the checker must read from, so a ledger, a campaign and a cut can never be swapped independently. It holds ONLY the store's read
-// methods (the type below has no commit, no close, no listing), so it cannot write; a static test pins that. The diagnostic codes are test
-// diagnostics, never a canonical classification.
+// `bindNativeEvidence`, and the E0 checker STATICALLY IMPORTS `verifyNativeReceipt` and calls it itself. There is no installer, setter,
+// registration, callback or success flag anywhere, so no caller can supply or pre-empt the verifier, in any module graph: an object that was
+// not issued here is refused, and the one evidence value carries the ONE ledger the checker must read from, so a ledger, a campaign and a
+// cut can never be swapped independently. The evidence is valid only for the journal head it was issued at: ANY changed head (advanced,
+// rewound or another journal) refuses and the evidence must be reissued on the new head; no ancestry is inferred. The checker's explicit
+// canonical cut is required. This module imports nothing from the checker (no cycle). It holds ONLY the store's read methods (the type
+// below has no commit, no close, no listing), so it cannot write; a static test pins that. The diagnostic codes are test diagnostics,
+// never a canonical classification.
 //
 // HISTORY IS NARROW BY DESIGN. A fact is visible "at a cut" only when the group that committed ITS CURRENT VERSION is strictly valid and
 // committed at or before the cut. That is exact for create-only receipt records and for source versions that have not moved since; a fact
@@ -42,11 +44,13 @@ import {
   accessPacketKey,
   accessPacketStage,
   accessProvenanceKey,
+  CanonicalTimeSchema,
   compareTime,
   observationTransactionCause,
   observationTransactionId,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
+  type CanonicalTime,
   type CommitGroup,
   type CommitReceipt,
   type OwnerFact,
@@ -77,13 +81,6 @@ import {
   transactionGroupId,
   transactionIntentId,
 } from "../../../packages/engine/src/temporal/identity.ts";
-import {
-  installNativeReceiptVerifier,
-  type EvidenceLedger,
-  type NativeEvidenceHandle,
-  type NativeReceiptQuery,
-  type NativeReceiptVerdict,
-} from "./proof.ts";
 
 /** The ONLY store capability this module holds: the read methods. There is no commit, no close and no listing here. */
 export type ReadOnlyStore = Pick<
@@ -91,14 +88,36 @@ export type ReadOnlyStore = Pick<
   "head" | "getFact" | "lookupReceipt" | "committedGroup" | "committedGroupById"
 >;
 
-/** What the E0 checker reads committed owner facts through. */
-export type NativeLedger = EvidenceLedger;
+/** What the E0 checker reads committed owner facts through (structurally the E0 `EvidenceLedger`; declared here so this module imports nothing from the checker). */
+export interface NativeLedger {
+  get(key: string): OwnerFact | undefined;
+}
 
 /**
  * The opaque evidence a checker context carries: one authentic campaign, one valid exact journal cut and THE ledger over that cut. It is
  * created only by `bindNativeEvidence`; `verifyNativeReceipt` refuses any other object.
  */
-export type NativeEvidence = NativeEvidenceHandle;
+export interface NativeEvidence {
+  readonly campaign_id: string;
+  readonly cut_revision: number;
+  readonly ledger: NativeLedger;
+}
+
+export interface NativeReceiptQuery {
+  readonly event: OwnerFact;
+  readonly pc_id: string;
+  /** the ledger the checker is reading from: it must be THE ledger of the evidence */
+  readonly ledger: NativeLedger;
+  /** the checker's explicit canonical cut: REQUIRED. Absent or invalid refuses; the evidence of a past observation may lie before it, never after */
+  readonly canonical_cut?: CanonicalTime | undefined;
+}
+
+/** A diagnostic result: never a canonical classification. Produced only by `verifyNativeReceipt`, which the checker calls itself. */
+export interface NativeReceiptVerdict {
+  readonly ok: boolean;
+  readonly code: string;
+  readonly detail: string;
+}
 
 class Refusal extends Error {
   readonly code: string;
@@ -346,14 +365,26 @@ function verifyBound(
   const head = store.head();
   if (head.campaign_id !== bound.campaign_id)
     return fail("CAMPAIGN_MISMATCH", `${head.campaign_id} is not ${bound.campaign_id}`);
+  // the evidence is valid for the ONE journal head it was issued at. A changed head is never trusted: no ancestry between two heads is
+  // proven here (a higher head may be another journal, and the cached view would keep returning the old facts), so it is reissued instead
   if (head.revision < bound.head_revision)
     return fail("JOURNAL_REWOUND", `${head.revision} < ${bound.head_revision}`);
+  if (head.revision > bound.head_revision)
+    return fail(
+      "JOURNAL_HEAD_ADVANCED",
+      `${head.revision} > ${bound.head_revision}: no ancestry is proven, reissue the evidence on the new head`,
+    );
   if (
-    head.revision === bound.head_revision &&
-    (head.journal_head_sha256 !== bound.head_journal_sha256 ||
-      head.state_sha256 !== bound.head_state_sha256)
+    head.journal_head_sha256 !== bound.head_journal_sha256 ||
+    head.state_sha256 !== bound.head_state_sha256
   )
     return fail("JOURNAL_NOT_THE_PINNED_ONE", `revision ${head.revision}`);
+  // the checker's canonical cut is explicit and valid, or nothing closes
+  if (q.canonical_cut === undefined)
+    return fail("CANONICAL_CUT_ABSENT", "the checker supplied no canonical cut");
+  if (!CanonicalTimeSchema.safeParse(q.canonical_cut).success)
+    return fail("CANONICAL_CUT_INVALID", "the checker's canonical cut is not a canonical time");
+  const canonicalCut = q.canonical_cut;
   const cut = bound.cut_revision;
   const need = (key: string, absent: string): OwnerFact => {
     const f = view.get(key);
@@ -377,12 +408,11 @@ function verifyBound(
     event.participants[0] !== pcId
   )
     return fail("EVENT_IDENTITY_NOT_DERIVED", presented.key);
-  if (q.canonical_cut !== undefined) {
-    const against = compareTime(event.established_at, q.canonical_cut);
-    if (against === null)
-      return fail("CLOCK_NOT_ONE_BASIS", "the access time and the canonical cut are incomparable");
-    if (against > 0) return fail("EVIDENCE_AFTER_CANONICAL_CUT", presented.key);
-  }
+  // lawful evidence of a PAST observation at a later canonical cut closes; an observation after the cut, or on another clock, never does
+  const against = compareTime(event.established_at, canonicalCut);
+  if (against === null)
+    return fail("CLOCK_NOT_ONE_BASIS", "the access time and the canonical cut are incomparable");
+  if (against > 0) return fail("EVIDENCE_AFTER_CANONICAL_CUT", presented.key);
 
   // the event is the journal's own fact at the cut: not a lookalike, not another campaign's record under the same key
   const eventFact = need(presented.key, "EVENT_NOT_AT_CUT");
@@ -646,9 +676,6 @@ function verifyBound(
   if (ownerWhy !== null) return fail("OWNER_TRANSACTION_REFUSED", ownerWhy);
   return { ok: true, code: "NATIVE_RECEIPT_COMMITTED", detail: `cut ${cut}` };
 }
-
-// The ONE installation of the native verifier into the E0 checker: write-once, at load, never replaceable (see `installNativeReceiptVerifier`).
-installNativeReceiptVerifier(verifyNativeReceipt);
 
 // ---------------------------------------------------------------------------------------------
 // Labelled forgeries (read-only overlays), for the falsifier twins ONLY

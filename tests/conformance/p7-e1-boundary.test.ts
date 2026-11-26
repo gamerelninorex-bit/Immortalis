@@ -41,21 +41,39 @@ describe("P7-E1 boundary: the native witness is read-only test support, never pr
       "nativeObservation",
     ])
       expect(proof.includes(retired), `proof.ts still has ${retired}`).toBe(false);
-    expect(proof).toContain("readonly nativeEvidence?: NativeEvidenceHandle;");
-    expect(proof).toContain("installedNativeVerifier(evidence, {");
-    // the verifier is installed ONCE (write-once), by the native module at load and by nothing else in the tree
-    expect(proof).toMatch(/if \(installedNativeVerifier !== null\)\s*\n\s*throw new Error/);
-    const sites: string[] = [];
-    const walk = (rel: string) => {
-      for (const e of readdirSync(join(REPO_ROOT, rel), { withFileTypes: true })) {
-        const next = `${rel}/${e.name}`;
-        if (e.isDirectory()) walk(next);
-        else if (e.name.endsWith(".ts") && /^installNativeReceiptVerifier\(/m.test(text(next)))
-          sites.push(next);
-      }
-    };
-    walk("tests");
-    expect(sites, "the one top-level installation").toEqual([helper]);
+    expect(proof).toContain("readonly nativeEvidence?: NativeEvidence;");
+    expect(proof).toContain("verifyNativeReceipt(evidence, {");
+    // the verifier is imported STATICALLY: no installer, setter, registration or mutable slot exists anywhere under tests/ (BLUE delta 2)
+    for (const retired of [
+      "installNativeReceiptVerifier",
+      "installedNativeVerifier",
+      "NativeEvidenceHandle",
+      "NativeReceiptVerifier",
+    ]) {
+      const hits: string[] = [];
+      const walk = (rel: string) => {
+        for (const e of readdirSync(join(REPO_ROOT, rel), { withFileTypes: true })) {
+          const next = `${rel}/${e.name}`;
+          if (e.isDirectory()) walk(next);
+          else if (e.name.endsWith(".ts") && !next.endsWith("p7-e1-boundary.test.ts")) {
+            const body = text(next);
+            // a mention in the E1 integration test's refusal assertions is a STRING, never a definition or an export
+            if (
+              new RegExp(
+                `(?:export\\s+(?:async\\s+)?(?:function|const|let|var|class|type|interface)\\s+${retired}\\b)|(?:^let\\s+${retired}\\b)`,
+                "m",
+              ).test(body)
+            )
+              hits.push(next);
+          }
+        }
+      };
+      walk("tests");
+      expect(hits, `${retired} must not be defined or exported anywhere`).toEqual([]);
+    }
+    // and neither module has a mutable module-level slot at all
+    expect(proof).not.toMatch(/^let\s/m);
+    expect(native).not.toMatch(/^let\s/m);
     // the evidence is an issued opaque value: the registry is module-private and only `bindNativeEvidence` writes to it
     expect(native).toMatch(/const ISSUED = new WeakMap</);
     expect([...native.matchAll(/ISSUED\.set\(/g)]).toHaveLength(1);
@@ -85,7 +103,7 @@ describe("P7-E1 boundary: the native witness is read-only test support, never pr
     }
   });
 
-  it("the E0 proof module gained NO import (its boundary suite is untouched); the native module imports only the owners' read-side functions, contracts and the E0 module", () => {
+  it("the E0 proof module's import set is its E0 set plus EXACTLY the one BLUE-authorized native verifier; the native module imports only the owners' read-side functions and contracts, never the checker (no cycle)", () => {
     const importsOf = (rel: string) =>
       [...text(rel).matchAll(/^} from "([^"]+)";|^import [^\n]*from "([^"]+)";/gm)].map(
         (m) => m[1] ?? m[2],
@@ -97,9 +115,17 @@ describe("P7-E1 boundary: the native witness is read-only test support, never pr
         "../../../packages/engine/src/gm-wait-catalogue.ts",
         "../../../packages/engine/src/epistemic/derive.ts",
         "../../../packages/engine/src/epistemic/declaration.ts",
+        "./native-observation.ts",
       ].sort(),
     );
-    for (const i of importsOf(helper))
+    const nativeImports = importsOf(helper);
+    expect(
+      nativeImports.some(
+        (i) => (i ?? "").includes("proof.ts") || (i ?? "").includes("evaluator.ts"),
+      ),
+      "the native module must not import the checker",
+    ).toBe(false);
+    for (const i of nativeImports)
       expect(
         [
           "@immortalis/contracts",
@@ -111,9 +137,41 @@ describe("P7-E1 boundary: the native witness is read-only test support, never pr
           "../../../packages/engine/src/persistence/store.ts",
           "../../../packages/engine/src/production/admission.ts",
           "../../../packages/engine/src/temporal/identity.ts",
-          "./proof.ts",
         ],
         i,
       ).toContain(i);
+  });
+
+  it("the exact E0 allowlist addition is the one native verifier and nothing else, and the E0 forbidden list is untouched", () => {
+    const e0 = text("tests/conformance/p7-section10-proof.test.ts");
+    const allowed = /const allowed = new Set\(\[([\s\S]*?)\]\);/.exec(e0);
+    expect(allowed).not.toBeNull();
+    const entries = [...allowed![1]!.matchAll(/^\s*"([^"]+)",/gm)].map((m) => m[1]);
+    expect(entries.sort()).toEqual(
+      [
+        "@immortalis/contracts",
+        "../../../packages/engine/src/hash.ts",
+        "../../../packages/engine/src/gm-wait-catalogue.ts",
+        "../../../packages/engine/src/epistemic/derive.ts",
+        "../../../packages/engine/src/epistemic/declaration.ts",
+        "./proof.ts",
+        "./native-observation.ts",
+      ].sort(),
+    );
+    for (const forbidden of [
+      "/gm-wait-catalogue-current/",
+      "/gen-gm-wait-catalogue/",
+      "/gm-wait-custody/",
+      "/owners\\/(registry|admission)/",
+      "/\\/commit\\//",
+      "/persistence/",
+      "/protocol/",
+      "/apps\\//",
+      "/testkit/",
+      "/node:/",
+    ])
+      expect(e0.includes(forbidden), `the E0 forbidden pattern ${forbidden} is still there`).toBe(
+        true,
+      );
   });
 });
