@@ -1195,9 +1195,10 @@ function verifyAll(
   extension: StageOwnerExtension | undefined,
   workshopCampaign?: string,
 ): readonly IntegrityViolation[] {
+  const workshopOptions = workshopCampaign !== undefined ? { workshopCampaign } : {};
   return [
     ...verifyCanonicalIntegrity(store, {
-      ...(workshopCampaign !== undefined ? { workshopCampaign } : {}),
+      ...workshopOptions,
       isExtensionFact: (f) => extension?.owners.get(f.owner)?.has(f.facet) === true,
     }),
     ...verifyTemporalIntegrity(store),
@@ -1218,7 +1219,7 @@ function verifyAll(
     ...verifyLogisticsIntegrity(store),
     ...verifyNamedActorIntegrity(store),
     ...verifyPcCapabilityIntegrity(store),
-    ...verifyEpistemicIntegrity(store),
+    ...verifyEpistemicIntegrity(store, workshopOptions),
     ...verifyKtiIntegrity(store),
     ...verifyCultureIntegrity(store),
     ...verifyGipIntegrity(store),

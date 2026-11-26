@@ -26,7 +26,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/integrity.ts":
     "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "759905c32bbf65d4b2d0f3343f31c5b9593932219c4530c13402b4b270e56e2d",
+    "7a660bc40025c015224a06f1c9bb69ef82970c8832be080fb70da1d68f485495",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
@@ -51,7 +51,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
     "7c0354e4ecc73ff6329a5c781f3b273ede3f55ae67393bba3a814ea4bf6e633d",
   // directory trees (sorted `path\0sha256(bytes)\n`, the algorithm auditory-premises-conformance uses)
   "packages/engine/src/epistemic":
-    "eb6d2891e806cf338b5eaa239570ea6ab7d9eda45c462c8b8cbc84b374225bd6",
+    "4a7a90fbfe1a4646de43b9c39075dd5b27445a52b83a7bb02b98e43f6543b000",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
   "packages/operator/src": "ecee21e9fe9dd03dbad8e175072e1b640d61e39b7c9a1bf8295dc458ddac75bc",
   "packages/protocol/src": "566471504652371ea4ad1979354d247b6d94696dcf78f93aabc12c8ab38b7784",

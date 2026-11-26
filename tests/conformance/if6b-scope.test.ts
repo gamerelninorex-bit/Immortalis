@@ -40,6 +40,7 @@ describe("IF-6b independent draft scope", () => {
       JSON.parse(
         readFileSync(`packages/engine/gm-wait-catalogue/manifests/${digest}.json`, "utf8"),
       );
+    // Keep the reviewed B3 comparison snapshot separate from the released B2 archives.
     const baseline = readCatalogue(
       "3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd",
     );
@@ -68,5 +69,19 @@ describe("IF-6b independent draft scope", () => {
       historical_verification: baseline.policy.historical_verification,
       live_admission: baseline.policy.live_admission,
     });
+  });
+
+  it("keeps caller-selected Workshop trust pins out of production call sites", () => {
+    const gate = "packages/engine/src/owners/workshop/production-auth.ts";
+    const source = readFileSync(gate, "utf8");
+    expect(source).not.toMatch(
+      /\bexport\s+(?:function\s+verifyWorkshopOriginal|\{[^}]*\bverifyWorkshopOriginal\b)/,
+    );
+    for (const file of gitLines("ls-files", "--", "apps", "packages")) {
+      if (!file.endsWith(".ts") || file === gate) continue;
+      expect(readFileSync(file, "utf8"), file).not.toMatch(
+        /\b(?:verifyWorkshopOriginal|createWorkshopAuthentication)\b/,
+      );
+    }
   });
 });

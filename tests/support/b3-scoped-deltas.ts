@@ -12,11 +12,11 @@ export const B3_SHARED_DELTAS: Readonly<
 > = {
   "packages/engine/src/epistemic/integrity.ts": {
     base: "577777d9fcee52b3b89fb26398ed8c32426b7e769a3ed5a6a13adb507287d7a7",
-    head: "902a6d10cb2185e336006d5e6a4de406ecdc21a5ef9057bc92d71e0cace00ca6",
+    head: "2cdd3d92c0134f34ba9be42c2b6dddce9cff8d15088ceba095fc0e1b49bd0768",
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "6a98b79247496425a6d66ad1f9bb2876c687be6bdf8ea263cb8be48928542801",
+    head: "1501192935ccdea4f0403eceda8d8a85938cd843bb3c4eed30e45288896ac422",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",
@@ -28,14 +28,10 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/contracts/src/temporal-custody.ts",
   "packages/contracts/src/workshop-opening.ts",
   "packages/engine/gm-wait-catalogue/manifests/04069ddf4ad84c183066366e34a6c8735b94a1e0eda278dfce3d6f53537cb97a.json",
-  "packages/engine/gm-wait-catalogue/manifests/3b30e70540dbc87fd778792b264c71a73047b9433c75eb086a797aa4dc50e46c.json",
+  "packages/engine/gm-wait-catalogue/manifests/265c74a18ad9f0898ae079189b20b7e24b06bcb58c90798de1f3d6473bea08d3.json",
   "packages/engine/gm-wait-catalogue/manifests/3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd.json",
-  "packages/engine/gm-wait-catalogue/manifests/50a4f44ee76a590b31a88b719d53e42ddb5d475269feb49b6544312176a3d3f5.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
-  "packages/engine/gm-wait-catalogue/manifests/818c03456cffd2084af2f8e5e1c5f2a5489fa043d5ff6c298cbe307e04437c78.json",
-  "packages/engine/gm-wait-catalogue/manifests/82923713f4ebc16717b83dbc41a9050fea221b0c1a266c00f7433e34df697ef4.json",
-  "packages/engine/gm-wait-catalogue/manifests/acecb5c9010cc6239544c7d926bb72971a8fe8c32cbcced38c43eec2ebd90748.json",
-  "packages/engine/gm-wait-catalogue/manifests/b7735869d890dff3387199020e64e04132d096e8b9f3367cb46dc98a36a1fee7.json",
+  "packages/engine/gm-wait-catalogue/manifests/81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d.json",
   "packages/engine/src/commit/campaign-core.ts",
   "packages/engine/src/economy/integrity.ts",
   "packages/engine/src/epistemic/integrity.ts",

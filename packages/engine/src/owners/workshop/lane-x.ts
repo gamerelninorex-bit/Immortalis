@@ -2,6 +2,7 @@ import {
   AccessEventSchema,
   accessEventKey,
   CANON_WRITE_AUTHORITY,
+  compareTime,
   FACET_WORLD_LOCUS,
   OWNER_EPISTEMIC_ACCESS,
   GmWaitMarkerSchema,
@@ -421,13 +422,14 @@ export async function advanceWorkshopWaitStage(
   const slot = view.get(workshopReservationKey(state.campaign_id, marker.data.pc_id));
   if (!enrolment || !slot) return { status: "UNRESOLVED" as const };
   const due = if6bDueForOpenWait(state, marker.data, opened.data.requested.target);
-  if (!due) return { status: "UNRESOLVED" as const };
+  if (!due || due.some(({ entry }) => compareTime(entry.at, opened.data.requested.target) === null))
+    return { status: "UNRESOLVED" as const };
   const stages = due.flatMap(({ entry, object }) =>
     (object?.dependencies ?? []).map((decl, order) => ({ entry, object: object!, order, decl })),
   );
   stages.sort(
     (a, b) =>
-      a.entry.at.value - b.entry.at.value ||
+      compareTime(a.entry.at, b.entry.at)! ||
       Number(a.decl.stage.owner_operation.operation === WORKSHOP_OCCURRENCE_OPERATION) -
         Number(b.decl.stage.owner_operation.operation === WORKSHOP_OCCURRENCE_OPERATION) ||
       a.order - b.order,

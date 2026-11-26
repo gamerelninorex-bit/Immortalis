@@ -2,7 +2,9 @@ import { WorkshopGipAdapter } from "../../packages/engine/src/owners/workshop/gi
 import { WorkshopHealthAdapter } from "../../packages/engine/src/owners/workshop/health-sensory.ts";
 import { describe, expect, it, vi } from "vitest";
 import {
+  AccessEventSchema,
   GmWaitStoredTransactionSchema,
+  JsonValueSchema,
   economyRequestId,
   economyRequestKey,
   PLAYER_CHOICE_AUTHORITY,
@@ -28,6 +30,7 @@ import {
   sha256Canonical,
   StageProviderRegistry,
   TemporalCoordinator,
+  verifyEpistemicIntegrity,
 } from "@immortalis/engine";
 import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
 import { advanceWorkshopWaitStage } from "../../packages/engine/src/owners/workshop/lane-x.ts";
@@ -43,6 +46,7 @@ import {
   workshopDecisionOpportunity,
 } from "../../packages/engine/src/owners/workshop/wait-decision.ts";
 import { gmWaitX } from "../../packages/engine/src/gm-wait-identity.ts";
+import * as if6b from "../../packages/engine/src/temporal/if6b-stage.ts";
 import { economyProviders } from "@immortalis/testkit";
 import { signedWorkshopLaneX } from "../support/b3-lane-x.ts";
 import { openWorkshop, openingPublication } from "../support/b3-opening.ts";
@@ -200,6 +204,30 @@ describe("B3 Lane X with signed disposable owner sources", () => {
         }
         await must(clock.publishMarker(markerInput));
         await must(clock.open(proof));
+        if (mode === "interrupted") {
+          const originalDue = if6b.if6bDueForOpenWait;
+          const incomparable = vi
+            .spyOn(if6b, "if6bDueForOpenWait")
+            .mockImplementationOnce((...args) =>
+              originalDue(...args)!.map((due, i) =>
+                i === 0
+                  ? {
+                      ...due,
+                      entry: { ...due.entry, at: { ...due.entry.at, unit: "other-clock" } },
+                    }
+                  : due,
+              ),
+            );
+          const before = store.head();
+          try {
+            expect(await advanceWorkshopWaitStage(store, x, signed.fixture.noticeSource)).toEqual({
+              status: "UNRESOLVED",
+            });
+            expect(store.head()).toEqual(before);
+          } finally {
+            incomparable.mockRestore();
+          }
+        }
         const attempt = {
           ...foreignGroup(333),
           campaign_id: h.campaignId,
@@ -405,7 +433,8 @@ describe("B3 Lane X with signed disposable owner sources", () => {
             signed.fixture.noticeSource.recipientSource,
           )!,
         );
-        expect(store.getFact(accessEventKey("workshop-notice:" + event.notice_id))).toBeDefined();
+        const eventKey = accessEventKey("workshop-notice:" + event.notice_id);
+        expect(store.getFact(eventKey)).toBeDefined();
         expect(workshopDecisionOpportunity(workshopView(store), x)).toBeUndefined();
         await must(clock.reconcile(proof));
         expect(
@@ -413,6 +442,37 @@ describe("B3 Lane X with signed disposable owner sources", () => {
             .state,
         ).toBe("SEALED_RECONCILED");
         expect(active.verify()).toEqual([]);
+        if (mode === "interrupted") {
+          const options = { workshopCampaign: store.head().campaign_id };
+          const orderViolation = expect.objectContaining({
+            message: "the event was not committed before the packet formed from it",
+          });
+          expect(verifyEpistemicIntegrity(store, options)).toEqual([]);
+          expect(verifyEpistemicIntegrity(store)).toContainEqual(orderViolation);
+          expect(verifyEpistemicIntegrity(store, { workshopCampaign: "foreign" })).toContainEqual(
+            orderViolation,
+          );
+
+          const unregistered = "world/unregistered-workshop-occurrence";
+          const forged = store.listFacts().map((fact) => {
+            if (fact.key === occurrence.key) return { ...fact, key: unregistered };
+            if (fact.key !== eventKey) return fact;
+            const receipt = AccessEventSchema.parse(fact.value);
+            return {
+              ...fact,
+              value: JsonValueSchema.parse({
+                ...receipt,
+                source: { ...receipt.source, fact_key: unregistered },
+              }),
+            };
+          });
+          const listing = vi.spyOn(store, "listFacts").mockReturnValue(forged);
+          try {
+            expect(verifyEpistemicIntegrity(store, options)).toContainEqual(orderViolation);
+          } finally {
+            listing.mockRestore();
+          }
+        }
         if (interrupted) {
           const providers = mode === "future-a" ? economyProviders() : new StageProviderRegistry();
           const coordinator = new TemporalCoordinator(store, providers);
@@ -428,6 +488,31 @@ describe("B3 Lane X with signed disposable owner sources", () => {
           });
           const blank = "0".repeat(64);
           const before = store.head();
+          if (mode === "interrupted") {
+            for (const [kind, change] of Object.entries({
+              "stale-clock": {
+                clock: { ...opportunity.basis.clock, version: opportunity.basis.clock.version - 1 },
+              },
+              "foreign-campaign": { campaign: "another-workshop" },
+              "foreign-pc": { pc: "another-character" },
+            })) {
+              const ref = signed.choose({ ...opportunity.basis, ...change }, kind);
+              expect(
+                await coordinator.continueRemainder({
+                  transaction_id: "workshop-resume:" + x,
+                  cause: "player:workshop-resume:" + ref,
+                  trigger: { kind: if6b.IF6B_RESUME_TRIGGER, ref },
+                  context: PLAYER_CHOICE_AUTHORITY,
+                  publication: { basis: "workshop-player-choice", secrecy: "sealed" },
+                }),
+                kind,
+              ).toMatchObject({
+                ok: false,
+                error: { details: { reason: "GM_WAIT_INTERRUPTED_RESUME_UNAUTHORIZED" } },
+              });
+              expect(store.head()).toEqual(before);
+            }
+          }
           expect(await advance(blank)).toBeUndefined();
           expect(
             await resumeWorkshopWait(store, coordinator, x, blank, {

@@ -5,6 +5,7 @@ import {
   AccessEventSchema,
   AccessiblePacketSchema,
   NamedActorCapabilitySchema,
+  OWNER_WORLD_STATE,
   PcCapabilitySchema,
   ResolutionTransactionSchema,
   SealedEngineProvenanceSchema,
@@ -29,6 +30,7 @@ import {
   EPISTEMIC_ACCESS_RULE_TENTH_SLICE,
   resolveKey,
 } from "../owners/registry.ts";
+import { resolveWorkshopKey } from "../owners/workshop/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
@@ -70,12 +72,17 @@ import {
  *
  * Cost: lists committed facts once per open (a diagnostic path, CAL-06), like the other verifiers.
  */
-export function verifyEpistemicIntegrity(store: CampaignStore): readonly IntegrityViolation[] {
+export function verifyEpistemicIntegrity(
+  store: CampaignStore,
+  options: { readonly workshopCampaign?: string } = {},
+): readonly IntegrityViolation[] {
   const out: IntegrityViolation[] = [];
   const bad = (key: string, message: string) =>
     out.push({ key, code: "EPISTEMIC_ACCESS_STATE", message });
   const all = store.listFacts();
   const byKey = new Map<string, OwnerFact>(all.map((f) => [f.key, f]));
+  const workshopEnabled =
+    options.workshopCampaign !== undefined && options.workshopCampaign === store.head().campaign_id;
   const kindOf = (f: OwnerFact) => resolveKey(f.key)?.kind.id;
   const events = all.filter((f) => kindOf(f) === "epistemic_access_event");
   const packets = all.filter((f) => kindOf(f) === "epistemic_accessible_packet");
@@ -299,9 +306,12 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
       eventId.startsWith("workshop-notice:") &&
       WorkshopNoticeOccurrenceSchema.safeParse(source?.value);
     const atomicWorkshopReceipt =
+      workshopEnabled &&
+      source &&
+      source.owner === OWNER_WORLD_STATE &&
+      resolveWorkshopKey(source.key)?.id === "world_addressed_notice_occurrence" &&
       workshopOccurrence &&
       workshopOccurrence.success &&
-      source &&
       eventId === "workshop-notice:" + workshopOccurrence.data.notice_id &&
       source.version === event.data.source.version &&
       revisionOf(source) < revisionOf(eventFact) &&

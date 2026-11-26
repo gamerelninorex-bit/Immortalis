@@ -8,7 +8,7 @@ import { gmWaitX } from "../../gm-wait-identity.ts";
 import { canonicalEqual } from "../../hash.ts";
 import { sha256Bytes } from "../../initial-setup/identity.ts";
 import type { WorkshopNoticeSource } from "./notice-publication.ts";
-import { workshopMatches, type WorkshopView } from "./publication.ts";
+import { workshopMatches, workshopRef, type WorkshopView } from "./publication.ts";
 import { WORKSHOP_PRODUCTION_PROFILES } from "./source.ts";
 import { WorkshopChoiceSchema, type WorkshopChoiceSource } from "./wait-decision.ts";
 
@@ -73,20 +73,22 @@ interface SourcePin {
 /** Host-owned archive resolves the original signed bytes and can retrieve the same evidence on cold replay. */
 export interface WorkshopRetainedOriginals {
   read(ref: string): { readonly bytes: Uint8Array; readonly signature: Uint8Array } | undefined;
-  prepare(campaign: string, x: string, duty: string): string | undefined;
-  atBoundary(campaign: string, x: string, preparation: string): string | undefined;
-  recipient(campaign: string, occurrence: WorkshopFactRef): string | undefined;
+  prepare(campaign: string, x: string, duty: string): readonly string[];
+  atBoundary(campaign: string, x: string, preparation: string): readonly string[];
+  recipient(campaign: string, occurrence: WorkshopFactRef): readonly string[];
 }
 
-// A future Sovereign adoption must name every exact trust root and original purpose independently.
-const adoptedSources: readonly {
+interface AdoptedSource {
   readonly profile: string;
   readonly profile_sha256: string;
   readonly history_verification_id: string;
   readonly pins: readonly SourcePin[];
-}[] = Object.freeze([]);
+}
 
-export function verifyWorkshopOriginal<P extends Purpose>(
+// A future Sovereign adoption must name every exact trust root and original purpose independently.
+const adoptedSources: readonly AdoptedSource[] = Object.freeze([]);
+
+function verifyWorkshopOriginal<P extends Purpose>(
   ref: string,
   retained: ReturnType<WorkshopRetainedOriginals["read"]>,
   purpose: P,
@@ -139,38 +141,59 @@ export function productionWorkshopAuthentication(
   campaign: string,
   retained: WorkshopRetainedOriginals,
 ) {
-  if (
-    !campaign ||
-    campaign.startsWith("fixture:") ||
-    !WORKSHOP_PRODUCTION_PROFILES.includes(profile.id)
-  )
+  return createWorkshopAuthentication(
+    adoptedSources,
+    WORKSHOP_PRODUCTION_PROFILES,
+    profile,
+    campaign,
+    retained,
+  );
+}
+
+/** Internal composition seam for tests with disposable keys. */
+export function createWorkshopAuthentication(
+  adopted: readonly AdoptedSource[],
+  allowlist: readonly string[],
+  profile: { readonly id: string; readonly raw: Uint8Array },
+  campaign: string,
+  retained: WorkshopRetainedOriginals,
+) {
+  if (!campaign || campaign.startsWith("fixture:") || !allowlist.includes(profile.id))
     return undefined;
   const digest = sha256Bytes(profile.raw);
-  const adoption = adoptedSources.find(
+  const adoption = adopted.find(
     (row) => row.profile === profile.id && row.profile_sha256 === digest,
   );
   if (!adoption) return undefined;
 
   const scope = { campaign, profile_sha256: digest };
-  const read = <P extends Purpose>(purpose: P, ref: string | undefined) =>
-    ref
-      ? verifyWorkshopOriginal(ref, retained.read(ref), purpose, scope, adoption.pins)
-      : undefined;
+  const read = <P extends Purpose>(purpose: P, ref: string) =>
+    verifyWorkshopOriginal(ref, retained.read(ref), purpose, scope, adoption.pins);
+  const unique = <P extends Purpose>(
+    purpose: P,
+    refs: readonly string[],
+    binds: (proof: MessageFor<P>) => boolean,
+  ) => {
+    let original: { ref: string; proof: MessageFor<P> } | undefined;
+    for (const ref of new Set(refs)) {
+      const proof = read(purpose, ref);
+      if (!proof || !binds(proof)) continue;
+      if (original) return undefined;
+      original = { ref, proof };
+    }
+    return original;
+  };
   const noticeSource: WorkshopNoticeSource = {
     verificationId: adoption.history_verification_id,
     prepare(view, x, duty) {
       if (view.campaign_id !== campaign) return undefined;
-      const ref = retained.prepare(campaign, x, duty);
-      const proof = read("C54_COVERAGE", ref);
-      if (
-        !ref ||
-        !proof ||
-        proof.phase !== "PREPARATION" ||
-        proof.x !== x ||
-        proof.duty !== duty ||
-        proof.preparation_sha256 !== null
-      )
-        return undefined;
+      const match = unique(
+        "C54_COVERAGE",
+        retained.prepare(campaign, x, duty),
+        (proof) => proof.phase === "PREPARATION" && proof.x === x && proof.duty === duty,
+      );
+      if (!match || match.proof.preparation_sha256 !== null) return undefined;
+      const { ref, proof } = match;
       const facts = current(view, proof.witnesses);
       return (
         facts && {
@@ -183,21 +206,22 @@ export function productionWorkshopAuthentication(
     },
     atBoundary(view, binding) {
       if (view.campaign_id !== campaign || binding.campaign_id !== campaign) return undefined;
-      const proof = read(
+      const match = unique(
         "C54_COVERAGE",
         retained.atBoundary(campaign, binding.x, binding.t0_witness_sha256),
+        (proof) =>
+          proof.phase === "EARNED_BOUNDARY" &&
+          proof.x === binding.x &&
+          proof.preparation_sha256 === binding.t0_witness_sha256,
       );
       if (
-        !proof ||
-        proof.phase !== "EARNED_BOUNDARY" ||
-        proof.x !== binding.x ||
-        proof.duty !== binding.duty.key ||
-        proof.request_sha256 !== binding.root_request_sha256 ||
-        proof.proposal_sha256 !== binding.proposal_sha256 ||
-        proof.preparation_sha256 !== binding.t0_witness_sha256
+        !match ||
+        match.proof.duty !== binding.duty.key ||
+        match.proof.request_sha256 !== binding.root_request_sha256 ||
+        match.proof.proposal_sha256 !== binding.proposal_sha256
       )
         return undefined;
-      return current(view, proof.witnesses);
+      return current(view, match.proof.witnesses);
     },
     revocationSource: {
       authorize(view, instruction, ref) {
@@ -212,20 +236,14 @@ export function productionWorkshopAuthentication(
     recipientSource: {
       recipient(view, occurrence) {
         if (view.campaign_id !== campaign) return undefined;
-        const ref = {
-          key: occurrence.key,
-          owner: occurrence.owner,
-          facet: occurrence.facet,
-          version: occurrence.version,
-          group_id: occurrence.provenance.group_id,
-        };
-        const proof = read("NOTICE_RECIPIENT", retained.recipient(campaign, ref));
-        const facts =
-          proof && workshopMatches(occurrence, proof.occurrence) && current(view, proof.witnesses);
-        const pc = (occurrence.value as { pc_id?: unknown }).pc_id;
-        return facts && proof && proof.recipient === pc
-          ? { witnesses: facts, capability: null }
-          : undefined;
+        const ref = workshopRef(occurrence);
+        const pc = (occurrence.value as { pc_id?: unknown } | null)?.pc_id;
+        const match = unique("NOTICE_RECIPIENT", retained.recipient(campaign, ref), (proof) =>
+          workshopMatches(occurrence, proof.occurrence),
+        );
+        if (!match || match.proof.recipient !== pc) return undefined;
+        const facts = current(view, match.proof.witnesses);
+        return facts && { witnesses: facts, capability: null };
       },
     },
   };
