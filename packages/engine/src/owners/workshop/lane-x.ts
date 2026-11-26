@@ -3,24 +3,35 @@ import {
   accessEventKey,
   CANON_WRITE_AUTHORITY,
   compareTime,
+  economyRealizationStage,
+  FACET_PRODUCTION_STATE,
   FACET_WORLD_LOCUS,
   OWNER_EPISTEMIC_ACCESS,
   GmWaitMarkerSchema,
   GmWaitTransactionAuthoritySchema,
   JsonValueSchema,
+  OWNER_PRODUCTION,
   OWNER_WORLD_STATE,
+  productionObjectId,
+  productionOperationKey,
+  ProductionOperationSchema,
+  productionProcessId,
   StageKeySchema,
   TemporalObjectSchema,
   temporalGmWaitMarkerKey,
   temporalTransactionAuthorityKey,
   temporalTransactionKey,
+  type BoundaryIndex,
   type CommitGroup,
+  type DependencyDeclaration,
   type GmWaitMarker,
   type OwnerFact,
+  type TemporalObject,
   type TemporalRead,
 } from "@immortalis/contracts";
 import {
   OWNER_HEALTH,
+  type WorkshopFactRef,
   WorkshopNoticeEnrolmentSchema,
   WorkshopNoticeOccurrenceSchema,
   WorkshopSensoryCloseSchema,
@@ -34,7 +45,7 @@ import { economyRealizationProvider } from "../../economy/provider.ts";
 import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
 import { canonicalEqual, sha256Canonical } from "../../hash.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
-import { productionGroupCheck } from "../../production/admission.ts";
+import { productionGroupCheck, productionObjectViolation } from "../../production/admission.ts";
 import { productionCompletionProvider } from "../../production/provider.ts";
 import {
   IF6B_POLICY,
@@ -104,7 +115,9 @@ function preparation(marker: GmWaitMarker, state: CampaignState): boolean {
   );
 }
 
-const nativeOwners = () =>
+export type WorkshopEconomyStageClass = "FIXTURE_ECONOMY_DRAFT" | "ECONOMY_REALIZED_ACCESS_FORWARD";
+
+const nativeOwners = (economyClass: WorkshopEconomyStageClass = "FIXTURE_ECONOMY_DRAFT") =>
   [
     {
       provider: workshopHealthRecoveryProvider,
@@ -125,19 +138,54 @@ const nativeOwners = () =>
     },
     {
       provider: economyRealizationProvider,
-      class: "FIXTURE_ECONOMY_DRAFT",
+      class: economyClass,
       verify: (group: CommitGroup, state: CampaignState) =>
         economyGroupCheck(group, state) === null,
     },
   ] as const;
 
+function isEnrolledEconomyStage(
+  state: CampaignState,
+  cue: WorkshopFactRef,
+  object: TemporalObject,
+  entry: BoundaryIndex["entries"][number],
+  declaration: DependencyDeclaration,
+): boolean {
+  // The enrolment pinned the original operation. At realization its current version is the completion.
+  const fact = state.facts.get(cue.key);
+  const operation = ProductionOperationSchema.safeParse(fact?.value);
+  if (
+    cue.owner !== OWNER_PRODUCTION ||
+    cue.facet !== FACET_PRODUCTION_STATE ||
+    fact?.owner !== cue.owner ||
+    fact.facet !== cue.facet ||
+    fact.version <= cue.version ||
+    !object.next_boundary ||
+    !operation.success
+  )
+    return false;
+  const id = operation.data.operation_id;
+  return (
+    cue.key === productionOperationKey(id) &&
+    object.owning_ref.owner === OWNER_PRODUCTION &&
+    object.owning_ref.process_id === productionProcessId(id) &&
+    object.object_id === productionObjectId(id) &&
+    entry.object_id === object.object_id &&
+    entry.boundary_id === object.next_boundary.boundary_id &&
+    compareTime(entry.at, object.next_boundary.at) === 0 &&
+    canonicalEqual(declaration.stage, economyRealizationStage(id)) &&
+    productionObjectViolation(object, state, false) === null
+  );
+}
+
 export function workshopLaneXAdmission(
   profile: WorkshopFixtureIdentity,
   fixture: WorkshopLaneXFixture,
   historyId: string,
+  economyClass: WorkshopEconomyStageClass = "FIXTURE_ECONOMY_DRAFT",
 ): If6bAdmission {
   const notice = fixture.noticeSource;
-  const owners = nativeOwners();
+  const owners = nativeOwners(economyClass);
   const specs = [
     ...owners.map(({ provider, ...entry }) => ({
       owner: provider.owner,
@@ -185,6 +233,7 @@ export function workshopLaneXAdmission(
         ?.flatMap(({ entry, object }) =>
           (object?.dependencies ?? []).map((dep) => ({
             at: entry.at,
+            entry,
             stage: dep.stage,
             object: object!,
             dep,
@@ -202,6 +251,17 @@ export function workshopLaneXAdmission(
       );
       const binding = WorkshopNoticeEnrolmentSchema.safeParse(enrolment?.value);
       if (!earned || !slot || !enrolment || !waitAuthority || !binding.success || !group.writes[0])
+        return undefined;
+      if (
+        spec.class === "ECONOMY_REALIZED_ACCESS_FORWARD" &&
+        !isEnrolledEconomyStage(
+          state,
+          binding.data.binding.cue_operation,
+          earned.object,
+          earned.entry,
+          earned.dep,
+        )
+      )
         return undefined;
       if (spec.class === "D3_COMPLETION" || spec.class === "FIXTURE_ECONOMY_DRAFT") {
         const opKey = binding.data.binding.cue_operation.key;
@@ -264,7 +324,9 @@ export function workshopLaneXAdmission(
   return {
     ownerVerifiers,
     preparation,
-    ...(fixture.economyDraft ? { fixtureEconomyDraft: true } : {}),
+    ...(economyClass === "FIXTURE_ECONOMY_DRAFT" && fixture.economyDraft
+      ? { fixtureEconomyDraft: true }
+      : {}),
     verifyResume(group, state, seal) {
       return (
         state.campaign_id === profile.campaignId &&

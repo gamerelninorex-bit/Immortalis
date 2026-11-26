@@ -26,6 +26,7 @@ import {
 } from "./initial-setup.ts";
 import { admitInput, type InputOptions } from "./clock-origin.ts";
 import { must } from "./temporal.ts";
+import type { fixtureMsEconomyForwardAdmission } from "../../packages/engine/src/owners/admission.ts";
 
 export async function msHarness(
   options: {
@@ -42,6 +43,7 @@ export async function msHarness(
       laneX?: (
         keys: ReturnType<typeof generateFixtureRunnerKeys>,
       ) => NonNullable<Parameters<typeof fixtureMsCanonicalAdmission>[3]>;
+      laneXAdmission?: typeof fixtureMsEconomyForwardAdmission;
       open(
         admission: ReturnType<typeof fixtureMsCanonicalAdmission>,
       ): ReturnType<typeof openFixtureCampaign>;
@@ -99,12 +101,15 @@ export async function msHarness(
   };
   const actorRunner = new MsActorRunner({ ...keys, driver: actorDriver, outboxDir, macKey });
   const laneX = options.workshop?.laneX?.(keys);
-  const base = fixtureMsCanonicalAdmission(
-    actorRunner.binding,
-    options.workshop?.profileBytes,
-    undefined,
-    laneX,
-  );
+  const base =
+    laneX && options.workshop?.laneXAdmission
+      ? options.workshop.laneXAdmission(actorRunner.binding, options.workshop.profileBytes, laneX)
+      : fixtureMsCanonicalAdmission(
+          actorRunner.binding,
+          options.workshop?.profileBytes,
+          undefined,
+          laneX,
+        );
   let latest: CampaignState;
   const trace: { before: CampaignState; after: CampaignState; group: CommitGroup }[] = [];
   const admission = {
@@ -167,8 +172,9 @@ export async function msHarness(
     calls: () => calls,
     state: () => latest,
     trace,
-    reopen: () =>
+    reopen: (optionsForOpen?: { readonly audit: true }) =>
       CanonicalCampaign.open(h.dir, {
+        ...optionsForOpen,
         testkitFixtureAdmission: admission,
         ...(options.extension ? { extension: options.extension } : {}),
       }),

@@ -1,5 +1,13 @@
-import { IF6B_POLICY, installIf6b } from "../temporal/if6b-stage.ts";
-import { workshopLaneXAdmission, type WorkshopLaneXFixture } from "./workshop/lane-x.ts";
+import {
+  B3_ECONOMY_FORWARD_HISTORY_SEGMENT,
+  IF6B_POLICY,
+  installIf6b,
+} from "../temporal/if6b-stage.ts";
+import {
+  workshopLaneXAdmission,
+  type WorkshopEconomyStageClass,
+  type WorkshopLaneXFixture,
+} from "./workshop/lane-x.ts";
 import { resolveWorkshopKey, withWorkshopRegistry } from "./workshop/registry.ts";
 import type { WorkshopNoticeSource } from "./workshop/notice-publication.ts";
 import { workshopGroupCheck, workshopTemporalHistoryCheck } from "./workshop/admission.ts";
@@ -544,6 +552,7 @@ function buildCanonicalAdmission(
   workshop?: WorkshopFixtureIdentity,
   noticeSource?: WorkshopNoticeSource,
   laneX?: WorkshopLaneXFixture,
+  economyClass?: WorkshopEconomyStageClass,
 ): WriteAdmission {
   // Compose the merged S-4 policy first, then A01, then CAL-TIME T-1 and the MS clock-origin segments, then F-014B B2: the GM-wait
   // custody / W2 verifier. Each is a new historical validator, so each is a separately distinguishable appended segment, and any
@@ -552,19 +561,23 @@ function buildCanonicalAdmission(
   const workshopHistoryId = workshop
     ? `${historyVerificationId}+B3-WORKSHOP-OWNER-V1:${workshop.sha256}${noticeSource ? `:${noticeSource.verificationId}` : ""}`
     : historyVerificationId;
+  const economyForward = economyClass === "ECONOMY_REALIZED_ACCESS_FORWARD";
   const selectedHistoryId = laneX
     ? workshopHistoryId +
-      (laneX.economyDraft ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1" : "") +
+      (!economyForward && laneX.economyDraft ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1" : "") +
       (laneX.choiceSource
         ? "+B3-CHOICE:" + sha256Canonical(laneX.choiceSource.verificationId)
         : "") +
+      (economyForward ? B3_ECONOMY_FORWARD_HISTORY_SEGMENT : "") +
       "+" +
       IF6B_POLICY
     : workshopHistoryId;
   // F-014B B2: what qualifies a marker's original-owner preparation. The production admission qualifies NONE (D3(b) is not adopted, so
   // no pending enrolment and no authorized quiet variant can exist); only the TESTKIT-ONLY fixture admission qualifies a synthetic one.
   const if6b =
-    workshop && laneX ? workshopLaneXAdmission(workshop, laneX, selectedHistoryId) : undefined;
+    workshop && laneX
+      ? workshopLaneXAdmission(workshop, laneX, selectedHistoryId, economyClass)
+      : undefined;
   const custody: GmWaitCustodyPolicy = {
     ...(if6b ? { if6b } : {}),
     preparation: policy.syntheticEvidence === "REQUIRE" ? "FIXTURE" : "NONE",
@@ -845,6 +858,31 @@ export function fixtureMsCanonicalAdmission(
   noticeSource?: WorkshopNoticeSource,
   laneX?: WorkshopLaneXFixture,
 ): WriteAdmission {
+  return buildFixtureMsAdmission(binding, workshopProfileBytes, noticeSource, laneX);
+}
+
+/** Internal construction of the prospective B3-E policy for a signed disposable Workshop campaign. */
+export function fixtureMsEconomyForwardAdmission(
+  binding: NonNullable<InitialSetupPolicy["msActorBinding"]>,
+  workshopProfileBytes: Uint8Array,
+  laneX: WorkshopLaneXFixture,
+): WriteAdmission {
+  return buildFixtureMsAdmission(
+    binding,
+    workshopProfileBytes,
+    undefined,
+    laneX,
+    "ECONOMY_REALIZED_ACCESS_FORWARD",
+  );
+}
+
+function buildFixtureMsAdmission(
+  binding: NonNullable<InitialSetupPolicy["msActorBinding"]>,
+  workshopProfileBytes?: Uint8Array,
+  noticeSource?: WorkshopNoticeSource,
+  laneX?: WorkshopLaneXFixture,
+  economyClass?: WorkshopEconomyStageClass,
+): WriteAdmission {
   const workshop =
     workshopProfileBytes === undefined ? undefined : workshopFixtureIdentity(workshopProfileBytes);
   const admission = buildCanonicalAdmission(
@@ -853,6 +891,7 @@ export function fixtureMsCanonicalAdmission(
     workshop,
     laneX?.noticeSource ?? noticeSource,
     laneX,
+    economyClass,
   );
   return workshop ? withWorkshopRegistry(admission, workshop.campaignId) : admission;
 }

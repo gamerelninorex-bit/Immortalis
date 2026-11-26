@@ -13,6 +13,8 @@ import {
   IF6B_ENGINE_SHA256,
   IF6B_SETTLEMENT_PATH,
   IF6B_SETTLEMENT_SHA256,
+  atB3EconomyBase,
+  B3_E_IF6B_ENGINE_SHA256,
   if6bSuccessorIdentity,
 } from "../support/if6b-scoped-delta.ts";
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
@@ -88,7 +90,10 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
         p !== a26Delta,
     );
     expect(b2Only).toEqual(["packages/engine/src/temporal/integrity.ts"]);
-    expect(sha(IF6B_ENGINE_PATH)).toBe(IF6B_ENGINE_SHA256);
+    expect(createHash("sha256").update(atB3EconomyBase(IF6B_ENGINE_PATH)).digest("hex")).toBe(
+      IF6B_ENGINE_SHA256,
+    );
+    expect(sha(IF6B_ENGINE_PATH)).toBe(B3_E_IF6B_ENGINE_SHA256);
     expect(sha(IF6B_SETTLEMENT_PATH)).toBe(IF6B_SETTLEMENT_SHA256);
     expect(Object.keys(composed)).toHaveLength(2);
     expect(Object.keys(unchanged)).toHaveLength(5);
