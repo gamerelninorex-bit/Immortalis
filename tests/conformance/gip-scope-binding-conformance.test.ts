@@ -208,6 +208,8 @@ describe("IA-03 owner exclusivity: one more kind of the one GIP owner, ADVANCING
       "packages/engine/src/initial-setup/sunset-policy.ts",
       "packages/engine/src/owners/admission.ts",
       "packages/engine/src/owners/registry.ts",
+      "packages/engine/src/owners/workshop/gip-direction.ts",
+      "packages/engine/src/owners/workshop/source.ts",
     ]);
     const verifier = code(`${GIP_DIR}/integrity.ts`);
     expect(verifier.match(/listFacts\(/g)).toHaveLength(1);

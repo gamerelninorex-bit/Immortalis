@@ -14,7 +14,7 @@ import {
   IF6B_SHARED_DELTAS,
   if6bSuccessorIdentity,
 } from "../support/if6b-scoped-delta.ts";
-import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
+import { B3_PACKAGE_PATHS, B3_SHARED_DELTAS, gitB3BaseFile } from "../support/b3-scoped-deltas.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -180,7 +180,7 @@ describe("census of the examined suites as they stand: changed paths hold only h
     // the exempted unchanged paths are exactly that: not touched by PR #94, and the pin is still what the working tree holds
     for (const r of exempt) {
       expect(existsSync(r.path), `${r.suite} ${r.path}`).toBe(true);
-      const successor = IF6B_SHARED_DELTAS[r.path];
+      const successor = IF6B_SHARED_DELTAS[r.path] ?? B3_SHARED_DELTAS[r.path];
       if (successor) {
         expect(r.value, r.path).toBe(sha256(atMergedB2(r.path)));
         expect(identityOf(r.path), r.path).toBe(successor.head);
@@ -235,10 +235,17 @@ describe("census of the examined suites as they stand: changed paths hold only h
 describe("A26-CB1 preserves the historical identities and pins the current admission delta", () => {
   it("pins each current file of the admission delta", () => {
     for (const [path, identity] of Object.entries(A26_ADMISSION_DELTAS))
-      // (F-014B B2, a later slice, changed the commit core again: the A26 head is then exactly B2's base, tests/conformance/b2-scope-conformance.test.ts)
-      expect(identityOf(path), path).toBe(
-        if6bSuccessorIdentity(path, bytesNowGiven(path, identity.head)),
-      );
+    // (F-014B B2, a later slice, changed the commit core again: the A26 head is then exactly B2's base, tests/conformance/b2-scope-conformance.test.ts)
+    {
+      const b2Identity = bytesNowGiven(path, identity.head);
+      const successor = B3_SHARED_DELTAS[path];
+      if (successor) {
+        expect(sha256(gitB3BaseFile(path)), path).toBe(b2Identity);
+        expect(identityOf(path), path).toBe(successor.head);
+      } else {
+        expect(identityOf(path), path).toBe(if6bSuccessorIdentity(path, b2Identity));
+      }
+    }
   });
 
   it.skipIf(!reachable(A26_BASE_COMMIT) || !reachable(A24_ADAPTER_DELTA.baseCommit))(
@@ -379,7 +386,7 @@ describe("RP-2 pins the four authorized production repairs", () => {
         B1_S2S3_PACKAGE_PATHS,
         A1_2A_PACKAGE_PATHS,
         B2_PACKAGE_PATHS,
-        IF6B_PACKAGE_PATHS,
+        B3_PACKAGE_PATHS,
       ),
     );
     const lockPath = "spec/f027/spec-lock.json";

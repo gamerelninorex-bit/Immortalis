@@ -5,7 +5,7 @@
 // History checks use the Git objects named in tests/support/a0-scoped-deltas.ts; a shallow checkout (no history) skips them and says so,
 // it never claims them.
 import { if6bSuccessorIdentity } from "../support/if6b-scoped-delta.ts";
-import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
+import { B3_PACKAGE_PATHS, B3_SOURCE_PATHS } from "../support/b3-scoped-deltas.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
@@ -140,7 +140,7 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         B1_S2S3_PACKAGE_PATHS,
         A1_2A_PACKAGE_PATHS,
         B2_PACKAGE_PATHS,
-        IF6B_PACKAGE_PATHS,
+        B3_PACKAGE_PATHS,
       ),
     );
     // every recorded present-day / delta file really changed; the allow-list is not a place to park files that did not
@@ -162,7 +162,9 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
       ),
     );
     // (and the F-014B B1 S2/S3 slice's declared generator, which that slice's own table and suite police)
-    expect(outside.sort()).toEqual([...A0_OUTSIDE_PACKAGE_PATHS, ...B1_S2S3_TOOLS_PATHS].sort());
+    expect(outside.sort()).toEqual(
+      [...A0_OUTSIDE_PACKAGE_PATHS, ...B1_S2S3_TOOLS_PATHS, ...B3_SOURCE_PATHS].sort(),
+    );
   });
 
   it("against the integrated main, this slice changed exactly the recorded files under packages/ and apps/ and added no file there beyond them", () => {
@@ -197,7 +199,7 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
         B1_S2S3_PACKAGE_PATHS,
         A1_2A_PACKAGE_PATHS,
         B2_PACKAGE_PATHS,
-        IF6B_PACKAGE_PATHS,
+        B3_PACKAGE_PATHS,
       ),
     );
     // the declared main inclusions are in main already: this slice does not change them
@@ -223,7 +225,9 @@ describe("the A0 scoped-delta table: every pin is a real byte change, recorded o
       ),
     );
     // (and the F-014B B1 S2/S3 slice's declared generator, which that slice's own table and suite police)
-    expect(outside.sort()).toEqual([...A0_OUTSIDE_PACKAGE_PATHS, ...B1_S2S3_TOOLS_PATHS].sort());
+    expect(outside.sort()).toEqual(
+      [...A0_OUTSIDE_PACKAGE_PATHS, ...B1_S2S3_TOOLS_PATHS, ...B3_SOURCE_PATHS].sort(),
+    );
   });
 });
 
@@ -263,7 +267,7 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
         A1_1_PACKAGE_PATHS,
         A1_2A_PACKAGE_PATHS,
         B2_PACKAGE_PATHS,
-        IF6B_PACKAGE_PATHS,
+        B3_PACKAGE_PATHS,
       )
         .filter((a) => a === p || a.startsWith(`${p}/`))
         .sort();
@@ -275,7 +279,7 @@ describe("what A0 must NOT change is byte-identical to the A0 base", () => {
     }
   });
 
-  it("the Temporal directory retains the original list plus the IF-6b verifier and settlement, and the three D-3 gateways are among the untouched", () => {
+  it("the Temporal directory contains only its explicit successor files, and the three D-3 gateways are among the untouched", () => {
     expect(readdirSync("packages/engine/src/temporal").sort()).toEqual([
       "admission.ts",
       "bootstrap.ts",

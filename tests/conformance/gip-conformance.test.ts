@@ -222,6 +222,8 @@ describe("IA-03 owner exclusivity: the GIP owner holds the Institution Identity,
       "packages/engine/src/gm-wait-present-reader.ts",
       "packages/engine/src/owners/admission.ts",
       "packages/engine/src/owners/registry.ts",
+      "packages/engine/src/owners/workshop/gip-direction.ts",
+      "packages/engine/src/owners/workshop/registry.ts",
       "packages/engine/src/temporal/admission.ts",
       "packages/engine/src/world/canonical-campaign.ts",
     ]);

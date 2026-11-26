@@ -11,11 +11,11 @@
 //
 // Custody is bytes at the pinned base commit, never ancestry. Where that commit is not retrievable (a shallow checkout) the comparisons are
 // SKIPPED and reported as skipped, never claimed.
-import { IF6B_PACKAGE_PATHS } from "../support/if6b-scoped-delta.ts";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { B3_PACKAGE_PATHS, B3_SOURCE_PATHS } from "../support/b3-scoped-deltas.ts";
 import {
   A1_2A_B0_PRODUCTION_USERS,
   A1_2A_BASE_COMMIT,
@@ -84,7 +84,7 @@ describe("[A1-2a] [mechanism only] [scope] declared scope", () => {
       const touched = [...changedSince("apps", "packages"), ...untrackedIn("apps", "packages")];
       // (and the F-014B B2 slice's recorded paths, which that slice's own table and suite police)
       expect([...new Set(touched)].sort()).toEqual(
-        unionPaths(A1_2A_PACKAGE_PATHS, B1_V2_PACKAGE_PATHS, B2_PACKAGE_PATHS, IF6B_PACKAGE_PATHS),
+        unionPaths(A1_2A_PACKAGE_PATHS, B1_V2_PACKAGE_PATHS, B2_PACKAGE_PATHS, B3_PACKAGE_PATHS),
       );
       for (const p of A1_2A_NEW_PRODUCTION_PATHS)
         expect(git("cat-file", "-e", `${A1_2A_BASE_COMMIT}:${p}`), `${p} is new`).toBeNull();
@@ -101,7 +101,8 @@ describe("[A1-2a] [mechanism only] [scope] declared scope", () => {
         ...B1_V2_PACKAGE_PATHS,
         B1_V2_WORKFLOW_PATH,
         ...B2_PACKAGE_PATHS,
-        ...IF6B_PACKAGE_PATHS,
+        ...B3_PACKAGE_PATHS,
+        ...B3_SOURCE_PATHS,
       ]);
       for (const p of A1_2A_UNTOUCHED) {
         expect(

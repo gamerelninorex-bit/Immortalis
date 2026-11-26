@@ -5,6 +5,7 @@ import {
   AccessEventSchema,
   AccessiblePacketSchema,
   NamedActorCapabilitySchema,
+  OWNER_WORLD_STATE,
   PcCapabilitySchema,
   ResolutionTransactionSchema,
   SealedEngineProvenanceSchema,
@@ -22,12 +23,14 @@ import {
   type BroadcastExposureEvent,
   type OwnerFact,
 } from "@immortalis/contracts";
+import { WorkshopNoticeOccurrenceSchema } from "../../../contracts/src/workshop-opening.ts";
 import { canonicalEqual } from "../hash.ts";
 import {
   EPISTEMIC_ACCESS_BROADCAST_RULE,
   EPISTEMIC_ACCESS_RULE_TENTH_SLICE,
   resolveKey,
 } from "../owners/registry.ts";
+import { resolveWorkshopKey } from "../owners/workshop/registry.ts";
 import type { CampaignStore } from "../persistence/store.ts";
 import { journaledStageViolation } from "../production/admission.ts";
 import type { IntegrityViolation } from "../world/integrity.ts";
@@ -69,12 +72,17 @@ import {
  *
  * Cost: lists committed facts once per open (a diagnostic path, CAL-06), like the other verifiers.
  */
-export function verifyEpistemicIntegrity(store: CampaignStore): readonly IntegrityViolation[] {
+export function verifyEpistemicIntegrity(
+  store: CampaignStore,
+  options: { readonly workshopCampaign?: string } = {},
+): readonly IntegrityViolation[] {
   const out: IntegrityViolation[] = [];
   const bad = (key: string, message: string) =>
     out.push({ key, code: "EPISTEMIC_ACCESS_STATE", message });
   const all = store.listFacts();
   const byKey = new Map<string, OwnerFact>(all.map((f) => [f.key, f]));
+  const workshopEnabled =
+    options.workshopCampaign !== undefined && options.workshopCampaign === store.head().campaign_id;
   const kindOf = (f: OwnerFact) => resolveKey(f.key)?.kind.id;
   const events = all.filter((f) => kindOf(f) === "epistemic_access_event");
   const packets = all.filter((f) => kindOf(f) === "epistemic_accessible_packet");
@@ -293,7 +301,23 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
         committed_by: capFact.provenance.group_id,
       };
     }
-    if (revisionOf(eventFact) >= revisionOf(pf)) {
+    const source = byKey.get(event.data.source.fact_key);
+    const workshopOccurrence =
+      eventId.startsWith("workshop-notice:") &&
+      WorkshopNoticeOccurrenceSchema.safeParse(source?.value);
+    const atomicWorkshopReceipt =
+      workshopEnabled &&
+      source &&
+      source.owner === OWNER_WORLD_STATE &&
+      resolveWorkshopKey(source.key)?.id === "world_addressed_notice_occurrence" &&
+      workshopOccurrence &&
+      workshopOccurrence.success &&
+      eventId === "workshop-notice:" + workshopOccurrence.data.notice_id &&
+      source.version === event.data.source.version &&
+      revisionOf(source) < revisionOf(eventFact) &&
+      eventFact.provenance.group_id === pf.provenance.group_id &&
+      store.ruleCheckedGroupIds?.().has(pf.provenance.group_id) === true;
+    if (!atomicWorkshopReceipt && revisionOf(eventFact) >= revisionOf(pf)) {
       bad(pf.key, "the event was not committed before the packet formed from it");
     }
     const derived = deriveAccessProducts({
@@ -318,6 +342,8 @@ export function verifyEpistemicIntegrity(store: CampaignStore): readonly Integri
     }
     const boundary = recipientBoundaryViolation(factsBefore(revisionOf(pf)), event.data);
     if (boundary) bad(pf.key, boundary);
+    // Workshop packets are published atomically with their event under the verified staged aftermath rule.
+    if (atomicWorkshopReceipt) continue;
     // formed only as its IM-02 stage, under the durable authority of the transaction that opened it
     const stage = accessPacketStage(eventId, recipient);
     const group = store.committedGroup(pf.provenance.intent_id);

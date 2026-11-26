@@ -1,3 +1,4 @@
+import { gitB3BaseFile } from "../support/b3-scoped-deltas.ts";
 // F-014B B1 S2 - the census: the GM-wait catalogue measured from the ACTUAL registry, provider and extension declarations by two independent
 // methods (runtime reflection and a TypeScript-compiler AST scan), the retained manifest bytes and their custody, and the adversarial additions
 // BLUE requires (an added dormant provider, a late extension, a missing branch, policy drift). MECHANISM ONLY, NON-WRITING: every entry is
@@ -284,7 +285,7 @@ describe("[S2] [mechanism only] policy and source pins are bound", () => {
 
   it("[S2] [mechanism only] the extension dispatch structure is pinned: nine early returns, the canonical-key guard, and no historical verification of extension groups", () => {
     const returns = scanAst(readSourceFiles(REPO_ROOT, AST_ROOTS).files).extensionReturns;
-    expect(returns).toEqual([
+    const originalReturns = [
       "check: return fence;",
       // F-014B B2 W2: the common GM-wait fence precedes the extension branch, live and in original-policy historical verification
       "check: return w2;",
@@ -295,8 +296,18 @@ describe("[S2] [mechanism only] policy and source pins are bound", () => {
       "verifyHistorical: return w2;",
       "verifyHistorical: return null;",
       "verifyHistorical: return base.verifyHistorical?.(group, state) ?? null;",
+    ];
+    const extensionPath = "packages/engine/src/owners/extension.ts";
+    const base = gitB3BaseFile(extensionPath).toString("utf8");
+    const baseline = scanAst(new Map([[extensionPath, base]])).extensionReturns;
+    expect(baseline).toEqual(originalReturns);
+    // The same dispatcher now refuses a reserved workshop key in extension history before its existing skip.
+    expect(returns).toEqual([
+      ...originalReturns.slice(0, 7),
+      'verifyHistorical: return reject("KEY_NOT_ADMITTED", "extension history cannot interpret a reserved workshop key");',
+      ...originalReturns.slice(7),
     ]);
-    expect(manifest.extension_dispatch.early_return_count).toBe(9);
+    expect(manifest.extension_dispatch.early_return_count).toBe(10);
     expect(manifest.extension_dispatch.historical_verification_of_extension_groups).toBe("SKIPPED");
     expect(manifest.extension_dispatch.extension_owners).toEqual([]);
   });
@@ -451,8 +462,8 @@ describe("[S2] [mechanism only] adversarial additions change the coverage and th
   it("[S2] [mechanism only] a changed early return in the extension routing changes the dispatch structure", async () => {
     const rel = "packages/engine/src/owners/extension.ts";
     const edited = text(rel).replace(
-      "if (extension.owners.has(group.owner)) return null;",
-      "if (extension.owners.has(group.owner)) return null;\n      if (group.writes.length === 0) return null;",
+      "if (extension.owners.has(group.owner)) {",
+      "if (extension.owners.has(group.owner)) {\n        if (group.writes.length === 0) return null;",
     );
     expect(edited).not.toBe(text(rel));
     const c = await buildCensus({ overlay: new Map([[rel, edited]]) });

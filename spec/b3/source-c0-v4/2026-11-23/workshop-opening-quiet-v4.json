@@ -1,0 +1,214 @@
+{
+  "schema": "immortalis-workshop-opening-v4",
+  "id": "workshop-opening-quiet-v4",
+  "campaign_class": "QUALIFICATION",
+  "disposable_only": true,
+  "lineage": {
+    "profile": "workshop-opening-quiet-v3",
+    "commit": "4036dab087a15807033496babb232d072e93990c",
+    "raw_sha256": "fea060c36d85e3a198ba3e2025d54c2e771321581745a9dc9303e89a3ecfd13a"
+  },
+  "world": {
+    "insertion_supporting_constraints": [
+      {
+        "aspect": "locus",
+        "statement": "The qualified opening has exactly one workshop bay at the single original locale."
+      },
+      {
+        "aspect": "qualification",
+        "statement": "This source profile exists only for one disposable QUALIFICATION campaign and is not portable to a historical settlement."
+      }
+    ],
+    "material_world_law_departures": [],
+    "premise": "A single fictional workshop operated only as a disposable Immortalis source-qualification case.",
+    "reference_causal_basis": {
+      "established_canon": "One bounded fictional workshop with one operative PC, one original M-S named attendant, and one opaque GIP supervisor-office holder. No historical world is modified.",
+      "mode": "ORIGINAL"
+    },
+    "world_id": "b3-qualification-workshop-world"
+  },
+  "locus": {
+    "constraints": [
+      {
+        "aspect": "physical-locality",
+        "statement": "One bounded workshop bay in the original world; a physical PC and attendant can be co-located here."
+      }
+    ],
+    "designation": "Workshop Bay 1",
+    "locus_id": "workshop-opening-quiet-v4",
+    "world": {
+      "entity_id": "b3-qualification-workshop-world",
+      "fact_key": "world/b3-qualification-workshop-world/profile"
+    }
+  },
+  "finite_source": {
+    "source_key": "workshop-raw-bracket-stock",
+    "world_id": "b3-qualification-workshop-world",
+    "locus_id": "workshop-opening-quiet-v4",
+    "dimension": "COUNT",
+    "material_class": "bracket-stock",
+    "quantity": {
+      "amount": 1,
+      "unit": "unit"
+    },
+    "access_facts": [],
+    "statement": "One raw bracket blank lies in the workshop supply bin."
+  },
+  "chronology": {
+    "format": "immortalis-starting-chronology",
+    "format_version": 2,
+    "time": {
+      "unit": "b3-qualification-in-world-second-v1",
+      "value": 0
+    },
+    "statement": "The workshop opens at zero on its origin clock.",
+    "scale": "ONE_SI_SECOND_PER_CANONICAL_UNIT"
+  },
+  "setup_message": "SYNTHETIC FIXTURE: This is the original bounded workshop with one working attendant. Fill in whatever else the place needs.",
+  "attendant_leaf": "SYNTHETIC FIXTURE: one workshop attendant at the original workshop",
+  "pc": {
+    "id": "pc-workshop-visitor",
+    "identity": "One human workshop visitor",
+    "contact": "A person in a plain work coat",
+    "embodiment": "One ordinary human body",
+    "continuity": "I remain myself as long as I live.",
+    "presence": "I am originally and physically present at this workshop."
+  },
+  "institution": {
+    "continuity_status": "continuing",
+    "identity_label": "Workshop Qualification Institution",
+    "institution_id": "b3-qualification-workshop-institution"
+  },
+  "supervisor_office": {
+    "competence_scope": "one disposable workshop",
+    "duties": ["monitor one completion notice only"],
+    "holder_ref": "b3-qualification-supervisor-rowan-opaque-holder",
+    "institution_id": "b3-qualification-workshop-institution",
+    "office_id": "b3-qualification-notice-supervisor",
+    "powers": [],
+    "removal_rule": "holder change ends duty permanently",
+    "selection_rule": "original seeded post",
+    "succession_rule": "no continuation"
+  },
+  "attendant_post": {
+    "competence_scope": "one disposable workshop",
+    "duties": ["hold one accepted standing duty"],
+    "institution_id": "b3-qualification-workshop-institution",
+    "office_id": "b3-qualification-attendant-post",
+    "powers": [],
+    "removal_rule": "holder change ends duty permanently",
+    "selection_rule": "original seeded post",
+    "succession_rule": "no continuation"
+  },
+  "local_scope": {
+    "institution_id": "b3-qualification-workshop-institution",
+    "office_id": "b3-qualification-notice-supervisor",
+    "scope_binding_id": "b3-qualification-local-notice-scope",
+    "scope_ref": "workshop-opening-quiet-v4",
+    "scope_type": "QUALIFICATION_ONLY_SINGLE_WORKSHOP",
+    "target_condition": "Applies only to one original job and the designated operative PC in disposable QUALIFICATION campaign."
+  },
+  "population_ledger": {
+    "ledger_id": "b3-qualification-workshop-population",
+    "locus_id": "workshop-opening-quiet-v4",
+    "point": {
+      "unit": "b3-qualification-in-world-second-v1",
+      "value": 0
+    },
+    "unit_class": "HUMAN_VISITOR",
+    "units": [
+      {
+        "burden_allocation": null,
+        "presence": "workshop-opening-quiet-v4",
+        "residence": "workshop-opening-quiet-v4",
+        "unit_id": "b3-qualification-population-visitor"
+      }
+    ],
+    "world_id": "b3-qualification-workshop-world"
+  },
+  "demand": {
+    "carrier": {
+      "kind": "POPULATION_UNIT",
+      "ledger_id": "b3-qualification-workshop-population",
+      "unit_id": "b3-qualification-population-visitor"
+    },
+    "demand_entry": {
+      "output_class": "bracket",
+      "quantity": {
+        "amount": 1,
+        "unit": "unit"
+      }
+    },
+    "demand_envelope_id": "b3-qualification-bracket-job"
+  },
+  "reserve": {
+    "reserve_id": "b3-qualification-bracket-stock",
+    "world_id": "b3-qualification-workshop-world",
+    "locus_id": "workshop-opening-quiet-v4",
+    "material_class": "bracket-stock",
+    "quantity": {
+      "amount": 1,
+      "unit": "unit"
+    },
+    "condition": "raw-local-stock"
+  },
+  "production_start": {
+    "completion_at": {
+      "unit": "b3-qualification-in-world-second-v1",
+      "value": 600
+    },
+    "reserve_id": "b3-qualification-bracket-stock",
+    "transformation": {
+      "input_quantity": {
+        "amount": 1,
+        "unit": "unit"
+      },
+      "output_class": "bracket",
+      "output_condition": "finished",
+      "output_quantity": {
+        "amount": 1,
+        "unit": "unit"
+      }
+    }
+  },
+  "native_publication_order": [
+    "world",
+    "workshop_locus",
+    "finite_world_source",
+    "pc_classification",
+    "pc_host",
+    "setup_input",
+    "scope_invocation",
+    "scope_response",
+    "scope_delegation",
+    "setup_grant",
+    "scene_invocation",
+    "scene_response",
+    "locality_completion",
+    "ms_issue",
+    "ms_response",
+    "attendant_existence",
+    "actor_setup_placement",
+    "actor_setup_closure",
+    "temporal_genesis",
+    "attendant_presence",
+    "native_compatibility_verdict",
+    "pc_standing_ledger",
+    "pc_binding",
+    "physical_placement_verdict",
+    "pc_placement",
+    "institution",
+    "supervisor_office",
+    "attendant_post",
+    "local_scope",
+    "population_ledger",
+    "economy_request",
+    "production_reserve",
+    "production_start",
+    "production_temporal_enrolment",
+    "charter",
+    "instruction",
+    "accepted_standing_duty",
+    "coverage_anchor"
+  ]
+}

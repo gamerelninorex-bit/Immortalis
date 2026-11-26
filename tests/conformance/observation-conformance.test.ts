@@ -1,3 +1,4 @@
+import { B3_SHARED_DELTAS, gitB3BaseFile } from "../support/b3-scoped-deltas.ts";
 // Referee restart repair composition: trusted wait cancellation only; exchange wire formats, authentication and all owner/spec pins remain unchanged.
 // Zero-confirmation request-evidence composition: interface digests only; owner/spec pins remain unchanged.
 // PR91 BLUE HOLD composition: readable review adaptation and exact private binding recovery; frozen owners/source locks unchanged.
@@ -24,6 +25,13 @@ const sha = (file: string) =>
   createHash("sha256")
     .update(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), "utf8")
     .digest("hex");
+const verifyPinnedSource = (file: string, original: string) => {
+  const successor = B3_SHARED_DELTAS[file];
+  if (successor) {
+    expect(createHash("sha256").update(gitB3BaseFile(file)).digest("hex"), file).toBe(original);
+  }
+  expect(sha(file), file).toBe(successor?.head ?? original);
+};
 
 // Every file listed in this set was changed by PR #94 AFTER this suite's slice head. The value recorded for it below is the ORIGINAL one main
 // (8fda533) carried, kept as history (tests/support/historical-pin-inventory.ts records it with its commit and, where this suite names one,
@@ -169,7 +177,7 @@ describe("one scoped delta: no new owner, no new fact kind, no new facet", () =>
 
   it("every existing source file this slice modified is pinned at the slice head (files PR #94 changed later keep their original value as history and are not compared with the working tree)", () => {
     for (const [file, hash] of Object.entries(MODIFIED))
-      if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) expect(sha(file), file).toBe(hash);
+      if (!CHANGED_AFTER_THE_SLICE_HEAD.has(file)) verifyPinnedSource(file, hash);
   });
 
   it("the held current-basis boundary exception is removed; formation uses the committed event trigger", () => {

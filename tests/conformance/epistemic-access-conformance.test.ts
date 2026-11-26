@@ -317,7 +317,7 @@ describe("reuse, not fork: IM-02, IM-03, IM-11, IM-12 and IM-17 are the existing
       /epistemicObjectViolation\(o, state, true\)/,
     );
     expect(code("packages/engine/src/world/canonical-campaign.ts")).toMatch(
-      /verifyEpistemicIntegrity\(store\)/,
+      /verifyEpistemicIntegrity\(store, workshopOptions\)/,
     );
     expect(adapterMethods(TemporalCoordinator)).toEqual(
       expectedAdapterMethods("TemporalCoordinator"),

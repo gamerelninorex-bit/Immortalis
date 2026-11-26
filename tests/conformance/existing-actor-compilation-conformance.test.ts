@@ -20,6 +20,7 @@ import {
   ExistenceContractSchema,
   PlayerCharacterBindingSchema,
 } from "@immortalis/contracts";
+import * as workshop from "../../packages/engine/src/owners/workshop/index.ts";
 import { code, gates, lock, register } from "../support/f027.ts";
 import {
   EXPECTED_ADAPTER_SURFACES,
@@ -204,7 +205,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
     expect(contract.legacyRule).toBeUndefined();
   });
 
-  it("no adapter, class or directory was added, and the registered adapter surfaces are unchanged", () => {
+  it("the original adapter surfaces are unchanged, with only the isolated qualification adapters added", () => {
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES).sort()).toEqual([
       // ROADBED R3-T25 freight adds five adapters, one per EXISTING owner (World-State, GIP, Production, Economy, Logistics): no new owner
       "CausalDrawAdapter",
@@ -231,6 +232,17 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "WorldFreightAdapter",
     ]);
     expect(Object.keys(EXPECTED_ADAPTER_SURFACES)).not.toContain("HandoverAdapter");
+    expect(
+      Object.keys(workshop)
+        .filter((name) => name.endsWith("Adapter"))
+        .sort(),
+    ).toEqual([
+      "WorkshopGipAdapter",
+      "WorkshopGlassbellAdapter",
+      "WorkshopHealthAdapter",
+      "WorkshopNamedActorAdapter",
+      "WorkshopNoticeAdapter",
+    ]);
     expect(
       readdirSync("packages/engine/src")
         .filter((f) => statSync(join("packages/engine/src", f)).isDirectory())
@@ -272,6 +284,7 @@ describe("IA-03 owner exclusivity: no new owner, facet, key space, fact kind, ad
       "pc-standing-ledger.ts",
       "registry.ts",
       "rejection.ts",
+      "workshop",
     ]);
     expect(readdirSync("packages/engine/src/world").sort()).toEqual([
       "actor-coupling-integrity.ts",

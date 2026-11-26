@@ -1,0 +1,182 @@
+[
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "gip_local_completion_direction",
+    "id": "gip_local_completion_notice_charter",
+    "im": "IM-06",
+    "key_pattern": {
+      "flags": "",
+      "source": "^gip\\/local-completion-notice\\/campaign\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/charter$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "SEALED",
+    "owner": "gip",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "9422ac0a23fe0fc71d81ff3e97ccd51fd0a282e72ea6b11074115c61973cfd14",
+    "value_schema_fp": "8f40ae7c064b3c74d073052ad1274ff9b52f32cfcd8ddd02c88bcbbf00f5cd0a"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "gip_local_completion_direction",
+    "id": "gip_local_completion_notice_instruction",
+    "im": "IM-06",
+    "key_pattern": {
+      "flags": "",
+      "source": "^gip\\/local-completion-notice\\/campaign\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/instruction\\/([0-9a-f]{64})$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "ADVANCING",
+    "owner": "gip",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "4fc7e1767029a801c863d1f759b59998c9c7a9090f557a4bcf51844f1f44850b",
+    "value_schema_fp": "535aa20db54fb726f851c935b758dd7398992ce25b869d6d31171aa90e9baae4"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "health_condition_process",
+    "id": "health_pc_relevant_condition",
+    "im": "IM-08",
+    "key_pattern": {
+      "flags": "",
+      "source": "^health\\/pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/condition\\/([0-9a-f]{64})$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "ADVANCING",
+    "owner": "health",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "fb91dc97d544ec27daea35c9868301f448643fc76310d999e51dcfbdd3b152eb",
+    "value_schema_fp": "30f31f5f4c797d0157505a0bdcb8eb674033a2bf3171a3e6b276006cd7daf12f"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "health_condition_process",
+    "id": "health_pc_sensory_coverage_anchor",
+    "im": "IM-08",
+    "key_pattern": {
+      "flags": "",
+      "source": "^health\\/pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/auditory\\/coverage\\/([0-9a-f]{64})$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "SEALED",
+    "owner": "health",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "cf16c157656d71d4fda1e425dfdbd4843e011985c13b0b4abd51c332b2a634da",
+    "value_schema_fp": "7d43f3400e7636329108df652803b6908a087fc964dfa1d20c8a5b714811668d"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "health_condition_process",
+    "id": "health_pc_sensory_function_close",
+    "im": "IM-08",
+    "key_pattern": {
+      "flags": "",
+      "source": "^health\\/pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/auditory\\/sensory-close\\/([0-9a-f]{64})$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "SEALED",
+    "owner": "health",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "2657bd33264fdea74dbdb323813a60edd974dd08d3956092c9c5ab0cd66cbe2a",
+    "value_schema_fp": "f22d22f5337a3cfaee3145dd94160cde4b1dc345b57b24033bd89c5646b3dd35"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "actor_profile",
+    "id": "named_actor_local_notice_duty",
+    "im": "IM-07",
+    "key_pattern": {
+      "flags": "",
+      "source": "^actor\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/local-notice-duty\\/([0-9a-f]{64})$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "SEALED",
+    "owner": "named_actor",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "0a42f6ff41b287fe331f3fd13d9a6f1f53a73c5555861b7948db0a89816de50c",
+    "value_schema_fp": "debfe37c100cb0fbf363122c6f9d320099c38f9c47a4ace41756bcbe9b1f26c5"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "world_locus",
+    "id": "world_addressed_notice_enrolment",
+    "im": "IM-03",
+    "key_pattern": {
+      "flags": "",
+      "source": "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/addressed-notice\\/enrolment\\/([0-9a-f]{64})$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "ADVANCING",
+    "owner": "world_state",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "408718a313f7817512d267ce105430a8b97e400d7e67c72c09cc9998fb9a3b2d",
+    "value_schema_fp": "97200e7e67ab305d7fcde468ee7dba067fbff38ade74eb870e197048aea8e839"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "world_locus",
+    "id": "world_addressed_notice_occurrence",
+    "im": "IM-03",
+    "key_pattern": {
+      "flags": "",
+      "source": "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/locus\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/addressed-notice\\/occurrence\\/([0-9a-f]{64})$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "SEALED",
+    "owner": "world_state",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "408718a313f7817512d267ce105430a8b97e400d7e67c72c09cc9998fb9a3b2d",
+    "value_schema_fp": "3abf3348499f92f7acba224f2edd24dca47eecd5c7c6086f7f73c14004868d20"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "world_locus",
+    "id": "world_addressed_notice_pc_reservation",
+    "im": "IM-03",
+    "key_pattern": {
+      "flags": "",
+      "source": "^world-state\\/addressed-notice\\/campaign\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/by-pc\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "ADVANCING",
+    "owner": "world_state",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "408718a313f7817512d267ce105430a8b97e400d7e67c72c09cc9998fb9a3b2d",
+    "value_schema_fp": "fcad7900e104130f422152ad73caf70de7b1558d6d8fdb02d3c1bcd40a67a522"
+  },
+  {
+    "alternate_refs": [],
+    "disposition": "UNDECLARED",
+    "facet": "world_locus",
+    "id": "world_opening_glassbell_exposure",
+    "im": "IM-03",
+    "key_pattern": {
+      "flags": "",
+      "source": "^world\\/([A-Za-z0-9][A-Za-z0-9._:-]*)\\/opening-glassbell-exposure\\/([A-Za-z0-9][A-Za-z0-9._:-]*)$"
+    },
+    "later_legacy_refs": [],
+    "legacy_refs": [],
+    "lifecycle": "SEALED",
+    "owner": "world_state",
+    "rc": ["RC-02", "RC-07"],
+    "rule_ref": "f072db44682991c46530ebfd14fd60fe1dd433fa7a7bc8e7de3d1b9215765384",
+    "value_schema_fp": "d961c3b97115e336058447182444c14419ef2cf05b91a9a525842c9c4192a360"
+  }
+]

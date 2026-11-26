@@ -16,7 +16,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/index.ts":
     "6d99c68407b6d15b01c06cb7ba62d14b4068986d130f6eef95d35410b8e6c19b",
   "packages/engine/src/owners/admission.ts":
-    "4c105c39111634cc97bb2e1b6c5a93da09ceaac3882b4efd0fb849f7dc5f234f",
+    "8276cd4e6f2d816e33d1d43d9aad0ca56c271a0950180a350bce0b2300a23d28",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":
@@ -26,11 +26,11 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/referee/integrity.ts":
     "22134264b0b5be4b2246116f59c116a645b6609037f551d78013e4ce4e1691fa",
   "packages/engine/src/world/canonical-campaign.ts":
-    "d9f2a9f59af9de83b092b715c1d6813c919556eb92789b499921ea3a97dcbbcc",
+    "7a660bc40025c015224a06f1c9bb69ef82970c8832be080fb70da1d68f485495",
   "packages/engine/src/world/fallback-custody.ts":
     "89a02e4ef44529557c7eb5564e5a3b29b33eb2b11f1aaac1149151c9ef8cf49f",
   "packages/engine/src/world/integrity.ts":
-    "5509681a0f30fa21448d0969cbfea44b503559963745eefc6490b223988bb5d4",
+    "abfe45d0383f8a9801acd4e0073389c6a1de27e1f347657d82816dce7f16a891",
   "packages/operator/src/cli.ts":
     "70a1da62e1df7de9c4d9e5cee047a4e8489fe17c20e4907303855ff9afe2b778",
   "packages/operator/src/confirmation.ts":
@@ -51,7 +51,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
     "7c0354e4ecc73ff6329a5c781f3b273ede3f55ae67393bba3a814ea4bf6e633d",
   // directory trees (sorted `path\0sha256(bytes)\n`, the algorithm auditory-premises-conformance uses)
   "packages/engine/src/epistemic":
-    "bc43048c097c34959bf42e82ebee7ffdb31048bd69faf3ebbf446aae88a1807a",
+    "4a7a90fbfe1a4646de43b9c39075dd5b27445a52b83a7bb02b98e43f6543b000",
   "packages/engine/src/referee": "83e5b0450fe94bcdc2b35e979976dffa2175e830a46f82acff0c82b6f9a8c0eb",
   "packages/operator/src": "ecee21e9fe9dd03dbad8e175072e1b640d61e39b7c9a1bf8295dc458ddac75bc",
   "packages/protocol/src": "566471504652371ea4ad1979354d247b6d94696dcf78f93aabc12c8ab38b7784",

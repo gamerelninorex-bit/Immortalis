@@ -1,3 +1,9 @@
+import {
+  resolveWorkshopKey,
+  withWorkshopOwners,
+  workshopCampaignFor,
+} from "./workshop/registry.ts";
+import { OWNER_HEALTH } from "../../../contracts/src/workshop-opening.ts";
 import { fail, ok, type Result } from "@immortalis/contracts";
 import type { OwnerRegistry, WriteAdmission } from "../commit/campaign-core.ts";
 import { canonicalAdmission, legacyContractAdmission } from "./admission.ts";
@@ -46,6 +52,10 @@ export function storeBindings(
   admissionOverride?: WriteAdmission,
 ): Result<StoreBindings, ExtensionErrorCode> {
   const base = admissionOverride ?? canonicalAdmission;
+  const registered =
+    workshopCampaignFor(admissionOverride) === undefined
+      ? CANONICAL_OWNER_REGISTRY
+      : withWorkshopOwners(CANONICAL_OWNER_REGISTRY);
   const forContract =
     (admission: WriteAdmission) =>
     (runtimeContractSha256: string): WriteAdmission | undefined =>
@@ -54,12 +64,12 @@ export function storeBindings(
         : undefined;
   if (!extension)
     return ok({
-      owners: CANONICAL_OWNER_REGISTRY,
+      owners: registered,
       admission: base,
       admissionFor: forContract(base),
     });
   for (const [owner, facets] of extension.owners) {
-    if (CANONICAL_OWNER_REGISTRY.has(owner)) {
+    if (registered.has(owner) || owner === OWNER_HEALTH) {
       return fail("EXTENSION_INVALID", "an extension may not reuse a canonical or kernel owner", {
         owner,
       });
@@ -67,7 +77,7 @@ export function storeBindings(
     if (facets.size === 0)
       return fail("EXTENSION_INVALID", "an extension owner needs at least one facet", { owner });
   }
-  const owners = new Map([...CANONICAL_OWNER_REGISTRY, ...extension.owners]);
+  const owners = new Map([...registered, ...extension.owners]);
   const admission: WriteAdmission = {
     ...(base.initializeView ? { initializeView: base.initializeView } : {}),
     ...(base.committedView ? { committedView: base.committedView } : {}),
@@ -81,7 +91,7 @@ export function storeBindings(
       if (w2) return w2;
       if (!extension.owners.has(group.owner)) return base.check(group, state, history);
       for (const w of group.writes) {
-        if (resolveKey(w.key)) {
+        if (resolveKey(w.key) || resolveWorkshopKey(w.key)) {
           return reject(
             "KEY_NOT_ADMITTED",
             "an extension owner may not write a canonical or kernel key space",
@@ -99,7 +109,14 @@ export function storeBindings(
       // incremental prestate. Only the owner-specific verification of an extension group stays skipped (as the census records).
       const w2 = gmWaitFenceViolation(group, gmWaitFenceOf(state), base, false);
       if (w2) return w2;
-      if (extension.owners.has(group.owner)) return null;
+      if (extension.owners.has(group.owner)) {
+        if (group.writes.some((w) => resolveWorkshopKey(w.key)))
+          return reject(
+            "KEY_NOT_ADMITTED",
+            "extension history cannot interpret a reserved workshop key",
+          );
+        return null;
+      }
       return base.verifyHistorical?.(group, state) ?? null;
     },
   };
