@@ -347,6 +347,10 @@ describe("P7-13 / P7-14 boundary: additive, non-writing and outside every shared
       "../../../packages/engine/src/epistemic/derive.ts",
       "../../../packages/engine/src/epistemic/declaration.ts",
       "./proof.ts",
+      // P7-E1, BLUE-authorized (PR #144 delta review 42320af9-01e0-81e6-bf59-f1d5777a87a8): the ONE test-local, read-only native receipt
+      // verifier the checker imports STATICALLY, so that no caller can install, set or pre-empt it. Nothing else is added or loosened:
+      // the forbidden list below still applies to every import of both modules, and the boundary suite of E1 pins the exact import sets.
+      "./native-observation.ts",
     ]);
     for (const m of modules) {
       const found = importsOf(m);
