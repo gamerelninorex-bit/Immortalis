@@ -35,7 +35,7 @@ export const IF6B_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/temporal/admission.ts": {
     base: "0a0eceab61eed0ccd0251e806bdd6db17ed075a413a1e0f8f012cd91fd299ae4",
-    head: "df636d397e1b7ba4600c0f34f84b6cbf3c9a2b6df6e7a904571ea3d4d937f16f",
+    head: "04d372d658279e9ed48f8c9be357272bbf0396bd0ba61b0bc3c0e55e533e2787",
   },
   "packages/engine/src/temporal/coordinator.ts": {
     base: "59a082af663a17eccd85dd7f44ac5d51181073d455add0727ea62b89801465fd",
@@ -48,11 +48,8 @@ export const IF6B_SHARED_DELTAS: Readonly<
 };
 export const IF6B_PACKAGE_PATHS: readonly string[] = [
   "packages/contracts/src/temporal-custody.ts",
-  "packages/engine/gm-wait-catalogue/manifests/3b30e70540dbc87fd778792b264c71a73047b9433c75eb086a797aa4dc50e46c.json",
-  "packages/engine/gm-wait-catalogue/manifests/50a4f44ee76a590b31a88b719d53e42ddb5d475269feb49b6544312176a3d3f5.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
-  "packages/engine/gm-wait-catalogue/manifests/818c03456cffd2084af2f8e5e1c5f2a5489fa043d5ff6c298cbe307e04437c78.json",
-  "packages/engine/gm-wait-catalogue/manifests/acecb5c9010cc6239544c7d926bb72971a8fe8c32cbcced38c43eec2ebd90748.json",
+  "packages/engine/gm-wait-catalogue/manifests/a4bbcb1404626f3093087ec1afe28399ae21d8cd94d38df948b8f4d463a7fb6f.json",
   "packages/engine/src/commit/campaign-core.ts",
   "packages/engine/src/economy/integrity.ts",
   "packages/engine/src/gm-wait-catalogue-current.ts",
