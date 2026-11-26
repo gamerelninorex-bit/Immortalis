@@ -9,16 +9,22 @@ import {
   resolveKey,
 } from "@immortalis/engine";
 import { WORKSHOP_FACT_KINDS } from "../../packages/engine/src/owners/workshop/index.ts";
-import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
+import {
+  GM_WAIT_CATALOGUE_CURRENT_SHA256,
+  GM_WAIT_CATALOGUE_RETAINED_SHA256,
+} from "../../packages/engine/src/gm-wait-catalogue-current.ts";
 import { valueSchemaFingerprint } from "../../packages/engine/src/gm-wait-catalogue.ts";
 
 import {
   B3_BASE_COMMIT,
+  B3_E_CATALOGUE_PATH,
+  B3_E_CATALOGUE_SHA256,
   B3_NON_PACKAGE_PATHS,
   B3_PACKAGE_PATHS,
   B3_SHARED_DELTAS,
   gitB3BaseFile,
 } from "../support/b3-scoped-deltas.ts";
+import { atB3EconomyBase, B3_E_BASE_COMMIT } from "../support/if6b-scoped-delta.ts";
 
 const baseCatalogue = "7707ff8ec86a9564dae2b026e730386f26fadfd4011c2934d0cc19dd5a6f09ed";
 type KindEntry = { readonly id: string; readonly value_schema_fp: string };
@@ -128,6 +134,67 @@ describe("B3 catalogue and historical source custody", () => {
     expect(head.providers.filter(({ owner }: { owner: string }) => owner !== "health")).toEqual(
       before.providers,
     );
+  });
+
+  it("B3-E extends the retained catalogue only with three runtime source fingerprints", () => {
+    const folder = "packages/engine/gm-wait-catalogue/manifests";
+    const pointer = "packages/engine/src/gm-wait-catalogue-current.ts";
+    const runtime = [
+      "packages/engine/src/owners/admission.ts",
+      "packages/engine/src/owners/workshop/lane-x.ts",
+      "packages/engine/src/temporal/if6b-stage.ts",
+    ];
+    const roots = [
+      "apps",
+      "packages",
+      "spec",
+      "tools",
+      ".github",
+      "package.json",
+      "pnpm-lock.yaml",
+    ];
+    const paths = (args: string[]) =>
+      execFileSync("git", args, { encoding: "utf8" }).split("\n").filter(Boolean);
+    expect(
+      [
+        ...paths(["diff", "--name-only", B3_E_BASE_COMMIT, "--", ...roots]),
+        ...paths(["ls-files", "--others", "--exclude-standard", "--", ...roots]),
+      ].sort(),
+    ).toEqual([...runtime, pointer, B3_E_CATALOGUE_PATH].sort());
+
+    const previous = "81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d";
+    const priorPointer = atB3EconomyBase(pointer);
+    expect(createHash("sha256").update(priorPointer).digest("hex")).toBe(
+      "1501192935ccdea4f0403eceda8d8a85938cd843bb3c4eed30e45288896ac422",
+    );
+    const priorDigests = paths(["ls-tree", "-r", "--name-only", B3_E_BASE_COMMIT, "--", folder]);
+    for (const path of priorDigests) {
+      expect(readFileSync(path).equals(atB3EconomyBase(path)), path).toBe(true);
+    }
+    expect(GM_WAIT_CATALOGUE_RETAINED_SHA256).toEqual(
+      [
+        ...priorDigests.map((path) => path.slice(folder.length + 1, -5)),
+        B3_E_CATALOGUE_SHA256,
+      ].sort(),
+    );
+    expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).toBe(B3_E_CATALOGUE_SHA256);
+    const bytes = readFileSync(B3_E_CATALOGUE_PATH);
+    expect(bytes).toHaveLength(389443);
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(B3_E_CATALOGUE_SHA256);
+
+    const baseline = JSON.parse(atB3EconomyBase(`${folder}/${previous}.json`).toString("utf8"));
+    const current = JSON.parse(bytes.toString("utf8"));
+    const before = baseline.policy.source_policy.files;
+    expect(current.policy.source_policy.files.map((entry: { path: string }) => entry.path)).toEqual(
+      before.map((entry: { path: string }) => entry.path),
+    );
+    expect(
+      current.policy.source_policy.files
+        .filter((entry: { sha256: string }, index: number) => entry.sha256 !== before[index].sha256)
+        .map((entry: { path: string }) => entry.path),
+    ).toEqual(runtime);
+    current.policy.source_policy.files = before;
+    expect(current).toEqual(baseline);
   });
 
   it("keeps the pre-B3 production history verifier", () => {

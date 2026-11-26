@@ -16,7 +16,7 @@ export const B3_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "1501192935ccdea4f0403eceda8d8a85938cd843bb3c4eed30e45288896ac422",
+    head: "d464d602853e9c698bd018f7cef66e34a0bb9ea09a536ca30b1a9fde2aace590",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",
@@ -24,11 +24,16 @@ export const B3_SHARED_DELTAS: Readonly<
   },
 };
 
+export const B3_E_CATALOGUE_SHA256 =
+  "2673baaca7f32711815f4fafb81dbc5c1bcc16394dc7412763d7f4e89f2eb4d4";
+export const B3_E_CATALOGUE_PATH = `packages/engine/gm-wait-catalogue/manifests/${B3_E_CATALOGUE_SHA256}.json`;
+
 export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/contracts/src/temporal-custody.ts",
   "packages/contracts/src/workshop-opening.ts",
   "packages/engine/gm-wait-catalogue/manifests/04069ddf4ad84c183066366e34a6c8735b94a1e0eda278dfce3d6f53537cb97a.json",
   "packages/engine/gm-wait-catalogue/manifests/265c74a18ad9f0898ae079189b20b7e24b06bcb58c90798de1f3d6473bea08d3.json",
+  B3_E_CATALOGUE_PATH,
   "packages/engine/gm-wait-catalogue/manifests/3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
   "packages/engine/gm-wait-catalogue/manifests/81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d.json",
