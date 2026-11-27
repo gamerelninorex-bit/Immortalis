@@ -1,0 +1,36 @@
+{
+ "build": "base",
+ "node": "v22.22.2",
+ "currentCatalogueSha256": "81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d",
+ "lane-x-occurred-aftermath-600": {
+  "policy": {
+   "identityEqualsJournals": true,
+   "catalogueEqualsJournals": true
+  },
+  "open": "OK",
+  "replayedHeadEqualsRecordedHead": true,
+  "slot": "SEALED_RECONCILED",
+  "sealRetry": {
+   "ok": true,
+   "replayed": true
+  },
+  "headUnchangedByRetries": true
+ },
+ "lane-x-interrupted-resumed-900": {
+  "policy": {
+   "identityEqualsJournals": true,
+   "catalogueEqualsJournals": true
+  },
+  "open": "OK",
+  "replayedHeadEqualsRecordedHead": true,
+  "slot": "SEALED_RECONCILED",
+  "sealRetry": {
+   "ok": true,
+   "replayed": true
+  },
+  "resumeRetry": {
+   "ok": true
+  },
+  "headUnchangedByRetries": true
+ }
+}
