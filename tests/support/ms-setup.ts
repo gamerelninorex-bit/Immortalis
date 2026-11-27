@@ -44,6 +44,8 @@ export async function msHarness(
         keys: ReturnType<typeof generateFixtureRunnerKeys>,
       ) => NonNullable<Parameters<typeof fixtureMsCanonicalAdmission>[3]>;
       laneXAdmission?: typeof fixtureMsEconomyForwardAdmission;
+      /** TESTKIT ONLY: stands a successor generation in as the build's CURRENT workshop generation. */
+      currentGeneration?: Parameters<typeof fixtureMsCanonicalAdmission>[4];
       open(
         admission: ReturnType<typeof fixtureMsCanonicalAdmission>,
       ): ReturnType<typeof openFixtureCampaign>;
@@ -59,7 +61,9 @@ export async function msHarness(
     historyId?: (current: string) => string;
   } = {},
 ) {
-  const keys = generateFixtureRunnerKeys(),
+  const keys =
+      (options as { fixedKeys?: ReturnType<typeof generateFixtureRunnerKeys> }).fixedKeys ??
+      generateFixtureRunnerKeys(),
     macKey = randomBytes(32),
     outboxDir = scratch("immortalis-ms-outbox-");
   let scopes = 0;
@@ -109,13 +113,19 @@ export async function msHarness(
           options.workshop?.profileBytes,
           undefined,
           laneX,
+          options.workshop?.currentGeneration,
         );
   let latest: CampaignState;
   const trace: { before: CampaignState; after: CampaignState; group: CommitGroup }[] = [];
   const admission = {
     ...base,
     ...(options.historyId
-      ? { historyVerificationId: options.historyId(base.historyVerificationId!) }
+      ? {
+          historyVerificationId: options.historyId(base.historyVerificationId!),
+          ...(base.checkpointVerifierId
+            ? { checkpointVerifierId: options.historyId(base.checkpointVerifierId) }
+            : {}),
+        }
       : {}),
     initializeView: (state: CampaignState, checked: (id: string) => boolean) => {
       base.initializeView?.(state, checked);

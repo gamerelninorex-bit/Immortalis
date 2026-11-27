@@ -29,6 +29,7 @@ import {
   type TemporalObject,
   type TemporalRead,
 } from "@immortalis/contracts";
+import type { WorkshopHistoryRef } from "./generation.ts";
 import {
   OWNER_HEALTH,
   type WorkshopFactRef,
@@ -181,7 +182,7 @@ function isEnrolledEconomyStage(
 export function workshopLaneXAdmission(
   profile: WorkshopFixtureIdentity,
   fixture: WorkshopLaneXFixture,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
   economyClass: WorkshopEconomyStageClass = "FIXTURE_ECONOMY_DRAFT",
 ): If6bAdmission {
   const notice = fixture.noticeSource;

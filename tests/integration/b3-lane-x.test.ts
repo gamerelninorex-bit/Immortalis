@@ -193,6 +193,7 @@ describe("B3 Lane X with signed disposable owner sources", () => {
   it.each([
     "positive",
     "economy-forward",
+    "economy-forward-interrupted",
     "contrary",
     "c54-unresolved",
     "economy-withheld",
@@ -221,7 +222,9 @@ describe("B3 Lane X with signed disposable owner sources", () => {
       const earned = { unit: WORKSHOP_SECOND, value: 600 };
       const future = mode === "future-a" || mode === "future-b";
       const collision = mode.endsWith("same-instant-unresolved");
-      const interrupted = mode.startsWith("interrupted") || future || collision;
+      const interruptedChoice = mode.endsWith("interrupted");
+      const interrupted =
+        mode.startsWith("interrupted") || interruptedChoice || future || collision;
       const target = { ...earned, value: interrupted || mode === "c54-unresolved" ? 900 : 600 };
       const unknown = mode === "unknown-hearing" || mode === "interrupted-unknown";
       const contrary = mode === "contrary" || mode === "interrupted-contrary";
@@ -400,7 +403,7 @@ describe("B3 Lane X with signed disposable owner sources", () => {
             expect(store.head().revision).toBe(before);
           }
           const futureReads = future ? vi.spyOn(store.canonicalState!().facts, "get") : undefined;
-          const checkEconomy = n === 3 && mode === "economy-forward";
+          const checkEconomy = n === 3 && forward && !collision;
           const beforeEconomy = checkEconomy ? store.canonicalState!() : undefined;
           const first = advanceWorkshopWaitStage(store, x, signed.fixture.noticeSource);
           const second =
@@ -676,7 +679,7 @@ describe("B3 Lane X with signed disposable owner sources", () => {
           });
           const blank = "0".repeat(64);
           const before = store.head();
-          if (mode === "interrupted") {
+          if (interruptedChoice) {
             for (const [kind, change] of Object.entries({
               "stale-clock": {
                 clock: { ...opportunity.basis.clock, version: opportunity.basis.clock.version - 1 },

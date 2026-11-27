@@ -635,6 +635,12 @@ export interface GmWaitCustodyPolicy {
   readonly preparation: "NONE" | "FIXTURE";
   readonly if6b?: import("./temporal/if6b-stage.ts").If6bAdmission;
   readonly historyVerificationId: string;
+  /**
+   * The catalogue digest PAIRED with `historyVerificationId`. Set only by an admission whose workshop generation was selected
+   * (owners/workshop/generation.ts): a marker that states this identity must then state exactly this digest, so a retained digest
+   * of another generation cannot be paired with it. Unset, the marker's digest is checked against the retained list as before.
+   */
+  readonly catalogueSha256?: string;
   /** whether `owner` is a canonical or kernel owner (the fixture preparation must come from a non-canonical, synthetic owner) */
   readonly isCanonicalOwner: (owner: string) => boolean;
 }
@@ -804,6 +810,11 @@ function preparationViolation(
     return ctx.policy.if6b.preparation(marker, state)
       ? null
       : unqualified("IF-6b requires the original qualified preparation at its committing cut");
+  // a bound workshop lineage qualifies only through its own IF-6b preparation: no fall-through to the noncanonical fixture preparation
+  if (ctx.policy.if6b && ctx.policy.catalogueSha256 !== undefined)
+    return unqualified(
+      "a marker of a bound workshop lineage must record the lineage's own identity; the fixture preparation does not qualify it",
+    );
   const p: GmWaitPreparation = marker.preparation;
   const fact = state.facts.get(p.fact.key);
   if (
@@ -966,12 +977,23 @@ function markerCheck(
     );
   if (ctx.live) {
     if (
-      m.policy.catalogue_sha256 !== GM_WAIT_CATALOGUE_CURRENT_SHA256 ||
+      m.policy.catalogue_sha256 !==
+        (ctx.policy.catalogueSha256 ?? GM_WAIT_CATALOGUE_CURRENT_SHA256) ||
       m.policy.history_verification_id !== ctx.policy.historyVerificationId
     )
       return bad(
         "GM_WAIT_POLICY",
         "a new marker states the current catalogue and the verifier it is published under",
+      );
+  } else if (ctx.policy.catalogueSha256 !== undefined) {
+    // a bound workshop lineage: BOTH halves of the pair must be exactly the selected ones. There is no retained-digest-only fallback.
+    if (
+      m.policy.history_verification_id !== ctx.policy.historyVerificationId ||
+      m.policy.catalogue_sha256 !== ctx.policy.catalogueSha256
+    )
+      return bad(
+        "GM_WAIT_POLICY",
+        "the marker of a bound workshop lineage records exactly the identity and catalogue the lineage was selected under",
       );
   } else if (!GM_WAIT_CATALOGUE_RETAINED_SHA256.includes(m.policy.catalogue_sha256)) {
     return bad("GM_WAIT_POLICY", "the marker states a catalogue this build retains");

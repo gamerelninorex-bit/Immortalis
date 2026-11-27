@@ -89,7 +89,9 @@ interface Lock {
 const stateName = (revision: number) => `state.${String(revision).padStart(10, "0")}.json`;
 const seal = <T extends object>(m: T) => ({ ...m, self_sha256: sha256Canonical(m) });
 const policy = (o: FileCampaignOptions) =>
-  o.admission ? (o.admission.historyVerificationId ?? null) : "structural-v1";
+  o.admission
+    ? (o.admission.checkpointVerifierId ?? o.admission.historyVerificationId ?? null)
+    : "structural-v1";
 const coreOf = (
   m: Manifest | V2Manifest,
   o: FileCampaignOptions,
