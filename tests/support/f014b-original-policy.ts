@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CanonicalCampaign, GmWaitCustody, factKind, sha256Canonical } from "@immortalis/engine";
+import { fixtureMsEconomyForwardAdmission } from "../../packages/engine/src/owners/admission.ts";
 import { generateFixtureRunnerKeys } from "@immortalis/testkit";
 import {
   WORKSHOP_SECOND,
@@ -43,6 +44,10 @@ export const JOURNALS = {
   resumed: "lane-x-interrupted-resumed-900",
   b2: "b2-zero-stage-reconciled",
   b2Prior: "b2-zero-stage-reconciled-at-7281045",
+  b3eDraft: "b3e-draft-staged-seal-900",
+  b3eForward: "b3e-forward-staged-seal-900",
+  b3eDraftAwaiting: "b3e-draft-interrupted-awaiting-choice-900",
+  b3eForwardAwaiting: "b3e-forward-interrupted-awaiting-choice-900",
 } as const;
 export const LANE_X = [
   JOURNALS.active,
@@ -92,10 +97,15 @@ export function withoutCheckpoints(dir: string): string {
 }
 
 /** reopen a copy of a genuine Lane X journal under a build whose CURRENT generation is `generation` (default: this build's own) */
-export async function openGenuineLaneX(name: string, generation?: WorkshopGeneration) {
+export async function openGenuineLaneX(
+  name: string,
+  generation?: WorkshopGeneration,
+  forward?: true,
+) {
   const meta = metaOf(name);
   let signed!: ReturnType<typeof signedWorkshopLaneX>;
   const h2 = await openWorkshop("glassbell", {
+    ...(forward ? { laneXAdmission: fixtureMsEconomyForwardAdmission } : {}),
     fixedKeys: deterministicFixtureKeys(meta.keyDerivation.keyId),
     ...(generation
       ? {
@@ -108,7 +118,7 @@ export async function openGenuineLaneX(name: string, generation?: WorkshopGenera
         }
       : {}),
     laneX(k) {
-      signed = signedWorkshopLaneX(k, true);
+      signed = signedWorkshopLaneX(k, !forward);
       return signed.fixture;
     },
   });
@@ -132,6 +142,8 @@ export async function writeLaneXLineage(opts: {
    * permissive (the journal is hash-consistent and carries exactly the recorded G0 pair); only the historical verifier judges it.
    */
   readonly asG0?: true;
+  /** the Economy realized-access FORWARD constructor (#146) instead of the draft one */
+  readonly forward?: true;
   /** forge the pair the MARKER records, while the owner facts keep their own (marker forgery negatives) */
   readonly markerPair?: {
     readonly historyVerificationId?: string;
@@ -158,6 +170,7 @@ export async function writeLaneXLineage(opts: {
       (opts.asG0 ? WORKSHOP_G0_CATALOGUE_SHA256 : GM_WAIT_CATALOGUE_CURRENT_SHA256),
   });
   const h = await openWorkshop("glassbell", {
+    ...(opts.forward ? { laneXAdmission: fixtureMsEconomyForwardAdmission } : {}),
     fixedKeys: keys,
     ...(opts.generation ? { currentGeneration: opts.generation } : {}),
     ...(opts.asG0
@@ -170,7 +183,7 @@ export async function writeLaneXLineage(opts: {
       : {}),
     historyRef: pair,
     laneX(k) {
-      signed = signedWorkshopLaneX(k, true);
+      signed = signedWorkshopLaneX(k, !opts.forward);
       return signed.fixture;
     },
   });
@@ -243,9 +256,11 @@ export async function writeLaneXLineage(opts: {
 export async function reopenLaneXLineage(
   f: Awaited<ReturnType<typeof writeLaneXLineage>>,
   generation?: WorkshopGeneration,
+  forward?: true,
 ) {
   let signed!: ReturnType<typeof signedWorkshopLaneX>;
   const h2 = await openWorkshop("glassbell", {
+    ...(forward ? { laneXAdmission: fixtureMsEconomyForwardAdmission } : {}),
     fixedKeys: f.keys,
     ...(generation
       ? {
@@ -257,7 +272,7 @@ export async function reopenLaneXLineage(
         }
       : {}),
     laneX(k) {
-      signed = signedWorkshopLaneX(k, true);
+      signed = signedWorkshopLaneX(k, !forward);
       return signed.fixture;
     },
   });

@@ -52,6 +52,7 @@ import { workshopView } from "../../packages/engine/src/owners/workshop/publicat
 import { temporalGroupCheck } from "../../packages/engine/src/temporal/admission.ts";
 import { if6bSettlement } from "../../packages/engine/src/temporal/if6b-settlement.ts";
 import { IF6B_POLICY } from "../../packages/engine/src/temporal/if6b-stage.ts";
+import { fixtureMsEconomyForwardAdmission } from "../../packages/engine/src/owners/admission.ts";
 import { signedWorkshopLaneX } from "../support/b3-lane-x.ts";
 import { openWorkshop, openingPublication } from "../support/b3-opening.ts";
 import { must } from "../support/temporal.ts";
@@ -61,11 +62,13 @@ const QUIET = 200; // before the earliest indexed boundary (300) of the Lane X r
 const kernelRule = factKind("temporal_state").rule;
 
 /** The genuine Lane X IF-6b rig, taken exactly to OPEN, for a wait whose target is `value` workshop-seconds. */
-async function laneRig(value: number) {
+async function laneRig(value: number, forward = false) {
   let signed!: ReturnType<typeof signedWorkshopLaneX>;
   const h = await openWorkshop("glassbell", {
+    // B3-E: the same rig under the Economy realized-access FORWARD constructor (its own identity and class authority)
+    ...(forward ? { laneXAdmission: fixtureMsEconomyForwardAdmission } : {}),
     laneX(keys) {
-      signed = signedWorkshopLaneX(keys, true);
+      signed = signedWorkshopLaneX(keys, !forward);
       return signed.fixture;
     },
   });
@@ -156,85 +159,95 @@ const versions = (r: LaneRig) =>
   new Map(r.store.listFacts().map((f) => [f.key, f.version] as const));
 
 describe("G1 the quiet IF-6b seal: T94", () => {
-  it("seals a nothing-due wait: stored target, clock equals target, only the clock and the seal change, cold reopen, idempotent", async () => {
-    const r = await laneRig(QUIET);
-    try {
-      const { store, clock, x, target, h } = r;
-      const stored = GmWaitTransactionAuthoritySchema.parse(
-        store.getFact(temporalTransactionAuthorityKey(txOf(x)))!.value,
-      );
-      expect(stored.requested.target).toEqual(target); // the stored target, not the probe's constant
-      const state = store.canonicalState!();
-      const index = state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY)!;
-      const earliest = (index.value as any).entries[0].at.value;
-      expect(earliest).toBeGreaterThan(QUIET); // nothing at or before the target, derived from the index
-      const before = versions(r);
-      const sealed = await must(clock.sealOwn(x));
-      expect(sealed.slot).toBe("SEALED_UNRECONCILED");
-      // exactly two facts differ: the one clock, advanced one version, and the new seal
-      const after = versions(r);
-      const changed = [...after].filter(([k, v]) => before.get(k) !== v).map(([k]) => k);
-      expect(changed.sort()).toEqual([TEMPORAL_STATE_KEY, temporalTransactionKey(txOf(x))].sort());
-      expect(after.get(TEMPORAL_STATE_KEY)).toBe(before.get(TEMPORAL_STATE_KEY)! + 1);
-      expect(after.get(TEMPORAL_BOUNDARY_INDEX_KEY)).toBe(before.get(TEMPORAL_BOUNDARY_INDEX_KEY));
-      expect(store.getFact(TEMPORAL_BOUNDARY_INDEX_KEY)!.value).toEqual(index.value);
-      const seal = GmWaitStagedTransactionSchema.parse(
-        store.getFact(temporalTransactionKey(txOf(x)))!.value,
-      );
-      expect(seal.stages).toEqual([]);
-      expect(seal.engaged).toEqual([]);
-      expect(seal.boundaries_crossed).toEqual([]);
-      expect(seal.outcome).toEqual({
-        actual_stop: target,
-        stop_reason: "TARGET_REACHED",
-        remainder: null,
-        unresolved_dependents: [],
-      });
-      expect(TemporalStateSchema.parse(store.getFact(TEMPORAL_STATE_KEY)!.value)).toMatchObject({
-        canonical_time: target,
-        continuation: null,
-      });
-      // same identity again: the original receipt, nothing written
-      const head = store.head();
-      const again = await must(clock.sealOwn(x));
-      expect(again.replayed).toBe(true);
-      expect(again.receipt).toEqual(sealed.receipt);
-      expect(store.head()).toEqual(head);
-      // cold reopen from the retained journal: the exact head, the same slot, the same replay
-      await h.campaign.close();
-      const reopened = await must(h.reopen());
-      expect(reopened.store.head()).toEqual(head);
-      const cold = new GmWaitCustody(reopened.store, r.policy);
-      expect(cold.status(h.source.pc.id).state).toBe("SEALED_UNRECONCILED");
-      const replay = await must(cold.sealOwn(x));
-      expect(replay.replayed).toBe(true);
-      expect(replay.receipt).toEqual(sealed.receipt);
-    } finally {
-      await r.h.campaign.close().catch(() => undefined);
-    }
-  });
+  it.each([[false], [true]])(
+    "seals a nothing-due wait: stored target, clock equals target, only the clock and the seal change, cold reopen, idempotent  (Economy class: forward=%s)",
+    async (forward) => {
+      const r = await laneRig(QUIET, forward);
+      try {
+        const { store, clock, x, target, h } = r;
+        const stored = GmWaitTransactionAuthoritySchema.parse(
+          store.getFact(temporalTransactionAuthorityKey(txOf(x)))!.value,
+        );
+        expect(stored.requested.target).toEqual(target); // the stored target, not the probe's constant
+        const state = store.canonicalState!();
+        const index = state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY)!;
+        const earliest = (index.value as any).entries[0].at.value;
+        expect(earliest).toBeGreaterThan(QUIET); // nothing at or before the target, derived from the index
+        const before = versions(r);
+        const sealed = await must(clock.sealOwn(x));
+        expect(sealed.slot).toBe("SEALED_UNRECONCILED");
+        // exactly two facts differ: the one clock, advanced one version, and the new seal
+        const after = versions(r);
+        const changed = [...after].filter(([k, v]) => before.get(k) !== v).map(([k]) => k);
+        expect(changed.sort()).toEqual(
+          [TEMPORAL_STATE_KEY, temporalTransactionKey(txOf(x))].sort(),
+        );
+        expect(after.get(TEMPORAL_STATE_KEY)).toBe(before.get(TEMPORAL_STATE_KEY)! + 1);
+        expect(after.get(TEMPORAL_BOUNDARY_INDEX_KEY)).toBe(
+          before.get(TEMPORAL_BOUNDARY_INDEX_KEY),
+        );
+        expect(store.getFact(TEMPORAL_BOUNDARY_INDEX_KEY)!.value).toEqual(index.value);
+        const seal = GmWaitStagedTransactionSchema.parse(
+          store.getFact(temporalTransactionKey(txOf(x)))!.value,
+        );
+        expect(seal.stages).toEqual([]);
+        expect(seal.engaged).toEqual([]);
+        expect(seal.boundaries_crossed).toEqual([]);
+        expect(seal.outcome).toEqual({
+          actual_stop: target,
+          stop_reason: "TARGET_REACHED",
+          remainder: null,
+          unresolved_dependents: [],
+        });
+        expect(TemporalStateSchema.parse(store.getFact(TEMPORAL_STATE_KEY)!.value)).toMatchObject({
+          canonical_time: target,
+          continuation: null,
+        });
+        // same identity again: the original receipt, nothing written
+        const head = store.head();
+        const again = await must(clock.sealOwn(x));
+        expect(again.replayed).toBe(true);
+        expect(again.receipt).toEqual(sealed.receipt);
+        expect(store.head()).toEqual(head);
+        // cold reopen from the retained journal: the exact head, the same slot, the same replay
+        await h.campaign.close();
+        const reopened = await must(h.reopen());
+        expect(reopened.store.head()).toEqual(head);
+        const cold = new GmWaitCustody(reopened.store, r.policy);
+        expect(cold.status(h.source.pc.id).state).toBe("SEALED_UNRECONCILED");
+        const replay = await must(cold.sealOwn(x));
+        expect(replay.replayed).toBe(true);
+        expect(replay.receipt).toEqual(sealed.receipt);
+      } finally {
+        await r.h.campaign.close().catch(() => undefined);
+      }
+    },
+  );
 
-  it("is the same two-write seal as the original zero-stage seal: no extra write, no extra read key", async () => {
-    const r = await laneRig(QUIET);
-    const legacy = await seededRig(tempDir());
-    try {
-      await must(r.clock.sealOwn(r.x));
-      const quiet = r.store.committedGroup(
-        r.store.getFact(temporalTransactionKey(txOf(r.x)))!.provenance.intent_id,
-      )!;
-      const { x } = await lifecycle(legacy, "seal");
-      const old = legacy.store.committedGroup(
-        legacy.store.getFact(temporalTransactionKey(txOf(x)))!.provenance.intent_id,
-      )!;
-      expect(quiet.writes.map((w) => w.key).sort()).toEqual(old.writes.map((w) => w.key).sort());
-      expect(quiet.writes).toHaveLength(2);
-      expect(quiet.reads.length).toBe(old.reads.length);
-      expect(quiet.depends_on.length).toBe(old.depends_on.length);
-    } finally {
-      await r.h.campaign.close().catch(() => undefined);
-      await legacy.campaign.close().catch(() => undefined);
-    }
-  });
+  it.each([[false], [true]])(
+    "is the same two-write seal as the original zero-stage seal: no extra write, no extra read key  (Economy class: forward=%s)",
+    async (forward) => {
+      const r = await laneRig(QUIET, forward);
+      const legacy = await seededRig(tempDir());
+      try {
+        await must(r.clock.sealOwn(r.x));
+        const quiet = r.store.committedGroup(
+          r.store.getFact(temporalTransactionKey(txOf(r.x)))!.provenance.intent_id,
+        )!;
+        const { x } = await lifecycle(legacy, "seal");
+        const old = legacy.store.committedGroup(
+          legacy.store.getFact(temporalTransactionKey(txOf(x)))!.provenance.intent_id,
+        )!;
+        expect(quiet.writes.map((w) => w.key).sort()).toEqual(old.writes.map((w) => w.key).sort());
+        expect(quiet.writes).toHaveLength(2);
+        expect(quiet.reads.length).toBe(old.reads.length);
+        expect(quiet.depends_on.length).toBe(old.depends_on.length);
+      } finally {
+        await r.h.campaign.close().catch(() => undefined);
+        await legacy.campaign.close().catch(() => undefined);
+      }
+    },
+  );
 });
 
 describe("G1 something due, or no proof of nothing due, never seals as quiet", () => {
@@ -380,47 +393,53 @@ describe("G1 something due, or no proof of nothing due, never seals as quiet", (
 });
 
 describe("G1 history identity: the old identity refuses, byte for byte", () => {
-  it("carries the segment immediately before the terminal IF-6b segment; no other identity gains it", async () => {
-    const r = await laneRig(QUIET);
-    try {
-      expect(
-        r.policy.historyVerificationId.endsWith(
-          GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY,
-        ),
-      ).toBe(true);
-      expect(GM_WAIT_IF6B_QUIET_SEAL_SEGMENT).toBe("+G1-QUIET-SEAL-V1@2026-11-26T23:55:57.797Z");
-      expect(fixtureCanonicalAdmission.historyVerificationId).not.toContain("G1-QUIET-SEAL");
-    } finally {
-      await r.h.campaign.close().catch(() => undefined);
-    }
-  });
-
-  it("refuses the same quiet seal under an identity without the segment, or with it misplaced, in builder and admission", async () => {
-    const r = await laneRig(QUIET);
-    try {
-      const state = r.store.canonicalState!();
-      const built = gmWait.buildSealGroup(state.facts, r.x, kernelRule, state);
-      expect(built.ok).toBe(true);
-      if (!built.ok) return;
-      expect(temporalGroupCheck(built.value, state, ctxOf(r))).toBeNull(); // the genuine identity admits it
-      const identity = r.policy.historyVerificationId;
-      const old = identity.replace(GM_WAIT_IF6B_QUIET_SEAL_SEGMENT, "");
-      const misplaced = GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + old;
-      for (const [name, id] of [
-        ["old identity", old],
-        ["segment misplaced", misplaced],
-      ] as const) {
-        const bad = withIdentity(r, state, id);
-        const viaBuilder = gmWait.buildSealGroup(bad.facts, r.x, kernelRule, bad);
-        expect(viaBuilder.ok, name).toBe(false);
-        expect(temporalGroupCheck(built.value, bad, ctxOf(r)), name).toMatchObject({
-          details: { reason: "GM_WAIT_SEAL" },
-        });
+  it.each([[false], [true]])(
+    "carries the segment immediately before the terminal IF-6b segment; no other identity gains it  (Economy class: forward=%s)",
+    async (forward) => {
+      const r = await laneRig(QUIET, forward);
+      try {
+        expect(
+          r.policy.historyVerificationId.endsWith(
+            GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY,
+          ),
+        ).toBe(true);
+        expect(GM_WAIT_IF6B_QUIET_SEAL_SEGMENT).toBe("+G1-QUIET-SEAL-V1@2026-11-26T23:55:57.797Z");
+        expect(fixtureCanonicalAdmission.historyVerificationId).not.toContain("G1-QUIET-SEAL");
+      } finally {
+        await r.h.campaign.close().catch(() => undefined);
       }
-    } finally {
-      await r.h.campaign.close().catch(() => undefined);
-    }
-  });
+    },
+  );
+
+  it.each([[false], [true]])(
+    "refuses the same quiet seal under an identity without the segment, or with it misplaced, in builder and admission  (Economy class: forward=%s)",
+    async (forward) => {
+      const r = await laneRig(QUIET, forward);
+      try {
+        const state = r.store.canonicalState!();
+        const built = gmWait.buildSealGroup(state.facts, r.x, kernelRule, state);
+        expect(built.ok).toBe(true);
+        if (!built.ok) return;
+        expect(temporalGroupCheck(built.value, state, ctxOf(r))).toBeNull(); // the genuine identity admits it
+        const identity = r.policy.historyVerificationId;
+        const old = identity.replace(GM_WAIT_IF6B_QUIET_SEAL_SEGMENT, "");
+        const misplaced = GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + old;
+        for (const [name, id] of [
+          ["old identity", old],
+          ["segment misplaced", misplaced],
+        ] as const) {
+          const bad = withIdentity(r, state, id);
+          const viaBuilder = gmWait.buildSealGroup(bad.facts, r.x, kernelRule, bad);
+          expect(viaBuilder.ok, name).toBe(false);
+          expect(temporalGroupCheck(built.value, bad, ctxOf(r)), name).toMatchObject({
+            details: { reason: "GM_WAIT_SEAL" },
+          });
+        }
+      } finally {
+        await r.h.campaign.close().catch(() => undefined);
+      }
+    },
+  );
 });
 
 describe("G1 a quiet seal cannot be forged, widened or turned into another outcome", () => {
@@ -555,42 +574,45 @@ describe("G1 T95 hidden-schedule twins", () => {
 });
 
 describe("G1 the quiet aftermath", () => {
-  it("reconciles a quiet seal, only that seal, and survives a cold reopen", async () => {
-    const r = await laneRig(QUIET);
-    try {
-      const { store, clock, x, h, proof } = r;
-      const marker = GmWaitMarkerSchema.parse(store.getFact(temporalGmWaitMarkerKey(x))!.value);
-      const lane = workshopLaneXAdmission(
-        h.profile,
-        r.signed.fixture,
-        r.policy.historyVerificationId,
-      );
-      const unsealed = store.canonicalState!();
-      expect(lane.permitsReconcile!(marker, unsealed)).toBe(false); // ACTIVE: no seal yet
-      // ordinary staged seals still wait for their owner aftermath: nothing is reconcilable before the seal
-      expect(await clock.reconcile(proof)).toMatchObject({ ok: false });
-      await must(clock.sealOwn(x));
-      const sealed = store.canonicalState!();
-      expect(lane.permitsReconcile!(marker, sealed)).toBe(true);
-      // custody always hands over the marker of the state; under the old identity the very same quiet seal is not reconcilable
-      const old = r.policy.historyVerificationId.replace(GM_WAIT_IF6B_QUIET_SEAL_SEGMENT, "");
-      const oldMarker = { ...marker, policy: { ...marker.policy, history_verification_id: old } };
-      expect(lane.permitsReconcile!(oldMarker, withIdentity(r, sealed, old))).toBe(false);
-      const done = await must(clock.reconcile(proof));
-      expect(done.slot).toBe("SEALED_RECONCILED");
-      const head = store.head();
-      expect((await must(clock.reconcile(proof))).replayed).toBe(true);
-      expect(store.head()).toEqual(head);
-      await h.campaign.close();
-      const reopened = await must(h.reopen());
-      expect(reopened.store.head()).toEqual(head);
-      expect(new GmWaitCustody(reopened.store, r.policy).status(h.source.pc.id).state).toBe(
-        "SEALED_RECONCILED",
-      );
-    } finally {
-      await r.h.campaign.close().catch(() => undefined);
-    }
-  });
+  it.each([[false], [true]])(
+    "reconciles a quiet seal, only that seal, and survives a cold reopen  (Economy class: forward=%s)",
+    async (forward) => {
+      const r = await laneRig(QUIET, forward);
+      try {
+        const { store, clock, x, h, proof } = r;
+        const marker = GmWaitMarkerSchema.parse(store.getFact(temporalGmWaitMarkerKey(x))!.value);
+        const lane = workshopLaneXAdmission(
+          h.profile,
+          r.signed.fixture,
+          r.policy.historyVerificationId,
+        );
+        const unsealed = store.canonicalState!();
+        expect(lane.permitsReconcile!(marker, unsealed)).toBe(false); // ACTIVE: no seal yet
+        // ordinary staged seals still wait for their owner aftermath: nothing is reconcilable before the seal
+        expect(await clock.reconcile(proof)).toMatchObject({ ok: false });
+        await must(clock.sealOwn(x));
+        const sealed = store.canonicalState!();
+        expect(lane.permitsReconcile!(marker, sealed)).toBe(true);
+        // custody always hands over the marker of the state; under the old identity the very same quiet seal is not reconcilable
+        const old = r.policy.historyVerificationId.replace(GM_WAIT_IF6B_QUIET_SEAL_SEGMENT, "");
+        const oldMarker = { ...marker, policy: { ...marker.policy, history_verification_id: old } };
+        expect(lane.permitsReconcile!(oldMarker, withIdentity(r, sealed, old))).toBe(false);
+        const done = await must(clock.reconcile(proof));
+        expect(done.slot).toBe("SEALED_RECONCILED");
+        const head = store.head();
+        expect((await must(clock.reconcile(proof))).replayed).toBe(true);
+        expect(store.head()).toEqual(head);
+        await h.campaign.close();
+        const reopened = await must(h.reopen());
+        expect(reopened.store.head()).toEqual(head);
+        expect(new GmWaitCustody(reopened.store, r.policy).status(h.source.pc.id).state).toBe(
+          "SEALED_RECONCILED",
+        );
+      } finally {
+        await r.h.campaign.close().catch(() => undefined);
+      }
+    },
+  );
 
   // KNOWN BLOCKER (BLUE brief "Quiet aftermath", RED C-2 / C-5): characterisation, not a requirement. The existing World-State owner terminal
   // (R-5(2) SETTLED_NOT_OCCURRED) derives, but the W2 stage-claim rule refuses it: its dependency names the Temporal reconcile group and
