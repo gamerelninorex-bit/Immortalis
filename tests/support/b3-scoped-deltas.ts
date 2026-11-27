@@ -16,7 +16,7 @@ export const B3_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "1501192935ccdea4f0403eceda8d8a85938cd843bb3c4eed30e45288896ac422",
+    head: "abffde2e25a077266fe84c022454b1b67239d886c0c2ddabf91555b3873f4ec6",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",
@@ -30,6 +30,7 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/gm-wait-catalogue/manifests/04069ddf4ad84c183066366e34a6c8735b94a1e0eda278dfce3d6f53537cb97a.json",
   "packages/engine/gm-wait-catalogue/manifests/265c74a18ad9f0898ae079189b20b7e24b06bcb58c90798de1f3d6473bea08d3.json",
   "packages/engine/gm-wait-catalogue/manifests/3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd.json",
+  "packages/engine/gm-wait-catalogue/manifests/4e0665b0d9c4c316976a7b9ac5986d22ec890ffc4b7f8e387a2df1b251ce967d.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
   "packages/engine/gm-wait-catalogue/manifests/81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d.json",
   "packages/engine/src/commit/campaign-core.ts",

@@ -6,6 +6,7 @@ import { workshopGroupCheck, workshopTemporalHistoryCheck } from "./workshop/adm
 import { workshopFixtureIdentity, type WorkshopFixtureIdentity } from "./workshop/source.ts";
 import {
   FACET_WORLD_INITIAL_SETUP,
+  GM_WAIT_IF6B_QUIET_SEAL_SEGMENT,
   INITIAL_SETUP_FACT_KIND_IDS,
   EXISTING_ACTOR_HANDOVER,
   ExistenceContractSchema,
@@ -558,6 +559,8 @@ function buildCanonicalAdmission(
       (laneX.choiceSource
         ? "+B3-CHOICE:" + sha256Canonical(laneX.choiceSource.verificationId)
         : "") +
+      // G1: the ordinary quiet seal exists only under this segment, which sits immediately before the terminal IF-6b segment.
+      GM_WAIT_IF6B_QUIET_SEAL_SEGMENT +
       "+" +
       IF6B_POLICY
     : workshopHistoryId;

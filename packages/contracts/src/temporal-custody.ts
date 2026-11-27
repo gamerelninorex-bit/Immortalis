@@ -298,13 +298,20 @@ export type GmWaitResolutionTransaction = z.infer<typeof GmWaitResolutionTransac
 
 /** Prospective IF-6b, with the original B2 zero-stage schema retained separately. */
 export const GM_WAIT_IF6B_POLICY = "F-014B-IF-6b-D2-AD5@2026-11-23T11:42:34.869Z";
+/**
+ * G1: the distinct prospective history segment under which an IF-6b wait may end in the ORDINARY quiet seal (R-5(2) TARGET_REACHED with
+ * nothing due and no credited stage). It sits immediately before the terminal `+IF6B_POLICY` segment of the history identity, so every
+ * identity that does not carry it refuses that seal and every earlier history replays unchanged. Pinned to BLUE's G1 brief (native pin).
+ */
+export const GM_WAIT_IF6B_QUIET_SEAL_SEGMENT = "+G1-QUIET-SEAL-V1@2026-11-26T23:55:57.797Z";
 export const GmWaitStagedTransactionSchema = z
   .strictObject({
     ...GmWaitResolutionTransactionSchema.shape,
     stage_policy: z.literal(GM_WAIT_IF6B_POLICY),
     engaged: ResolutionTransactionSchema.shape.engaged,
     boundaries_crossed: ResolutionTransactionSchema.shape.boundaries_crossed,
-    stages: z.array(StageRecordSchema).min(1),
+    // A zero-stage staged seal is the quiet target seal only (refined below); whether a given history may carry it is custody's decision.
+    stages: z.array(StageRecordSchema),
     rule_versions: ResolutionTransactionSchema.shape.rule_versions,
     outcome: z.union([
       GmWaitResolutionTransactionSchema.shape.outcome,
@@ -328,6 +335,17 @@ export const GmWaitStagedTransactionSchema = z
     void stage_policy;
     const outcome = t.outcome;
     const interrupted = outcome.stop_reason === "INTERRUPTED";
+    if (
+      t.stages.length === 0 &&
+      (interrupted || t.engaged.length > 0 || t.boundaries_crossed.length > 0)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "a seal without owner stages is the quiet target seal: it engages no object and crosses no boundary",
+        path: ["stages"],
+      });
+    }
     if (interrupted) {
       const event = outcome.interruption;
       if (

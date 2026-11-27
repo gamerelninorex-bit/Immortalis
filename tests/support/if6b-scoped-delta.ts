@@ -5,13 +5,13 @@ export const IF6B_ENGINE_SHA256 =
   "1b08002314846f77252d9512fa8e633c84852bf6d31fbf334c025087167fef53";
 export const IF6B_SETTLEMENT_PATH = "packages/engine/src/temporal/if6b-settlement.ts";
 export const IF6B_SETTLEMENT_SHA256 =
-  "d2cb6a9c0ce253287b7621a338805c35b541056b37454f142783a180dcf6f7d1";
+  "555c0312b48c407232ff24b31b7f804716d51f63f448b18c7883a9708d439ba5";
 export const IF6B_SHARED_DELTAS: Readonly<
   Record<string, { readonly base: string; readonly head: string }>
 > = {
   "packages/contracts/src/temporal-custody.ts": {
     base: "549da088bd33c78c471832f1e20dde0c4395e907933b5da02a78236a264f14f8",
-    head: "6965e250dbdb0b02b77545e8c1b597ad8bacd46852cd985b0b004c3ff58e61c7",
+    head: "375f767cc2040c7b68d7474320af13ba0068160cb0d192c9bb8ff3971e6c7acc",
   },
   "packages/engine/src/commit/campaign-core.ts": {
     base: "41c21034ec40099d606c8672db4e84edf6dfdd4b3221ae3d3d8b8898945d07fc",
