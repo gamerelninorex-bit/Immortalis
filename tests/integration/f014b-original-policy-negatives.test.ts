@@ -5,13 +5,24 @@
 // the honest admission. A negative therefore proves the resolver's own rule, not a broken hash. Each negative has a positive control that differs
 // only in the thing being forged.
 import { describe, expect, it } from "vitest";
-import { CanonicalCampaign, sha256Canonical } from "@immortalis/engine";
+import {
+  CanonicalCampaign,
+  GmWaitCustody,
+  StageProviderRegistry,
+  TemporalCoordinator,
+  factKind,
+  sha256Canonical,
+} from "@immortalis/engine";
 import { generateFixtureRunnerKeys } from "@immortalis/testkit";
 import {
   WorkshopDutySchema,
   workshopCharterKey,
 } from "../../packages/contracts/src/workshop-opening.ts";
+import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
+import { temporalGmWaitMarkerKey } from "@immortalis/contracts";
 import { gmWaitX } from "../../packages/engine/src/gm-wait-identity.ts";
+import { advanceWorkshopWaitStage } from "../../packages/engine/src/owners/workshop/lane-x.ts";
+import { resumeWorkshopWait } from "../../packages/engine/src/owners/workshop/wait-decision.ts";
 import {
   WORKSHOP_G0_CATALOGUE_SHA256,
   type WorkshopHistoryRef,
@@ -26,9 +37,11 @@ import {
   SUCCESSOR,
   headKey,
   openGenuineLaneX,
+  reopenLaneXLineage,
+  writeLaneXLineage,
   withoutCheckpoints,
 } from "../support/f014b-original-policy.ts";
-import { copyPackage, journalOf, manifestOf } from "./b2-support.ts";
+import { copyPackage, journalOf, manifestOf, proofOf } from "./b2-support.ts";
 
 type Pair = (admissionId: string) => WorkshopHistoryRef;
 const permissive = <T extends { check: unknown }>(admission: T): T => ({
@@ -228,5 +241,145 @@ describe("a recorded original-policy lineage is replay-only: historical selectio
     }));
     expect(reasonOf(r.result)).toBe("WORKSHOP_ORIGINAL_POLICY_REPLAY_ONLY");
     expect(r.after).toEqual(r.before);
+  });
+});
+
+describe("an original-policy lineage refuses novel custody, stage, clock and seal mutations; exact retries stay inert", () => {
+  // The default build: its history identity STRING equals the journals' (the recipe did not change) but its catalogue does not, so a string
+  // comparison would call these journals current. The guard decides by candidate (identity AND catalogue).
+  const refusedByGuard = (r: { ok: boolean; error?: unknown } | undefined) =>
+    !!r &&
+    !r.ok &&
+    (r.error as { details?: { reason?: string } } | undefined)?.details?.reason ===
+      "WORKSHOP_ORIGINAL_POLICY_REPLAY_ONLY";
+
+  it("the genuine ACTIVE journal has nothing due: its strings equal the build's, its catalogue does not, and nothing novel moves", async () => {
+    const { meta, h2, signed, opened } = await openGenuineLaneX(JOURNALS.active);
+    expect(opened.ok, JSON.stringify(opened.ok ? null : opened.error)).toBe(true);
+    if (!opened.ok) return;
+    const store = opened.value.store;
+    expect(h2.admission.historyVerificationId).toBe(meta.historyVerificationId); // the strings ARE equal
+    expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).not.toBe(meta.catalogueSha256); // the catalogues are not
+    const before = headKey(store.head());
+    const stage = await advanceWorkshopWaitStage(store, meta.x, signed.fixture.noticeSource);
+    expect(stage.status).toBe("READY_TO_SEAL"); // target 200: no owner stage is due, and the base has no quiet seal
+    const clock = new GmWaitCustody(store, {
+      catalogueSha256: meta.catalogueSha256,
+      historyVerificationId: meta.historyVerificationId,
+      kernelRule: factKind("temporal_state").rule,
+    });
+    expect((await clock.sealOwn(meta.x)).ok).toBe(false);
+    expect(headKey(store.head())).toEqual(before);
+    await opened.value.close();
+    await h2.campaign.close();
+  });
+
+  for (const [label, generation] of [
+    [
+      "under this build, whose history string equals the lineage's but whose catalogue differs",
+      undefined,
+    ],
+    ["under a successor build, whose history string also differs", SUCCESSOR],
+  ] as const) {
+    it(`refuses a novel owner stage of a recorded ACTIVE wait that has one due, ${label}, and moves nothing`, async () => {
+      // written with the frozen G0 pair (two of five stages done), then reopened by the build under test
+      const f = await writeLaneXLineage({ advance: 2, asG0: true });
+      expect(f.slot).toBe("ACTIVE");
+      const { h2, signed, opened } = await reopenLaneXLineage(f, generation);
+      expect(opened.ok, JSON.stringify(opened.ok ? null : opened.error)).toBe(true);
+      if (!opened.ok) return;
+      const store = opened.value.store;
+      const before = headKey(store.head());
+      const stage = await advanceWorkshopWaitStage(store, f.x, signed.fixture.noticeSource);
+      expect(stage.status).toBe("STAGE");
+      if (stage.status === "STAGE") {
+        expect(stage.result.ok).toBe(false);
+        // with equal strings the W2 stage witness PASSES, so only the replay-only guard stops it; with a successor the witness already refuses
+        if (!generation)
+          expect(refusedByGuard(stage.result), JSON.stringify(stage.result)).toBe(true);
+      }
+      expect(headKey(store.head())).toEqual(before);
+      await opened.value.close();
+      await h2.campaign.close();
+    });
+  }
+
+  it("refuses a novel reconcile of a recorded SEALED_UNRECONCILED wait, and moves nothing", async () => {
+    const { meta, h2, opened } = await openGenuineLaneX(JOURNALS.staged);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const store = opened.value.store;
+    const clock = new GmWaitCustody(store, {
+      catalogueSha256: meta.catalogueSha256,
+      historyVerificationId: meta.historyVerificationId,
+      kernelRule: factKind("temporal_state").rule,
+    });
+    const before = headKey(store.head());
+    const r = await clock.reconcile(proofOf());
+    expect(refusedByGuard(r), JSON.stringify(r.ok ? "committed" : r.error)).toBe(true);
+    expect(headKey(store.head())).toEqual(before);
+    await opened.value.close();
+    await h2.campaign.close();
+  });
+
+  it("an exact recorded retry of the seal and of the resume stays inert on the INTERRUPTED journal", async () => {
+    const { meta, h2, signed, opened } = await openGenuineLaneX(JOURNALS.resumed);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const store = opened.value.store;
+    const clock = new GmWaitCustody(store, {
+      catalogueSha256: meta.catalogueSha256,
+      historyVerificationId: meta.historyVerificationId,
+      kernelRule: factKind("temporal_state").rule,
+    });
+    const before = headKey(store.head());
+    const seal = await clock.sealOwn(meta.x);
+    expect(seal.ok && seal.value.replayed).toBe(true);
+    const resume = await resumeWorkshopWait(
+      store,
+      new TemporalCoordinator(store, new StageProviderRegistry()),
+      meta.x,
+      meta.choiceRef,
+      signed.fixture.choiceSource,
+    );
+    expect(resume?.ok).toBe(true);
+    expect(headKey(store.head())).toEqual(before);
+    await opened.value.close();
+    await h2.campaign.close();
+  });
+});
+
+describe("the marker of a bound workshop lineage records exactly the selected identity AND catalogue (no retained-digest-only fallback)", () => {
+  const markerRevision = (dir: string, x: string) =>
+    journalOf(dir).find((e) => e.group.writes.some((w) => w.key === temporalGmWaitMarkerKey(x)))!
+      .revision;
+  const cases = [
+    [
+      "a RETAINED catalogue of another generation (valid on its own, wrong for this lineage)",
+      { catalogueSha256: GM_WAIT_CATALOGUE_CURRENT_SHA256 },
+    ],
+    ["an unknown catalogue digest", { catalogueSha256: "cd".repeat(32) }],
+  ] as const;
+  for (const [label, markerPair] of cases) {
+    it(`refuses a marker recording ${label}, hash-consistent`, async () => {
+      // the lineage is the frozen G0 pair; this build's CURRENT catalogue differs, so the marker's digest is retained yet not G0's
+      const f = await writeLaneXLineage({ advance: 0, asG0: true, markerPair });
+      const { h2, opened } = await reopenLaneXLineage(f);
+      expect(opened.ok).toBe(false);
+      if (!opened.ok) {
+        expect(opened.error.code).toBe("REPLAY_MISMATCH");
+        expect((opened.error.details as { revision: number }).revision).toBe(
+          markerRevision(f.dir, f.x),
+        );
+      }
+      await h2.campaign.close();
+    });
+  }
+  it("control: the same lineage with the exact pair replays", async () => {
+    const f = await writeLaneXLineage({ advance: 0, asG0: true });
+    const { h2, opened } = await reopenLaneXLineage(f);
+    expect(opened.ok, JSON.stringify(opened.ok ? null : opened.error)).toBe(true);
+    if (opened.ok) await opened.value.close();
+    await h2.campaign.close();
   });
 });

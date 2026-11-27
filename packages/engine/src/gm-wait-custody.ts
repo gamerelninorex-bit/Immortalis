@@ -810,6 +810,11 @@ function preparationViolation(
     return ctx.policy.if6b.preparation(marker, state)
       ? null
       : unqualified("IF-6b requires the original qualified preparation at its committing cut");
+  // a bound workshop lineage qualifies only through its own IF-6b preparation: no fall-through to the noncanonical fixture preparation
+  if (ctx.policy.if6b && ctx.policy.catalogueSha256 !== undefined)
+    return unqualified(
+      "a marker of a bound workshop lineage must record the lineage's own identity; the fixture preparation does not qualify it",
+    );
   const p: GmWaitPreparation = marker.preparation;
   const fact = state.facts.get(p.fact.key);
   if (
@@ -980,14 +985,15 @@ function markerCheck(
         "GM_WAIT_POLICY",
         "a new marker states the current catalogue and the verifier it is published under",
       );
-  } else if (
-    ctx.policy.catalogueSha256 !== undefined &&
-    m.policy.history_verification_id === ctx.policy.historyVerificationId
-  ) {
-    if (m.policy.catalogue_sha256 !== ctx.policy.catalogueSha256)
+  } else if (ctx.policy.catalogueSha256 !== undefined) {
+    // a bound workshop lineage: BOTH halves of the pair must be exactly the selected ones. There is no retained-digest-only fallback.
+    if (
+      m.policy.history_verification_id !== ctx.policy.historyVerificationId ||
+      m.policy.catalogue_sha256 !== ctx.policy.catalogueSha256
+    )
       return bad(
         "GM_WAIT_POLICY",
-        "the marker states a catalogue other than the one paired with the verifier it records",
+        "the marker of a bound workshop lineage records exactly the identity and catalogue the lineage was selected under",
       );
   } else if (!GM_WAIT_CATALOGUE_RETAINED_SHA256.includes(m.policy.catalogue_sha256)) {
     return bad("GM_WAIT_POLICY", "the marker states a catalogue this build retains");

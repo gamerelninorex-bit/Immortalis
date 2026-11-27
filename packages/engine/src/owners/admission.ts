@@ -618,6 +618,13 @@ function buildCanonicalAdmission(
     return ctx.if6b ? installIf6b(view, ctx.if6b) : view;
   };
   const touchesWorkshop = workshopBearing;
+  // F-014B (BLUE F3): the replay-only guard also covers a GM wait's own stage, clock, seal, reconcile and choice writes: a group that writes
+  // custody keys, or whose cause or dependencies name an X
+  const X_NAME = /gm-wait[-a-z]*:(?:gm-wait:)?[0-9a-f]{64}$/;
+  const namesGmWait = (group: CommitGroup) =>
+    gmWaitIsCustodyGroup(group) ||
+    X_NAME.test(group.cause) ||
+    group.depends_on.some((id) => X_NAME.test(id));
   // the context (and the identity-bearing view the fence reads) a REPLAYED group is judged under; the current one unless its lineage is bound to a historical generation
   const judgedFor = (group: CommitGroup, state: CampaignState) => {
     const lineage = workshop ? bindWorkshopLineage(candidates, group, state) : undefined;
@@ -691,7 +698,7 @@ function buildCanonicalAdmission(
       if (w2) return w2;
       // F-014B replay prerequisite: an original-policy lineage is replay-only. Only the CURRENT generation takes a live write, so
       // historical selection can neither grant what a later generation introduced nor mix generations inside one lineage.
-      if (workshop && touchesWorkshop(group)) {
+      if (workshop && (touchesWorkshop(group) || namesGmWait(group))) {
         const lineage = bindWorkshopLineage(candidates, group, state);
         if (lineage.status === "UNKNOWN")
           return reject(

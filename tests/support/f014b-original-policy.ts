@@ -2,7 +2,21 @@
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CanonicalCampaign } from "@immortalis/engine";
+import { CanonicalCampaign, GmWaitCustody, factKind, sha256Canonical } from "@immortalis/engine";
+import { generateFixtureRunnerKeys } from "@immortalis/testkit";
+import {
+  WORKSHOP_SECOND,
+  WorkshopDutySchema,
+  WorkshopNoticeEnrolmentSchema,
+} from "../../packages/contracts/src/workshop-opening.ts";
+import { WORKSHOP_G0_CATALOGUE_SHA256 } from "../../packages/engine/src/owners/workshop/generation.ts";
+import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
+import { gmWaitX } from "../../packages/engine/src/gm-wait-identity.ts";
+import { advanceWorkshopWaitStage } from "../../packages/engine/src/owners/workshop/lane-x.ts";
+import { WorkshopNoticeAdapter } from "../../packages/engine/src/owners/workshop/notice-publication.ts";
+import { workshopNoticeTemporalObject } from "../../packages/engine/src/owners/workshop/notice-temporal.ts";
+import { workshopView } from "../../packages/engine/src/owners/workshop/publication.ts";
+import { must } from "./temporal.ts";
 import {
   composeWorkshopIdentity,
   type WorkshopGeneration,
@@ -10,9 +24,9 @@ import {
 } from "../../packages/engine/src/owners/workshop/generation.ts";
 import { IF6B_POLICY } from "../../packages/engine/src/temporal/if6b-stage.ts";
 import { signedWorkshopLaneX, type RetainedLaneXAuthorizations } from "./b3-lane-x.ts";
-import { openWorkshop } from "./b3-opening.ts";
+import { openWorkshop, openingPublication } from "./b3-opening.ts";
 import { deterministicFixtureKeys } from "./deterministic-keys.ts";
-import { copyPackage } from "../integration/b2-support.ts";
+import { copyPackage, proofOf } from "../integration/b2-support.ts";
 
 export const FIX = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -100,4 +114,141 @@ export async function openGenuineLaneX(name: string, generation?: WorkshopGenera
     testkitFixtureAdmission: h2.admission,
   });
   return { meta, h2, signed, opened, dir };
+}
+
+/**
+ * Writes a Lane X lineage THIS build's own way (the evidence generator's flow, target 900): the marker and OPEN, then `advance` owner stages
+ * (a number) or all of them plus the GM seal ("seal"). With `generation` the build stands that generation in as CURRENT and publishes under its pair.
+ */
+export async function writeLaneXLineage(opts: {
+  readonly advance: number | "seal";
+  readonly generation?: WorkshopGeneration;
+  /**
+   * Publish under the frozen G0 pair although this build's CURRENT catalogue moved. The live admission refuses that by design, so the writer is
+   * permissive (the journal is hash-consistent and carries exactly the recorded G0 pair); only the historical verifier judges it.
+   */
+  readonly asG0?: true;
+  /** forge the pair the MARKER records, while the owner facts keep their own (marker forgery negatives) */
+  readonly markerPair?: {
+    readonly historyVerificationId?: string;
+    readonly catalogueSha256?: string;
+  };
+}) {
+  const keys = deterministicFixtureKeys(generateFixtureRunnerKeys().keyId);
+  let signed!: ReturnType<typeof signedWorkshopLaneX>;
+  const pair = (id: string) => ({
+    historyId: id,
+    catalogueSha256:
+      opts.generation?.catalogueSha256 ??
+      (opts.asG0 ? WORKSHOP_G0_CATALOGUE_SHA256 : GM_WAIT_CATALOGUE_CURRENT_SHA256),
+  });
+  const h = await openWorkshop("glassbell", {
+    fixedKeys: keys,
+    ...(opts.generation ? { currentGeneration: opts.generation } : {}),
+    ...(opts.asG0
+      ? {
+          admissionOverride: <T extends { check: unknown }>(a: T): T => ({
+            ...a,
+            check: () => null,
+          }),
+        }
+      : {}),
+    historyRef: pair,
+    laneX(k) {
+      signed = signedWorkshopLaneX(k, true);
+      return signed.fixture;
+    },
+  });
+  const store = h.campaign.store;
+  const id = h.admission.historyVerificationId!;
+  const clock = new GmWaitCustody(store, {
+    catalogueSha256: opts.markerPair?.catalogueSha256 ?? pair(id).catalogueSha256,
+    historyVerificationId: opts.markerPair?.historyVerificationId ?? id,
+    kernelRule: factKind("temporal_state").rule,
+  });
+  const duty = store.listFacts().find((f) => WorkshopDutySchema.safeParse(f.value).success)!;
+  const publisher = new WorkshopNoticeAdapter(store, pair(id), signed.fixture.noticeSource);
+  const x = (gmWaitX("session-original-1", "1") as { x: string }).x;
+  const proof = proofOf();
+  const root = signed.authorize(workshopView(store), x, duty.key);
+  const enrolled = await must(publisher.enrol(x, duty.key)!);
+  const enrolment = store
+    .listFacts()
+    .find(
+      (f) =>
+        f.provenance.group_id === enrolled.receipt.group_id &&
+        WorkshopNoticeEnrolmentSchema.safeParse(f.value).success,
+    )!;
+  await must(
+    h.register.registerObject({
+      ...openingPublication("notice-object"),
+      object: workshopNoticeTemporalObject(
+        enrolment,
+        store.getFact(h.charterInput.production_operation)!,
+      )!,
+    }),
+  );
+  await must(
+    clock.publishMarker({
+      proof,
+      initialRequestSha256: root,
+      request: {
+        cause: "fixture:addressed-notice",
+        triggerRef: "fixture:request",
+        target: { unit: WORKSHOP_SECOND, value: 900 },
+        publication: { basis: "fixture-basis", secrecy: "fixture-sealed" },
+      },
+      preparation: {
+        kind: "OWNER_PENDING_ENROLMENT" as const,
+        owner: enrolment.owner,
+        fact: {
+          key: enrolment.key,
+          version: enrolment.version,
+          group_id: enrolment.provenance.group_id,
+        },
+        digest: sha256Canonical(enrolment.value),
+      },
+    }),
+  );
+  await must(clock.open(proof));
+  const limit = opts.advance === "seal" ? 14 : opts.advance;
+  for (let n = 0; n < limit; n++) {
+    const stage = await advanceWorkshopWaitStage(store, x, signed.fixture.noticeSource);
+    if (stage.status !== "STAGE" || !stage.result.ok) break;
+  }
+  if (opts.advance === "seal") await must(clock.sealOwn(x));
+  const head = store.head();
+  const dir = h.dir as string;
+  const slot = clock.status(h.source.pc.id).state;
+  await h.campaign.close();
+  return { keys, signed, head, dir, x, slot, pc: h.source.pc.id };
+}
+
+/** reopen a lineage written by `writeLaneXLineage` under a build whose CURRENT generation is `generation` (default: this build's own) */
+export async function reopenLaneXLineage(
+  f: Awaited<ReturnType<typeof writeLaneXLineage>>,
+  generation?: WorkshopGeneration,
+) {
+  let signed!: ReturnType<typeof signedWorkshopLaneX>;
+  const h2 = await openWorkshop("glassbell", {
+    fixedKeys: f.keys,
+    ...(generation
+      ? {
+          currentGeneration: generation,
+          historyRef: (id: string) => ({
+            historyId: id,
+            catalogueSha256: generation.catalogueSha256,
+          }),
+        }
+      : {}),
+    laneX(k) {
+      signed = signedWorkshopLaneX(k, true);
+      return signed.fixture;
+    },
+  });
+  signed.importAuthorizations(f.signed.exportAuthorizations());
+  const opened = await CanonicalCampaign.open(withoutCheckpoints(copyPackage(f.dir)), {
+    testkitFixtureAdmission: h2.admission,
+  });
+  return { h2, signed, opened };
 }
