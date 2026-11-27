@@ -1,5 +1,6 @@
 import { workshopStageGroup } from "./publication.ts";
 // World-State is the sole owner of notice enrolment, reservation and occurrence.
+import type { WorkshopHistoryRef } from "./generation.ts";
 import {
   FACET_WORLD_LOCUS,
   GmWaitByPcIndexSchema,
@@ -91,7 +92,7 @@ export function deriveNoticeEnrolment(
   view: WorkshopView,
   x: string,
   dutyKey: string,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
   source: WorkshopNoticeSource | undefined,
 ): CommitGroup | undefined {
   const present = workshopNoticePresentBasis(view, dutyKey);

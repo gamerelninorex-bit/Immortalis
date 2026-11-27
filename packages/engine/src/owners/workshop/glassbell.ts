@@ -1,4 +1,5 @@
 // World-State owns objective workshop exposure.
+import type { WorkshopHistoryRef } from "./generation.ts";
 import {
   FACET_WORLD_LOCUS,
   OWNER_WORLD_STATE,
@@ -63,7 +64,7 @@ export function workshopHost(view: WorkshopView) {
 export function deriveWorkshopExposure(
   view: WorkshopView,
   profile: WorkshopFixtureIdentity,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ) {
   const subject = workshopHost(view);
   const clock = workshopClock(view);

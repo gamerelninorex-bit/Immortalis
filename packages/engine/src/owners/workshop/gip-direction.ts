@@ -1,4 +1,5 @@
 // Government, Institutions & Politics owns the charter and instruction.
+import type { WorkshopHistoryRef } from "./generation.ts";
 import {
   InstitutionIdentitySchema,
   NamedActorExistenceBasisSchema,
@@ -66,7 +67,7 @@ export function deriveWorkshopCharter(
   view: WorkshopView,
   inputs: WorkshopCharterInputs,
   profile: WorkshopFixtureIdentity,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ): CommitGroup | undefined {
   const institution = view.get(inputs.institution);
   const office = view.get(inputs.office);
@@ -209,7 +210,7 @@ export function deriveWorkshopCharter(
 
 export function deriveWorkshopInstruction(
   view: WorkshopView,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ): CommitGroup | undefined {
   const charter = view.get(workshopCharterKey(view.campaign_id));
   const parsed = WorkshopCharterSchema.safeParse(charter?.value);

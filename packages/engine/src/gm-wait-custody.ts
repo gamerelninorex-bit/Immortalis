@@ -635,6 +635,12 @@ export interface GmWaitCustodyPolicy {
   readonly preparation: "NONE" | "FIXTURE";
   readonly if6b?: import("./temporal/if6b-stage.ts").If6bAdmission;
   readonly historyVerificationId: string;
+  /**
+   * The catalogue digest PAIRED with `historyVerificationId`. Set only by an admission whose workshop generation was selected
+   * (owners/workshop/generation.ts): a marker that states this identity must then state exactly this digest, so a retained digest
+   * of another generation cannot be paired with it. Unset, the marker's digest is checked against the retained list as before.
+   */
+  readonly catalogueSha256?: string;
   /** whether `owner` is a canonical or kernel owner (the fixture preparation must come from a non-canonical, synthetic owner) */
   readonly isCanonicalOwner: (owner: string) => boolean;
 }
@@ -966,12 +972,22 @@ function markerCheck(
     );
   if (ctx.live) {
     if (
-      m.policy.catalogue_sha256 !== GM_WAIT_CATALOGUE_CURRENT_SHA256 ||
+      m.policy.catalogue_sha256 !==
+        (ctx.policy.catalogueSha256 ?? GM_WAIT_CATALOGUE_CURRENT_SHA256) ||
       m.policy.history_verification_id !== ctx.policy.historyVerificationId
     )
       return bad(
         "GM_WAIT_POLICY",
         "a new marker states the current catalogue and the verifier it is published under",
+      );
+  } else if (
+    ctx.policy.catalogueSha256 !== undefined &&
+    m.policy.history_verification_id === ctx.policy.historyVerificationId
+  ) {
+    if (m.policy.catalogue_sha256 !== ctx.policy.catalogueSha256)
+      return bad(
+        "GM_WAIT_POLICY",
+        "the marker states a catalogue other than the one paired with the verifier it records",
       );
   } else if (!GM_WAIT_CATALOGUE_RETAINED_SHA256.includes(m.policy.catalogue_sha256)) {
     return bad("GM_WAIT_POLICY", "the marker states a catalogue this build retains");

@@ -1,4 +1,5 @@
 // Named Actor owns the original seeded standing duty.
+import type { WorkshopHistoryRef } from "./generation.ts";
 import {
   FACET_ACTOR_PROFILE,
   NamedActorExistenceBasisSchema,
@@ -29,7 +30,7 @@ export function deriveWorkshopDuty(
   view: WorkshopView,
   instructionKey: string,
   profile: WorkshopFixtureIdentity,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ) {
   const instruction = view.get(instructionKey);
   const issued = WorkshopInstructionSchema.safeParse(instruction?.value);

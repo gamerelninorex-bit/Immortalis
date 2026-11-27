@@ -2,7 +2,19 @@ import { IF6B_POLICY, installIf6b } from "../temporal/if6b-stage.ts";
 import { workshopLaneXAdmission, type WorkshopLaneXFixture } from "./workshop/lane-x.ts";
 import { resolveWorkshopKey, withWorkshopRegistry } from "./workshop/registry.ts";
 import type { WorkshopNoticeSource } from "./workshop/notice-publication.ts";
-import { workshopGroupCheck, workshopTemporalHistoryCheck } from "./workshop/admission.ts";
+import {
+  workshopBearing,
+  workshopGroupCheck,
+  workshopTemporalHistoryCheck,
+} from "./workshop/admission.ts";
+import {
+  workshopCandidates,
+  workshopCurrentGeneration,
+  type WorkshopGeneration,
+  type WorkshopGenerationCandidate,
+  type WorkshopIdentityInputs,
+} from "./workshop/generation.ts";
+import { bindWorkshopLineage } from "./workshop/lineage.ts";
 import { workshopFixtureIdentity, type WorkshopFixtureIdentity } from "./workshop/source.ts";
 import {
   FACET_WORLD_INITIAL_SETUP,
@@ -544,34 +556,68 @@ function buildCanonicalAdmission(
   workshop?: WorkshopFixtureIdentity,
   noticeSource?: WorkshopNoticeSource,
   laneX?: WorkshopLaneXFixture,
+  currentGeneration?: WorkshopGeneration,
 ): WriteAdmission {
   // Compose the merged S-4 policy first, then A01, then CAL-TIME T-1 and the MS clock-origin segments, then F-014B B2: the GM-wait
   // custody / W2 verifier. Each is a new historical validator, so each is a separately distinguishable appended segment, and any
   // checkpoint earned before one is replayed strictly once.
   const historyVerificationId = `R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1${idSuffix}${MS_HISTORY_POLICY_SUFFIX}${FREIGHT_HISTORY_POLICY_SUFFIX}${PC_LEDGER_HISTORY_POLICY_SUFFIX}+POPULATION-STAGE-AUTHORITY-V2${CAL_TIME_T1_HISTORY_POLICY_SEGMENT}${MS_V3_CLOCK_ORIGIN_HISTORY_POLICY_SEGMENT}${GM_WAIT_W2_HISTORY_POLICY_SEGMENT}`;
-  const workshopHistoryId = workshop
-    ? `${historyVerificationId}+B3-WORKSHOP-OWNER-V1:${workshop.sha256}${noticeSource ? `:${noticeSource.verificationId}` : ""}`
-    : historyVerificationId;
-  const selectedHistoryId = laneX
-    ? workshopHistoryId +
-      (laneX.economyDraft ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1" : "") +
-      (laneX.choiceSource
-        ? "+B3-CHOICE:" + sha256Canonical(laneX.choiceSource.verificationId)
-        : "") +
-      "+" +
-      IF6B_POLICY
-    : workshopHistoryId;
-  // F-014B B2: what qualifies a marker's original-owner preparation. The production admission qualifies NONE (D3(b) is not adopted, so
-  // no pending enrolment and no authorized quiet variant can exist); only the TESTKIT-ONLY fixture admission qualifies a synthetic one.
-  const if6b =
-    workshop && laneX ? workshopLaneXAdmission(workshop, laneX, selectedHistoryId) : undefined;
-  const custody: GmWaitCustodyPolicy = {
-    ...(if6b ? { if6b } : {}),
-    preparation: policy.syntheticEvidence === "REQUIRE" ? "FIXTURE" : "NONE",
-    historyVerificationId: selectedHistoryId,
-    isCanonicalOwner: (owner) =>
-      CANONICAL_OWNER_REGISTRY.has(owner) || (workshop !== undefined && owner === "health"),
+  // F-014B replay prerequisite: the workshop segment of the identity is spelled by a generation recipe (owners/workshop/generation.ts).
+  // CURRENT is the generation this build writes new history under and it supplies the checkpoint-cache identity below; the
+  // historical set is frozen. A recorded lineage is judged under the generation its committed charter recomputes to.
+  const workshopInputs: WorkshopIdentityInputs | undefined = workshop
+    ? {
+        base: historyVerificationId,
+        profileSha256: workshop.sha256,
+        ...(noticeSource ? { noticeVerificationId: noticeSource.verificationId } : {}),
+        ...(laneX
+          ? {
+              laneX: {
+                economyDraft: laneX.economyDraft === true,
+                ...(laneX.choiceSource
+                  ? { choiceSha256: sha256Canonical(laneX.choiceSource.verificationId) }
+                  : {}),
+              },
+            }
+          : {}),
+      }
+    : undefined;
+  const candidates = workshopInputs
+    ? workshopCandidates(
+        workshopInputs,
+        currentGeneration ?? workshopCurrentGeneration(IF6B_POLICY),
+      )
+    : [];
+  const currentCandidate = candidates[0];
+  const selectedHistoryId = currentCandidate?.binding.historyId ?? historyVerificationId;
+  // one judging context per candidate: its identity, its custody policy and its IF-6b runtime close over THAT generation only
+  const contextOf = (candidate: WorkshopGenerationCandidate | undefined) => {
+    const binding = candidate?.binding;
+    const id = binding?.historyId ?? historyVerificationId;
+    // F-014B B2: what qualifies a marker's original-owner preparation. The production admission qualifies NONE (D3(b) is not adopted, so
+    // no pending enrolment and no authorized quiet variant can exist); only the TESTKIT-ONLY fixture admission qualifies a synthetic one.
+    const if6b =
+      workshop && laneX && binding ? workshopLaneXAdmission(workshop, laneX, binding) : undefined;
+    const custody: GmWaitCustodyPolicy = {
+      ...(if6b ? { if6b } : {}),
+      preparation: policy.syntheticEvidence === "REQUIRE" ? "FIXTURE" : "NONE",
+      historyVerificationId: id,
+      ...(binding ? { catalogueSha256: binding.catalogueSha256 } : {}),
+      isCanonicalOwner: (owner) =>
+        CANONICAL_OWNER_REGISTRY.has(owner) || (workshop !== undefined && owner === "health"),
+    };
+    return { binding, custody, if6b, id };
   };
+  const currentContext = contextOf(currentCandidate);
+  const custody = currentContext.custody;
+  const if6b = currentContext.if6b;
+  const historicalContexts = new Map(candidates.slice(1).map((c) => [c, contextOf(c)] as const));
+  // the identity (and IF-6b runtime) a historical group is fenced under: only these two fields are read by the W2 fence
+  const judgingView = (ctx: ReturnType<typeof contextOf>) => {
+    const view = { historyVerificationId: ctx.id };
+    return ctx.if6b ? installIf6b(view, ctx.if6b) : view;
+  };
+  const touchesWorkshop = workshopBearing;
   const admission: WriteAdmission = {
     initializeView(state, checked) {
       initializeMsFence(state, checked);
@@ -587,13 +633,32 @@ function buildCanonicalAdmission(
     // verifier must change this identity (and force strict replay): see the composition above.
     historyVerificationId: selectedHistoryId,
     verifyHistorical(group, state) {
+      // F-014B replay prerequisite: a workshop lineage is judged under the ORIGINAL generation its committed charter recomputes to.
+      const lineage = workshop ? bindWorkshopLineage(candidates, group, state) : undefined;
+      if (lineage?.status === "UNKNOWN" && touchesWorkshop(group))
+        return reject(
+          "REFERENCE_INVALID",
+          "the recorded workshop policy is not a supported original generation",
+          { reason: "WORKSHOP_GENERATION_UNKNOWN" },
+        );
+      const judged =
+        lineage?.status === "BOUND"
+          ? (historicalContexts.get(lineage.candidate) ?? currentContext)
+          : currentContext;
+      const judgedAdmission = judged === currentContext ? admission : judgingView(judged);
       return (
         msFenceCheck(group, state) ??
         // F-014B B2 W2: the common fence and the custody transitions are judged at the ACTUAL incremental prestate, before any legacy
         // canonical dispatch. A group that touches no custody fact and meets no ACTIVE wait returns null here at once.
-        gmWaitFenceViolation(group, gmWaitFenceOf(state), admission, false, state) ??
-        gmWaitCustodyCheck(group, state, { policy: custody, live: false }) ??
-        workshopGroupCheck(group, state, workshop, selectedHistoryId, noticeSource) ??
+        gmWaitFenceViolation(group, gmWaitFenceOf(state), judgedAdmission, false, state) ??
+        gmWaitCustodyCheck(group, state, { policy: judged.custody, live: false }) ??
+        workshopGroupCheck(
+          group,
+          state,
+          workshop,
+          judged.binding ?? selectedHistoryId,
+          noticeSource,
+        ) ??
         workshopTemporalHistoryCheck(group, state, workshop) ??
         msActorGroupCheck(group, state) ??
         // A01: every close, including an earlier one later overwritten, earns authority at its actual pre-state.
@@ -615,7 +680,27 @@ function buildCanonicalAdmission(
       // F-014B B2 W2: the common fence runs before every key, value and owner rule, for every owner including the extension owners.
       const w2 = gmWaitFenceViolation(group, gmWaitFenceOf(state), admission, true, state);
       if (w2) return w2;
-      const b3 = workshopGroupCheck(group, state, workshop, selectedHistoryId, noticeSource);
+      // F-014B replay prerequisite: an original-policy lineage is replay-only. Only the CURRENT generation takes a live write, so
+      // historical selection can neither grant what a later generation introduced nor mix generations inside one lineage.
+      if (workshop && touchesWorkshop(group)) {
+        const lineage = bindWorkshopLineage(candidates, group, state);
+        if (
+          lineage.status === "UNKNOWN" ||
+          (lineage.status === "BOUND" && lineage.candidate !== currentCandidate)
+        )
+          return reject(
+            "REFERENCE_INVALID",
+            "a lineage chartered under an original policy is replay-only: no new live workshop write is admitted under it",
+            { reason: "WORKSHOP_ORIGINAL_POLICY_REPLAY_ONLY" },
+          );
+      }
+      const b3 = workshopGroupCheck(
+        group,
+        state,
+        workshop,
+        currentCandidate?.binding ?? selectedHistoryId,
+        noticeSource,
+      );
       if (b3 !== undefined) return b3;
       const b3Temporal = workshopTemporalHistoryCheck(group, state, workshop);
       if (b3Temporal) return b3Temporal;
@@ -844,6 +929,8 @@ export function fixtureMsCanonicalAdmission(
   workshopProfileBytes?: Uint8Array,
   noticeSource?: WorkshopNoticeSource,
   laneX?: WorkshopLaneXFixture,
+  /** TESTKIT ONLY: stands a successor generation in as CURRENT, so a build with a successor can be exercised before one exists. */
+  currentGeneration?: WorkshopGeneration,
 ): WriteAdmission {
   const workshop =
     workshopProfileBytes === undefined ? undefined : workshopFixtureIdentity(workshopProfileBytes);
@@ -853,6 +940,7 @@ export function fixtureMsCanonicalAdmission(
     workshop,
     laneX?.noticeSource ?? noticeSource,
     laneX,
+    currentGeneration,
   );
   return workshop ? withWorkshopRegistry(admission, workshop.campaignId) : admission;
 }

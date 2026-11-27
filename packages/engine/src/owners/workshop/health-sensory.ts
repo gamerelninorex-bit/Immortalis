@@ -1,5 +1,6 @@
 import { workshopSealedCut } from "./publication.ts";
 // Health owns the Glassbell condition, its recovery and event-specific auditory assessment.
+import { workshopHistoryIdOf, type WorkshopHistoryRef } from "./generation.ts";
 import {
   READ_MODE_NOW,
   OWNER_WORLD_STATE,
@@ -72,7 +73,7 @@ export function workshopRecoveryBoundary(exposure: CanonicalTime): CanonicalTime
 export function deriveWorkshopCondition(
   view: WorkshopView,
   profile: WorkshopFixtureIdentity,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ) {
   const subject = workshopHost(view);
   const clock = workshopClock(view);
@@ -296,7 +297,7 @@ function healthSources(
 export function deriveWorkshopAnchor(
   view: WorkshopView,
   profile: WorkshopFixtureIdentity,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ) {
   const subject = workshopHost(view);
   const clock = workshopClock(view);
@@ -359,7 +360,7 @@ export function deriveWorkshopClose(
   occurrenceKey: string,
   anchorKey: string | undefined,
   profile: WorkshopFixtureIdentity,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ) {
   const subject = workshopHost(view);
   const occurrence = view.get(occurrenceKey);
@@ -378,7 +379,7 @@ export function deriveWorkshopClose(
     event.data.pc_id !== subject.pc ||
     event.data.locus_id !== subject.locusId ||
     event.data.world_id !== subject.worldId ||
-    event.data.policy.history_verification_id !== historyId ||
+    event.data.policy.history_verification_id !== workshopHistoryIdOf(historyId) ||
     !timeAtOrBefore(clock.at, event.data.at) ||
     occurrence.owner !== OWNER_WORLD_STATE ||
     occurrence.version !== 1 ||

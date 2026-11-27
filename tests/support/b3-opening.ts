@@ -84,6 +84,10 @@ export async function openWorkshop(
       input: Parameters<WorkshopGipAdapter["adoptCharter"]>[0],
     ) => void;
     readonly beforeLedger?: (attempt: () => Promise<unknown>) => Promise<void>;
+    readonly fixedKeys?: unknown;
+    readonly currentGeneration?: NonNullable<
+      NonNullable<Parameters<typeof msHarness>[0]>["workshop"]
+    >["currentGeneration"];
   } = {},
 ) {
   const bytes = workshopRawProfile(mode);
@@ -94,6 +98,7 @@ export async function openWorkshop(
   const locus_id = source.locus.locus_id;
   const ids = { pc_id, world_id, locus_id };
   const h = await msHarness({
+    ...(opts.fixedKeys ? { fixedKeys: opts.fixedKeys } : {}),
     actors: {
       kind: "ACTOR_PRODUCER_REQUIRED",
       constraints: [source.attendant_leaf],
@@ -104,6 +109,7 @@ export async function openWorkshop(
       profileBytes: bytes,
       campaignId: profile.campaignId,
       ...(opts.laneX ? { laneX: opts.laneX } : {}),
+      ...(opts.currentGeneration ? { currentGeneration: opts.currentGeneration } : {}),
       async open(admission) {
         const dir = tempDir();
         const campaign = await must(

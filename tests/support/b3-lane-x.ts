@@ -19,6 +19,29 @@ import {
   WorkshopNoticeOccurrenceSchema,
 } from "../../packages/contracts/src/workshop-opening.ts";
 
+/** TEST-ONLY: the retained original authorizations of a signed Lane X owner (public bodies and signatures; never a key). */
+export interface RetainedLaneXAuthorizations {
+  readonly proofs: readonly {
+    readonly x: string;
+    readonly signed: { readonly bytes: string; readonly signature: string };
+    readonly exact: unknown;
+    readonly rootRequestSha256: string;
+    readonly proposalSha256: string;
+    readonly t0WitnessSha256: string;
+  }[];
+  readonly delivered: {
+    readonly body: { readonly bytes: string; readonly signature: string };
+    readonly refs: unknown;
+    readonly occurrence: unknown;
+    readonly host: string;
+  } | null;
+  readonly choices: readonly {
+    readonly ref: string;
+    readonly bytes: string;
+    readonly signature: string;
+  }[];
+}
+
 export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true) {
   const privateKey = createPrivateKey({
     key: Buffer.from(keys.privateKeyPkcs8Base64, "base64"),
@@ -201,6 +224,57 @@ export function signedWorkshopLaneX(keys: FixtureRunnerKeys, economyDraft = true
         occurrence: exact,
         host: event.pc_id,
       };
+    },
+    /** TEST-ONLY retention (replay evidence): the original signed authorizations as PUBLIC bodies and signatures; never a key. */
+    exportAuthorizations(): RetainedLaneXAuthorizations {
+      const enc = (b: Buffer) => b.toString("base64");
+      return {
+        proofs: [...proofs.entries()].map(([x, p]) => ({
+          x,
+          signed: { bytes: enc(p.signed.bytes), signature: enc(p.signed.signature) },
+          exact: p.exact,
+          rootRequestSha256: p.rootRequestSha256,
+          proposalSha256: p.proposalSha256,
+          t0WitnessSha256: p.t0WitnessSha256,
+        })),
+        delivered: delivered
+          ? {
+              body: { bytes: enc(delivered.body.bytes), signature: enc(delivered.body.signature) },
+              refs: delivered.refs,
+              occurrence: delivered.occurrence,
+              host: delivered.host,
+            }
+          : null,
+        choices: [...choices.entries()].map(([ref, c]) => ({
+          ref,
+          bytes: enc(c.bytes),
+          signature: enc(c.signature),
+        })),
+      };
+    },
+    importAuthorizations(data: RetainedLaneXAuthorizations) {
+      const dec = (t: string) => Buffer.from(t, "base64");
+      for (const p of data.proofs)
+        proofs.set(p.x, {
+          signed: { bytes: dec(p.signed.bytes), signature: dec(p.signed.signature) },
+          refs: [],
+          exact: p.exact,
+          rootRequestSha256: p.rootRequestSha256,
+          proposalSha256: p.proposalSha256,
+          t0WitnessSha256: p.t0WitnessSha256,
+        } as never);
+      if (data.delivered)
+        delivered = {
+          body: {
+            bytes: dec(data.delivered.body.bytes),
+            signature: dec(data.delivered.body.signature),
+          },
+          refs: data.delivered.refs,
+          occurrence: data.delivered.occurrence,
+          host: data.delivered.host,
+        } as never;
+      for (const c of data.choices)
+        choices.set(c.ref, { bytes: dec(c.bytes), signature: dec(c.signature) } as never);
     },
   };
 }
