@@ -2,12 +2,12 @@ import { constants } from "node:fs";
 import { open, realpath, type FileHandle } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { canonicalJson, Sha256, z } from "@immortalis/contracts";
-import { sha256Bytes } from "../initial-setup/identity.ts";
+import { sha256Bytes } from "../src/initial-setup/identity.ts";
 import {
   WorkshopProductionMessageSchema,
   type WorkshopRetainedOriginals,
-} from "../owners/workshop/production-auth.ts";
-import { nodeFs } from "../persistence/fs-ops.ts";
+} from "../src/owners/workshop/production-auth.ts";
+import { nodeFs } from "../src/persistence/fs-ops.ts";
 
 const ArchiveV1Schema = z.strictObject({
   version: z.literal(1),

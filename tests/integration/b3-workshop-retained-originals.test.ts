@@ -26,7 +26,7 @@ import {
   openWorkshopArchive,
   publishWorkshopArchive,
   WorkshopArchiveError,
-} from "../../packages/engine/src/host-storage/workshop-retained-originals.ts";
+} from "../../packages/engine/host-storage/workshop-retained-originals.ts";
 import { sha256Bytes } from "../../packages/engine/src/initial-setup/identity.ts";
 import {
   createWorkshopAuthentication,
