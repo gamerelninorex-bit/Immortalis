@@ -16,11 +16,11 @@ export const B3_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "1501192935ccdea4f0403eceda8d8a85938cd843bb3c4eed30e45288896ac422",
+    head: "0d5b8570c1cd17e880a81e11177720b5a74c76631f0340d4f1c6209e4b6d6bb3",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",
-    head: "3206b49d2171835cf895d03dccb7ddf68d65a351c1ce5f22bed8d420c9f78225",
+    head: "4543320f7ac0b89cbae37fb89bd136a2bedf0ba074257d33cb14dfc856fa7d28",
   },
 };
 
@@ -30,6 +30,7 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/gm-wait-catalogue/manifests/04069ddf4ad84c183066366e34a6c8735b94a1e0eda278dfce3d6f53537cb97a.json",
   "packages/engine/gm-wait-catalogue/manifests/265c74a18ad9f0898ae079189b20b7e24b06bcb58c90798de1f3d6473bea08d3.json",
   "packages/engine/gm-wait-catalogue/manifests/3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd.json",
+  "packages/engine/gm-wait-catalogue/manifests/43d8fe033d135fe504e8328559ddb40b161ede724753fa3c42a04156f72f044a.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
   "packages/engine/gm-wait-catalogue/manifests/81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d.json",
   "packages/engine/src/commit/campaign-core.ts",
@@ -43,10 +44,12 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/src/owners/workshop/admission.ts",
   "packages/engine/src/owners/workshop/epistemic-notice.ts",
   "packages/engine/src/owners/workshop/gip-direction.ts",
+  "packages/engine/src/owners/workshop/generation.ts",
   "packages/engine/src/owners/workshop/glassbell.ts",
   "packages/engine/src/owners/workshop/health-sensory.ts",
   "packages/engine/src/owners/workshop/index.ts",
   "packages/engine/src/owners/workshop/lane-x.ts",
+  "packages/engine/src/owners/workshop/lineage.ts",
   "packages/engine/src/owners/workshop/notice-publication.ts",
   "packages/engine/src/owners/workshop/notice-qualification.ts",
   "packages/engine/src/owners/workshop/notice-temporal.ts",

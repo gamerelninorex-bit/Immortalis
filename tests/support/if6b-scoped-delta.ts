@@ -15,7 +15,7 @@ export const IF6B_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/commit/campaign-core.ts": {
     base: "41c21034ec40099d606c8672db4e84edf6dfdd4b3221ae3d3d8b8898945d07fc",
-    head: "68dd0e0c31c63ff8cbdf6e010d565c358913b45d8358853b44c8ce9a7486fdbd",
+    head: "841976a79cf8a530106f88aac083ade1f5edb2860d1b3b27dcff66b721029787",
   },
   "packages/engine/src/economy/integrity.ts": {
     base: "4a5735aecccb687b8268fb859e377287550af161bfe54035491b650afcb3a029",
@@ -23,7 +23,7 @@ export const IF6B_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-custody.ts": {
     base: "ae884c3cf10c9270f5243368c6fa38ce370d04f888a08165df4de1de752ff0b2",
-    head: "fc770652cd6d8e0965e30bd52b9a2b45f123b844ac5ba003099edd6c55860b4b",
+    head: "2ccd536ec618491b0ebb8d6ddbdc8d320277577140e890f9551e5b603dc65b35",
   },
   "packages/engine/src/production/admission.ts": {
     base: "643166b1a7a3cb1df6fec2b22aefa1a2967145a2f31041b3cbe6dc470bbf5989",

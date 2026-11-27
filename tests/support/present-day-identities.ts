@@ -16,7 +16,7 @@ export const PRESENT_DAY_CODE_IDENTITIES: Readonly<Record<string, string>> = {
   "packages/engine/src/index.ts":
     "6d99c68407b6d15b01c06cb7ba62d14b4068986d130f6eef95d35410b8e6c19b",
   "packages/engine/src/owners/admission.ts":
-    "8276cd4e6f2d816e33d1d43d9aad0ca56c271a0950180a350bce0b2300a23d28",
+    "7f1926f3c04b39dabec1058eceaf28959bb14ddee037cd8f41526821a527ccad",
   "packages/engine/src/referee/adapter.ts":
     "366444215f6558c8a407407b86a8a2332560e5093640ab30830d116e39a74314",
   "packages/engine/src/referee/admission.ts":

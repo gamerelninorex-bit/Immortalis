@@ -116,7 +116,11 @@ export class WorkshopGlassbellAdapter {
   readonly #store: CampaignStore;
   readonly #profile: WorkshopFixtureIdentity;
   readonly #historyId: WorkshopHistoryRef;
-  constructor(store: CampaignStore, profile: WorkshopFixtureIdentity, historyId: WorkshopHistoryRef) {
+  constructor(
+    store: CampaignStore,
+    profile: WorkshopFixtureIdentity,
+    historyId: WorkshopHistoryRef,
+  ) {
     this.#store = store;
     this.#profile = profile;
     this.#historyId = historyId;

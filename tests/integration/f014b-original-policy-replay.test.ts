@@ -8,9 +8,8 @@
 // workshop history identity and a different catalogue digest. The real #146 / #148 factors are rehearsed on an isolated combination branch
 // (see the PR description); this file proves the mechanism they plug into.
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CanonicalCampaign,
@@ -34,17 +33,15 @@ import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-w
 import {
   WORKSHOP_G0_CATALOGUE_SHA256,
   WORKSHOP_GENERATION_G0,
-  composeWorkshopIdentity,
   workshopCandidates,
   workshopCurrentGeneration,
   type WorkshopGeneration,
-  type WorkshopIdentityInputs,
 } from "../../packages/engine/src/owners/workshop/generation.ts";
 import { workshopFixtureIdentity } from "../../packages/engine/src/owners/workshop/source.ts";
 import { workshopView } from "../../packages/engine/src/owners/workshop/publication.ts";
 import { resumeWorkshopWait } from "../../packages/engine/src/owners/workshop/wait-decision.ts";
 import { IF6B_POLICY } from "../../packages/engine/src/temporal/if6b-stage.ts";
-import { signedWorkshopLaneX, type RetainedLaneXAuthorizations } from "../support/b3-lane-x.ts";
+import { signedWorkshopLaneX } from "../support/b3-lane-x.ts";
 import { openWorkshop, openingPublication, workshopRawProfile } from "../support/b3-opening.ts";
 import { must } from "../support/temporal.ts";
 import { deterministicFixtureKeys } from "../support/deterministic-keys.ts";
@@ -121,11 +118,14 @@ describe("the generation registry is finite and exact", () => {
     );
   });
 
-  it("the candidate set is G0 plus the current generation, collapsed when they are the same pair", async () => {
+  it("the candidate set is the current generation plus G0: this build's catalogue moved, its workshop identity recipe did not", async () => {
     const { inputs } = await inputsOf(JOURNALS.staged);
     const today = workshopCandidates(inputs, workshopCurrentGeneration(IF6B_POLICY));
-    expect(today.map((c) => c.id)).toEqual(["CURRENT"]);
+    expect(today.map((c) => c.id)).toEqual(["CURRENT", "G0"]);
     expect(today[0]!.binding.catalogueSha256).toBe(GM_WAIT_CATALOGUE_CURRENT_SHA256);
+    expect(today[1]!.binding.catalogueSha256).toBe(WORKSHOP_G0_CATALOGUE_SHA256);
+    expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).not.toBe(WORKSHOP_G0_CATALOGUE_SHA256);
+    expect(today[0]!.binding.historyId).toBe(today[1]!.binding.historyId);
     const withSuccessor = workshopCandidates(inputs, SUCCESSOR);
     expect(withSuccessor.map((c) => c.id)).toEqual(["SYNTHETIC-SUCCESSOR", "G0"]);
     expect(new Set(withSuccessor.map((c) => c.binding.historyId)).size).toBe(2);
