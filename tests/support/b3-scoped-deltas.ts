@@ -16,7 +16,7 @@ export const B3_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "e6ea99187afaf4764df59b2404f9a4e090fe3beafafaf6d639ee0b86452c11c0",
+    head: "e6ced2224139830254c1e9fb82e79458fbae4511611923baaeca1b495619bd3e",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",

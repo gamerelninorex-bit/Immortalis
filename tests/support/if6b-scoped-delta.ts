@@ -6,8 +6,12 @@ export const IF6B_ENGINE_SHA256 =
 export const B3_E_BASE_COMMIT = "d311bcff7d6e9b4a2b5d8ba4a3bcaafd42224323";
 /** The accepted, merged B3-E (#146) head: the immutable end of its slice census. */
 export const B3_E_HEAD_COMMIT = "7f2b806245486532fdcbb3444239c5c1ad5a6f96";
+/** if6b-stage.ts exactly as the accepted B3-E head left it (immutable; checked against the commit itself). */
 export const B3_E_IF6B_ENGINE_SHA256 =
   "8fa2f234790cd65c121161a3df5aeee1c24ee29789fef7d0e7397f61effa95c1";
+/** if6b-stage.ts at G1 (#148): the forward-class identity check also accepts the G1 segment between the forward segment and the terminal one. */
+export const G1_IF6B_ENGINE_SHA256 =
+  "7fa528f30ee0d0ca8f6152584599c5d999cc731bafb760ea3c5423d0c6cd01b5";
 export const atB3EconomyBase = (path: string): Buffer =>
   execFileSync("git", ["show", `${B3_E_BASE_COMMIT}:${path}`]);
 export const IF6B_SETTLEMENT_PATH = "packages/engine/src/temporal/if6b-settlement.ts";
