@@ -20,8 +20,6 @@ import {
   B3_BASE_COMMIT,
   B3_E_CATALOGUE_PATH,
   B3_E_CATALOGUE_SHA256,
-  B3_E_DRAFT_CATALOGUE_PATH,
-  B3_E_DRAFT_CATALOGUE_SHA256,
   B3_NON_PACKAGE_PATHS,
   B3_PACKAGE_PATHS,
   B3_SHARED_DELTAS,
@@ -222,7 +220,7 @@ describe("B3 catalogue and historical source custody", () => {
     const paths = (args: string[]) =>
       execFileSync("git", args, { encoding: "utf8" }).split("\n").filter(Boolean);
     const { committed, staged, worktree, untracked } = b3EconomyGitScope(B3_E_BASE_COMMIT, roots);
-    expect(committed).toHaveLength(runtime.length + 3);
+    expect(committed).toHaveLength(runtime.length + 2);
     expect(committed).toEqual(
       expect.arrayContaining([
         ...[...runtime, pointer].map((path) => ({
@@ -231,12 +229,7 @@ describe("B3 catalogue and historical source custody", () => {
           newMode: "100644",
           status: "M",
         })),
-        ...[B3_E_CATALOGUE_PATH, B3_E_DRAFT_CATALOGUE_PATH].map((path) => ({
-          path,
-          oldMode: "000000",
-          newMode: "100644",
-          status: "A",
-        })),
+        { path: B3_E_CATALOGUE_PATH, oldMode: "000000", newMode: "100644", status: "A" },
       ]),
     );
     expect(staged, "staged changes").toEqual([]);
@@ -256,13 +249,9 @@ describe("B3 catalogue and historical source custody", () => {
       [
         ...priorDigests.map((path) => path.slice(folder.length + 1, -5)),
         B3_E_CATALOGUE_SHA256,
-        B3_E_DRAFT_CATALOGUE_SHA256,
       ].sort(),
     );
     expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).toBe(B3_E_CATALOGUE_SHA256);
-    expect(createHash("sha256").update(readFileSync(B3_E_DRAFT_CATALOGUE_PATH)).digest("hex")).toBe(
-      B3_E_DRAFT_CATALOGUE_SHA256,
-    );
     const bytes = readFileSync(B3_E_CATALOGUE_PATH);
     expect(bytes).toHaveLength(389714);
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(B3_E_CATALOGUE_SHA256);
@@ -280,6 +269,12 @@ describe("B3 catalogue and historical source custody", () => {
     ).toEqual(runtime);
     current.policy.source_policy.files = before;
     expect(current).toEqual(baseline);
+  });
+
+  it("excludes the superseded B3-E draft catalogue from historical admission", () => {
+    expect(GM_WAIT_CATALOGUE_RETAINED_SHA256).not.toContain(
+      "2673baaca7f32711815f4fafb81dbc5c1bcc16394dc7412763d7f4e89f2eb4d4",
+    );
   });
 
   it("keeps the pre-B3 production history verifier", () => {

@@ -16,7 +16,7 @@ export const B3_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "e266c675c5e9c76bfc8ed079d6e0125f878283e6d57454697622aff6aa411891",
+    head: "e6ea99187afaf4764df59b2404f9a4e090fe3beafafaf6d639ee0b86452c11c0",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",
@@ -27,9 +27,6 @@ export const B3_SHARED_DELTAS: Readonly<
 export const B3_E_CATALOGUE_SHA256 =
   "737ad89cf3acb76ee65b16d0c4023f89c1100ecfe4b8e4ddd2d280097b269f0f";
 export const B3_E_CATALOGUE_PATH = `packages/engine/gm-wait-catalogue/manifests/${B3_E_CATALOGUE_SHA256}.json`;
-export const B3_E_DRAFT_CATALOGUE_SHA256 =
-  "2673baaca7f32711815f4fafb81dbc5c1bcc16394dc7412763d7f4e89f2eb4d4";
-export const B3_E_DRAFT_CATALOGUE_PATH = `packages/engine/gm-wait-catalogue/manifests/${B3_E_DRAFT_CATALOGUE_SHA256}.json`;
 
 export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/contracts/src/temporal-custody.ts",
@@ -37,7 +34,6 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/gm-wait-catalogue/manifests/04069ddf4ad84c183066366e34a6c8735b94a1e0eda278dfce3d6f53537cb97a.json",
   "packages/engine/gm-wait-catalogue/manifests/265c74a18ad9f0898ae079189b20b7e24b06bcb58c90798de1f3d6473bea08d3.json",
   B3_E_CATALOGUE_PATH,
-  B3_E_DRAFT_CATALOGUE_PATH,
   "packages/engine/gm-wait-catalogue/manifests/3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd.json",
   "packages/engine/gm-wait-catalogue/manifests/501f0f3d4fc8cdf7e7cb425e9f6444db74a80524206cc8d760575563b2492e56.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
