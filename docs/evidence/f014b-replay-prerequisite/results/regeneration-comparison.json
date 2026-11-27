@@ -1,0 +1,17 @@
+{
+ "note": "second generation from the same pristine base with the same public seed",
+ "scenarios": {
+  "b2-zero-stage-reconciled": {
+   "files": 6,
+   "identicalOnRegeneration": 6
+  },
+  "lane-x-active-quiet-target": {
+   "files": 6,
+   "identicalOnRegeneration": 6
+  },
+  "lane-x-staged-seal-900": {
+   "files": 6,
+   "identicalOnRegeneration": 6
+  }
+ }
+}

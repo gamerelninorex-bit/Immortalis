@@ -1,0 +1,47 @@
+{
+ "build": "pr146-catalogue-peel",
+ "node": "v22.22.2",
+ "currentCatalogueSha256": "2673baaca7f32711815f4fafb81dbc5c1bcc16394dc7412763d7f4e89f2eb4d4",
+ "quietSegmentPresent": false,
+ "lane-x-active-quiet-target": {
+  "policy": {
+   "identityEqualsJournals": true,
+   "catalogueEqualsJournals": false
+  },
+  "open": "OK",
+  "replayedHeadEqualsRecordedHead": true,
+  "slot": "ACTIVE",
+  "sealOwnAgain": {
+   "ok": false,
+   "error": {
+    "code": "GM_WAIT_NOT_IN_STATE",
+    "message": "the due owner stages are incomplete"
+   }
+  },
+  "headUnchangedBySealOwnAttempt": true
+ },
+ "lane-x-staged-seal-900": {
+  "policy": {
+   "identityEqualsJournals": true,
+   "catalogueEqualsJournals": false
+  },
+  "open": "OK",
+  "replayedHeadEqualsRecordedHead": true,
+  "slot": "SEALED_UNRECONCILED",
+  "sealOwnAgain": {
+   "ok": true,
+   "replayed": true,
+   "slot": "SEALED_UNRECONCILED"
+  },
+  "headUnchangedBySealOwnAttempt": true
+ },
+ "b2-zero-stage-reconciled": {
+  "open": "OK",
+  "replayedHeadEqualsRecordedHead": true,
+  "slot": "SEALED_RECONCILED",
+  "sealOwnAgain": {
+   "ok": true,
+   "replayed": true
+  }
+ }
+}

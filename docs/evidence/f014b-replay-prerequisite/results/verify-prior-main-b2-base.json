@@ -1,0 +1,9 @@
+{
+ "build": "base",
+ "journalIdentityTail": "TEP-B2-ORIGIN+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z",
+ "thisBuildIdentityTail": "TEP-B2-ORIGIN+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z",
+ "identityEqual": true,
+ "open": "OK",
+ "headEqual": true,
+ "slot": "SEALED_RECONCILED"
+}

@@ -1,0 +1,50 @@
+{
+ "scenario": "b2-zero-stage-reconciled-at-7281045",
+ "x": "bfb9587f82785729c057f8559845132206b9034cf82a3360ad57fbd1c136e89e",
+ "pc": "pc-fixture-1",
+ "slotAtClose": "SEALED_RECONCILED",
+ "head": {
+  "campaign_id": "campaign-world-foundation-1",
+  "revision": 11,
+  "state_sha256": "3832ab828ae5a9903b3c482b5bc7c7627dbc9f63549467b5ae9f0d5d52694d83",
+  "journal_entries": 11,
+  "journal_head_sha256": "cdf27f46bbdf208d66cbca8dad3de7d2cbf360faf746d2fed3276976c97d8d4c",
+  "spec_identity": {
+   "line": "f027",
+   "package_version": "v1.0",
+   "package_native_pin": "2026-09-29T00:40:44.707Z",
+   "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc",
+   "snapshot_files": {
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+   }
+  },
+  "last_saved_spec_identity": {
+   "line": "f027",
+   "package_version": "v1.0",
+   "package_native_pin": "2026-09-29T00:40:44.707Z",
+   "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc",
+   "snapshot_files": {
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
+   }
+  },
+  "created_with": {
+   "package": "@immortalis/engine",
+   "version": "0.0.0",
+   "build_id": "b2"
+  },
+  "last_saved_with": {
+   "package": "@immortalis/engine",
+   "version": "0.0.0",
+   "build_id": "b2"
+  }
+ },
+ "historyVerificationId": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1+fixture-evidence-t1+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z+S4-INITIAL-LEDGER@2026-11-15T13:54:22.606Z/2026-11-15T14:02:45.229Z+BRIEF@2026-11-17T04:59:46.616Z+POPULATION-STAGE-AUTHORITY-V2+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z",
+ "build": {
+  "commit": "728104565662fece3e76be5b94c28f3c4201dbb7",
+  "node": "v22.22.2"
+ }
+}

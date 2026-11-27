@@ -1,0 +1,33 @@
+diff --git a/tests/support/b3-opening.ts b/tests/support/b3-opening.ts
+index 67f5c23..672f1e1 100644
+--- a/tests/support/b3-opening.ts
++++ b/tests/support/b3-opening.ts
+@@ -84,6 +84,7 @@ export async function openWorkshop(
+       input: Parameters<WorkshopGipAdapter["adoptCharter"]>[0],
+     ) => void;
+     readonly beforeLedger?: (attempt: () => Promise<unknown>) => Promise<void>;
++    readonly fixedKeys?: unknown;
+   } = {},
+ ) {
+   const bytes = workshopRawProfile(mode);
+@@ -94,6 +95,7 @@ export async function openWorkshop(
+   const locus_id = source.locus.locus_id;
+   const ids = { pc_id, world_id, locus_id };
+   const h = await msHarness({
++    ...(opts.fixedKeys ? { fixedKeys: opts.fixedKeys } : {}),
+     actors: {
+       kind: "ACTOR_PRODUCER_REQUIRED",
+       constraints: [source.attendant_leaf],
+diff --git a/tests/support/ms-setup.ts b/tests/support/ms-setup.ts
+index d2d8d2c..f13afc8 100644
+--- a/tests/support/ms-setup.ts
++++ b/tests/support/ms-setup.ts
+@@ -57,7 +57,7 @@ export async function msHarness(
+     historyId?: (current: string) => string;
+   } = {},
+ ) {
+-  const keys = generateFixtureRunnerKeys(),
++  const keys = (options as { fixedKeys?: ReturnType<typeof generateFixtureRunnerKeys> }).fixedKeys ?? generateFixtureRunnerKeys(),
+     macKey = randomBytes(32),
+     outboxDir = scratch("immortalis-ms-outbox-");
+   let scopes = 0;

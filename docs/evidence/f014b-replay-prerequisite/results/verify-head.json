@@ -1,0 +1,45 @@
+{
+ "build": "head",
+ "node": "v22.22.2",
+ "currentCatalogueSha256": "4e0665b0d9c4c316976a7b9ac5986d22ec890ffc4b7f8e387a2df1b251ce967d",
+ "quietSegmentPresent": true,
+ "lane-x-active-quiet-target": {
+  "policy": {
+   "identityEqualsJournals": false,
+   "catalogueEqualsJournals": false
+  },
+  "open": {
+   "refused": {
+    "code": "REPLAY_MISMATCH",
+    "message": "entry fails historical verification: REFERENCE_INVALID",
+    "details": {
+     "revision": 35
+    }
+   }
+  }
+ },
+ "lane-x-staged-seal-900": {
+  "policy": {
+   "identityEqualsJournals": false,
+   "catalogueEqualsJournals": false
+  },
+  "open": {
+   "refused": {
+    "code": "REPLAY_MISMATCH",
+    "message": "entry fails historical verification: REFERENCE_INVALID",
+    "details": {
+     "revision": 35
+    }
+   }
+  }
+ },
+ "b2-zero-stage-reconciled": {
+  "open": "OK",
+  "replayedHeadEqualsRecordedHead": true,
+  "slot": "SEALED_RECONCILED",
+  "sealOwnAgain": {
+   "ok": true,
+   "replayed": true
+  }
+ }
+}
