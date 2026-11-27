@@ -1,0 +1,137 @@
+{
+ "scenario": "lane-x-occurred-aftermath-600",
+ "kind": "lane-x",
+ "target": 600,
+ "x": "bfb9587f82785729c057f8559845132206b9034cf82a3360ad57fbd1c136e89e",
+ "pc": "pc-workshop-visitor",
+ "slotAtClose": "SEALED_RECONCILED",
+ "resumed": null,
+ "opportunityBasis": null,
+ "choiceRef": null,
+ "head": {
+  "campaign_id": "fixture:workshop-opening-glassbell-v4:cb39da2c4099526954ae182e4a206a627ad62cbb47f760b1c14c2d4612a4007b",
+  "revision": 54,
+  "state_sha256": "3e73653bfb4233ba4e4187c0e67d2b812b54d2a495d0a3f15303504a6c41205e",
+  "journal_entries": 54,
+  "journal_head_sha256": "2dc443e31766220c44cdbe90f1649939e15b85110a51e1b87e46601cbd068267",
+  "spec_identity": {
+   "line": "f027",
+   "package_version": "v1.0",
+   "package_native_pin": "2026-09-29T00:40:44.707Z",
+   "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc",
+   "snapshot_files": {
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+   }
+  },
+  "last_saved_spec_identity": {
+   "line": "f027",
+   "package_version": "v1.0",
+   "package_native_pin": "2026-09-29T00:40:44.707Z",
+   "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc",
+   "snapshot_files": {
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
+   }
+  },
+  "created_with": {
+   "package": "@immortalis/engine",
+   "version": "0.0.0",
+   "build_id": "workshop-b3-qualification"
+  },
+  "last_saved_with": {
+   "package": "@immortalis/engine",
+   "version": "0.0.0",
+   "build_id": "workshop-b3-qualification"
+  }
+ },
+ "historyVerificationId": "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1+fixture-evidence-t1+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z+S4-INITIAL-LEDGER@2026-11-15T13:54:22.606Z/2026-11-15T14:02:45.229Z+BRIEF@2026-11-17T04:59:46.616Z+POPULATION-STAGE-AUTHORITY-V2+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z+B3-WORKSHOP-OWNER-V1:cb39da2c4099526954ae182e4a206a627ad62cbb47f760b1c14c2d4612a4007b:fixture:C54:422155999dac93fdc21564d9bd3c84fb4bde4dfb3ee50e3787d32c70a4baefeb+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1+B3-CHOICE:f8182ae127d7c0f0ef7b3bae12379635a770d2c3f06c6ab3e93e48edc867c71a+F-014B-IF-6b-D2-AD5@2026-11-23T11:42:34.869Z",
+ "catalogueSha256": "81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d",
+ "build": {
+  "commit": "d0bcb615fd91cd3b10322fd8ff80964db42b7797",
+  "node": "v22.22.2"
+ },
+ "keyDerivation": {
+  "domain": "immortalis/f014b/replay-evidence-fixtures/v1/ed25519-public-test-seed",
+  "keyId": "fixture:key:runner-1",
+  "publicKeySpkiBase64": "MCowBQYDK2VwAyEAKoSzMpEzWdAZl96TZYcnTUTOOcgtsSEewGHQLkpCJ8s=",
+  "note": "private key is derived at test time from the PUBLIC seed and is never stored"
+ },
+ "retainedAuthorizations": {
+  "proofs": [
+   {
+    "x": "bfb9587f82785729c057f8559845132206b9034cf82a3360ad57fbd1c136e89e",
+    "signed": {
+     "bytes": "eyJwdXJwb3NlIjoiZml4dHVyZTpDNTQiLCJjYW1wYWlnbiI6ImZpeHR1cmU6d29ya3Nob3Atb3BlbmluZy1nbGFzc2JlbGwtdjQ6Y2IzOWRhMmM0MDk5NTI2OTU0YWUxODJlNGEyMDZhNjI3YWQ2MmNiYjQ3Zjc2MGIxYzE0YzJkNDYxMmE0MDA3YiIsIngiOiJiZmI5NTg3ZjgyNzg1NzI5YzA1N2Y4NTU5ODQ1MTMyMjA2YjkwMzRjZjgyYTMzNjBhZDU3ZmJkMWMxMzZlODllIiwiZHV0eSI6ImFjdG9yLzMyYzJmZWJhNmUwOWVjNTYxNDRmYzcyN2Q4NzhjZTQ4OWE5NmFiOWNjMTg1NzBjMjYyNzJiY2RjZjQ1MWZmNGEvbG9jYWwtbm90aWNlLWR1dHkvOWMyZjFlMjFhY2M1ZWEzNTNhNzJiODVkNmI4ZTg3Y2M2ZjJhZjdlNDUyOTY3MDg0MmQ5M2VjMjVhNzkwMmE5ZCIsInJlZnMiOlt7Im93bmVyIjoicm9sZV9yZWdpc3RyeSIsImZhY2V0IjoicGxheWVyX2NoYXJhY3Rlcl9iaW5kaW5nIiwia2V5Ijoicm9sZS1yZWdpc3RyeS9iaW5kaW5nL3JvbGUucGxheWVyX2NoYXJhY3RlciIsInZlcnNpb24iOjEsImdyb3VwX2lkIjoiYjMtb3BlbmluZzpiaW5kIn0seyJvd25lciI6IndvcmxkX3N0YXRlIiwiZmFjZXQiOiJ3b3JsZF9mYWxsYmFja19waHlzaWNhbF9lbnRpdHkiLCJrZXkiOiJ3b3JsZC1zdGF0ZS9wYy9wYy13b3Jrc2hvcC12aXNpdG9yL2xvY3VzLWN1c3RvZHkiLCJ2ZXJzaW9uIjoxLCJncm91cF9pZCI6ImIzLW9wZW5pbmc6cGh5c2ljYWwtbG9jdXMifSx7Im93bmVyIjoid29ybGRfc3RhdGUiLCJmYWNldCI6IndvcmxkX3Byb2ZpbGUiLCJrZXkiOiJ3b3JsZC9iMy1xdWFsaWZpY2F0aW9uLXdvcmtzaG9wLXdvcmxkL3Byb2ZpbGUiLCJ2ZXJzaW9uIjoxLCJncm91cF9pZCI6ImIzLW9wZW5pbmc6d29ybGQifSx7Im93bmVyIjoid29ybGRfc3RhdGUiLCJmYWNldCI6IndvcmxkX2xvY3VzIiwia2V5Ijoid29ybGQvYjMtcXVhbGlmaWNhdGlvbi13b3Jrc2hvcC13b3JsZC9sb2N1cy93b3Jrc2hvcC1vcGVuaW5nLWdsYXNzYmVsbC12NCIsInZlcnNpb24iOjEsImdyb3VwX2lkIjoiYjMtb3BlbmluZzpsb2N1cyJ9LHsib3duZXIiOiJ3b3JsZF9zdGF0ZSIsImZhY2V0Ijoid29ybGRfZmFsbGJhY2tfcGh5c2ljYWxfZW50aXR5Iiwia2V5Ijoid29ybGQtc3RhdGUvYWN0b3IvMzJjMmZlYmE2ZTA5ZWM1NjE0NGZjNzI3ZDg3OGNlNDg5YTk2YWI5Y2MxODU3MGMyNjI3MmJjZGNmNDUxZmY0YS9wcmVzZW5jZSIsInZlcnNpb24iOjEsImdyb3VwX2lkIjoibXMtaW5pdGlhbC1hY3Rvcjpncm91cDp2MTp3b3JsZC1zdGF0ZS9hY3Rvci8zMmMyZmViYTZlMDllYzU2MTQ0ZmM3MjdkODc4Y2U0ODlhOTZhYjljYzE4NTcwYzI2MjcyYmNkY2Y0NTFmZjRhL3ByZXNlbmNlIn1dfQ==",
+     "signature": "b9h7lGYtlzQM8Dhzd9hsSkh85uvwbtzD/jaNHNLwtHwGG2ujlAGnZly37gA98KxXtYnsnf5q+ANqGVKbBe1gCA=="
+    },
+    "exact": [
+     {
+      "owner": "role_registry",
+      "facet": "player_character_binding",
+      "key": "role-registry/binding/role.player_character",
+      "version": 1,
+      "group_id": "b3-opening:bind"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_fallback_physical_entity",
+      "key": "world-state/pc/pc-workshop-visitor/locus-custody",
+      "version": 1,
+      "group_id": "b3-opening:physical-locus"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_profile",
+      "key": "world/b3-qualification-workshop-world/profile",
+      "version": 1,
+      "group_id": "b3-opening:world"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_locus",
+      "key": "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v4",
+      "version": 1,
+      "group_id": "b3-opening:locus"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_fallback_physical_entity",
+      "key": "world-state/actor/32c2feba6e09ec56144fc727d878ce489a96ab9cc18570c26272bcdcf451ff4a/presence",
+      "version": 1,
+      "group_id": "ms-initial-actor:group:v1:world-state/actor/32c2feba6e09ec56144fc727d878ce489a96ab9cc18570c26272bcdcf451ff4a/presence"
+     }
+    ],
+    "rootRequestSha256": "df07e9e68c011b75c5131bd6069f48062982c90ac502441656f5aa3d7ee012ac",
+    "proposalSha256": "e6a09af36fb9586fea53e54ab6767af8792624ca7a380ea64d614f6176c8cfb1",
+    "t0WitnessSha256": "824b374c26dbb3f7e59413ab1551afaae1959c50a378d92b005afc8813317316"
+   }
+  ],
+  "delivered": {
+   "body": {
+    "bytes": "eyJwdXJwb3NlIjoiZml4dHVyZTpyZWNpcGllbnQiLCJleGFjdCI6eyJvd25lciI6IndvcmxkX3N0YXRlIiwiZmFjZXQiOiJ3b3JsZF9sb2N1cyIsImtleSI6IndvcmxkL2IzLXF1YWxpZmljYXRpb24td29ya3Nob3Atd29ybGQvbG9jdXMvd29ya3Nob3Atb3BlbmluZy1nbGFzc2JlbGwtdjQvYWRkcmVzc2VkLW5vdGljZS9vY2N1cnJlbmNlLzcyYTMzNDQ1ODg0Y2ZhODI3NDY1YzA3MDA0ZmJlZDVkZGFiYzhjMTMwNWMyNTBmMjBkYmRhNmU3NzMxYjc2NTciLCJ2ZXJzaW9uIjoxLCJncm91cF9pZCI6InN0YWdlLWdyb3VwOjVjNDkzYmI0NWE4NWZjNDNlY2NlMTc0NjU0OWNiMzhiNDk1ZWRlZTIyNzk0OTM0NGRhYzc5ZjFlY2ExYzhiZDYifSwicGMiOiJwYy13b3Jrc2hvcC12aXNpdG9yIiwicmVmcyI6W3sib3duZXIiOiJyb2xlX3JlZ2lzdHJ5IiwiZmFjZXQiOiJwbGF5ZXJfY2hhcmFjdGVyX2JpbmRpbmciLCJrZXkiOiJyb2xlLXJlZ2lzdHJ5L2JpbmRpbmcvcm9sZS5wbGF5ZXJfY2hhcmFjdGVyIiwidmVyc2lvbiI6MSwiZ3JvdXBfaWQiOiJiMy1vcGVuaW5nOmJpbmQifV19",
+    "signature": "ulKLrMbYZT7gJ6mxb7+24YNVB+3NbBnQShgxFmdlQ7+LYV7wKwELGj88FYOsHqwx3X4rJAANN13wGizgAHLnBw=="
+   },
+   "refs": [
+    {
+     "owner": "role_registry",
+     "facet": "player_character_binding",
+     "key": "role-registry/binding/role.player_character",
+     "version": 1,
+     "group_id": "b3-opening:bind"
+    }
+   ],
+   "occurrence": {
+    "owner": "world_state",
+    "facet": "world_locus",
+    "key": "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v4/addressed-notice/occurrence/72a33445884cfa827465c07004fbed5ddabc8c1305c250f20dbda6e7731b7657",
+    "version": 1,
+    "group_id": "stage-group:5c493bb45a85fc43ecce1746549cb38b495edee227949344dac79f1eca1c8bd6"
+   },
+   "host": "pc-workshop-visitor"
+  },
+  "choices": []
+ }
+}

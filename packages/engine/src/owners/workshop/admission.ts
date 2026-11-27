@@ -42,23 +42,12 @@ import {
 } from "./notice-publication.ts";
 import { concernsWorkshopNotice, workshopNoticeObjectViolation } from "./notice-temporal.ts";
 import { deriveWorkshopReceipt, type WorkshopRecipientSource } from "./epistemic-notice.ts";
+import type { WorkshopHistoryRef } from "./generation.ts";
 import type { WorkshopFixtureIdentity } from "./source.ts";
 
-export function workshopGroupCheck(
-  group: CommitGroup,
-  state: CampaignState,
-  profile: WorkshopFixtureIdentity | undefined,
-  historyId: string,
-  noticeSource?: WorkshopNoticeSource & { readonly recipientSource?: WorkshopRecipientSource },
-): Rejection | null | undefined {
-  const found = group.writes.find((write) => resolveWorkshopKey(write.key));
-  if (!found && group.owner !== OWNER_EPISTEMIC_ACCESS) return undefined;
-  const view = {
-    campaign_id: state.campaign_id,
-    revision: state.revision,
-    get: (key: string) => state.facts.get(key),
-  };
-  if (
+/** An addressed workshop receipt: an Epistemic Access group that publishes to, or disseminates, a workshop notice occurrence. */
+export function concernsWorkshopReceipt(group: CommitGroup): boolean {
+  return (
     group.owner === OWNER_EPISTEMIC_ACCESS &&
     group.writes.some((w) => {
       if (w.key.startsWith("access/workshop-notice:")) return true;
@@ -68,7 +57,29 @@ export function workshopGroupCheck(
         resolveWorkshopKey(event.data.source.fact_key)?.id === "world_addressed_notice_occurrence"
       );
     })
-  ) {
+  );
+}
+
+/** Every group a workshop owner publishes or judges: a workshop-keyed write or an addressed receipt. */
+export const workshopBearing = (group: CommitGroup): boolean =>
+  concernsWorkshopReceipt(group) ||
+  group.writes.some((w) => resolveWorkshopKey(w.key) !== undefined);
+
+export function workshopGroupCheck(
+  group: CommitGroup,
+  state: CampaignState,
+  profile: WorkshopFixtureIdentity | undefined,
+  historyId: WorkshopHistoryRef,
+  noticeSource?: WorkshopNoticeSource & { readonly recipientSource?: WorkshopRecipientSource },
+): Rejection | null | undefined {
+  const found = group.writes.find((write) => resolveWorkshopKey(write.key));
+  if (!found && group.owner !== OWNER_EPISTEMIC_ACCESS) return undefined;
+  const view = {
+    campaign_id: state.campaign_id,
+    revision: state.revision,
+    get: (key: string) => state.facts.get(key),
+  };
+  if (concernsWorkshopReceipt(group)) {
     const e = AccessEventSchema.safeParse(group.writes[0]?.value);
     const expected =
       profile && e.success && state.campaign_id === profile.campaignId

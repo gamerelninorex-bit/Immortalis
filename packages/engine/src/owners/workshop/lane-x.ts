@@ -19,6 +19,7 @@ import {
   type OwnerFact,
   type TemporalRead,
 } from "@immortalis/contracts";
+import type { WorkshopHistoryRef } from "./generation.ts";
 import {
   OWNER_HEALTH,
   WorkshopNoticeEnrolmentSchema,
@@ -134,7 +135,7 @@ const nativeOwners = () =>
 export function workshopLaneXAdmission(
   profile: WorkshopFixtureIdentity,
   fixture: WorkshopLaneXFixture,
-  historyId: string,
+  historyId: WorkshopHistoryRef,
 ): If6bAdmission {
   const notice = fixture.noticeSource;
   const owners = nativeOwners();

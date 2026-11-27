@@ -82,6 +82,10 @@ export function storeBindings(
     ...(base.initializeView ? { initializeView: base.initializeView } : {}),
     ...(base.committedView ? { committedView: base.committedView } : {}),
     ...(base.historyVerificationId ? { historyVerificationId: base.historyVerificationId } : {}),
+    ...(base.checkpointVerifierId ? { checkpointVerifierId: base.checkpointVerifierId } : {}),
+    ...(base.historicalFenceAdmission
+      ? { historicalFenceAdmission: (g, s) => base.historicalFenceAdmission!(g, s) }
+      : {}),
     check(group, state, history) {
       const fence = msFenceCheck(group, state);
       if (fence) return fence;
