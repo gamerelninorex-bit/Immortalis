@@ -33,14 +33,19 @@ import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-w
 import {
   WORKSHOP_G0_CATALOGUE_SHA256,
   WORKSHOP_GENERATION_G0,
+  WORKSHOP_GENERATION_149,
   workshopCandidates,
   workshopCurrentGeneration,
+  workshopEconomyForwardGeneration,
   type WorkshopGeneration,
 } from "../../packages/engine/src/owners/workshop/generation.ts";
 import { workshopFixtureIdentity } from "../../packages/engine/src/owners/workshop/source.ts";
 import { workshopView } from "../../packages/engine/src/owners/workshop/publication.ts";
 import { resumeWorkshopWait } from "../../packages/engine/src/owners/workshop/wait-decision.ts";
-import { IF6B_POLICY } from "../../packages/engine/src/temporal/if6b-stage.ts";
+import {
+  B3_ECONOMY_FORWARD_HISTORY_SEGMENT,
+  IF6B_POLICY,
+} from "../../packages/engine/src/temporal/if6b-stage.ts";
 import { signedWorkshopLaneX } from "../support/b3-lane-x.ts";
 import { openWorkshop, openingPublication, workshopRawProfile } from "../support/b3-opening.ts";
 import { must } from "../support/temporal.ts";
@@ -124,16 +129,32 @@ describe("the generation registry is finite and exact", () => {
     );
   });
 
-  it("the candidate set is the current generation plus G0: this build's catalogue moved, its workshop identity recipe did not", async () => {
+  it("retains both accepted pairs and keeps forward Economy authority on its own candidate", async () => {
     const { inputs } = await inputsOf(JOURNALS.staged);
     const today = workshopCandidates(inputs, workshopCurrentGeneration(IF6B_POLICY));
-    expect(today.map((c) => c.id)).toEqual(["CURRENT", "G0"]);
+    expect(today.map((c) => c.id)).toEqual(["CURRENT", "G0_RESOLVER_149", "G0"]);
     expect(today[0]!.binding.catalogueSha256).toBe(GM_WAIT_CATALOGUE_CURRENT_SHA256);
-    expect(today[1]!.binding.catalogueSha256).toBe(WORKSHOP_G0_CATALOGUE_SHA256);
+    expect(today[1]!.binding.catalogueSha256).toBe(WORKSHOP_GENERATION_149.catalogueSha256);
+    expect(today[2]!.binding.catalogueSha256).toBe(WORKSHOP_G0_CATALOGUE_SHA256);
     expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).not.toBe(WORKSHOP_G0_CATALOGUE_SHA256);
-    expect(today[0]!.binding.historyId).toBe(today[1]!.binding.historyId);
+    expect(today.every((c) => c.binding.historyId === today[2]!.binding.historyId)).toBe(true);
+    const forward = workshopCandidates(
+      inputs,
+      workshopEconomyForwardGeneration(IF6B_POLICY, B3_ECONOMY_FORWARD_HISTORY_SEGMENT),
+    );
+    expect(forward[0]).toMatchObject({
+      id: "CURRENT",
+      economyClass: "ECONOMY_REALIZED_ACCESS_FORWARD",
+    });
+    expect(forward[0]!.binding.historyId).toContain(B3_ECONOMY_FORWARD_HISTORY_SEGMENT);
+    expect(forward[0]!.binding.historyId).not.toContain("FIXTURE-ECONOMY-REALIZATION-DRAFT");
+    expect(forward.slice(1)).toEqual(today.slice(1));
     const withSuccessor = workshopCandidates(inputs, SUCCESSOR);
-    expect(withSuccessor.map((c) => c.id)).toEqual(["SYNTHETIC-SUCCESSOR", "G0"]);
+    expect(withSuccessor.map((c) => c.id)).toEqual([
+      "SYNTHETIC-SUCCESSOR",
+      "G0_RESOLVER_149",
+      "G0",
+    ]);
     expect(new Set(withSuccessor.map((c) => c.binding.historyId)).size).toBe(2);
   });
 });
@@ -229,13 +250,13 @@ describe("the same journals replay strictly under a build whose CURRENT generati
 
 describe("a lineage chartered under the successor is judged under the successor", () => {
   /** the evidence generator's staged Lane X flow (target 900, five stages and the GM seal), published under the SUCCESSOR's own pair */
-  async function freshSuccessorJournal() {
+  async function freshSuccessorJournal(generation = SUCCESSOR) {
     const keys = deterministicFixtureKeys(generateFixtureRunnerKeys().keyId);
     let signed!: ReturnType<typeof signedWorkshopLaneX>;
-    const pair = (id: string) => ({ historyId: id, catalogueSha256: SUCCESSOR.catalogueSha256 });
+    const pair = (id: string) => ({ historyId: id, catalogueSha256: generation.catalogueSha256 });
     const h = await openWorkshop("glassbell", {
       fixedKeys: keys,
-      currentGeneration: SUCCESSOR,
+      currentGeneration: generation,
       historyRef: pair,
       laneX(k) {
         signed = signedWorkshopLaneX(k, true);
@@ -245,7 +266,7 @@ describe("a lineage chartered under the successor is judged under the successor"
     const store = h.campaign.store;
     const id = h.admission.historyVerificationId!;
     const clock = new GmWaitCustody(store, {
-      catalogueSha256: SUCCESSOR.catalogueSha256,
+      catalogueSha256: generation.catalogueSha256,
       historyVerificationId: id,
       kernelRule: factKind("temporal_state").rule,
     });
@@ -352,5 +373,17 @@ describe("a lineage chartered under the successor is judged under the successor"
     expect(opened.ok).toBe(false);
     if (opened.ok) await opened.value.close();
     await h2.campaign.close();
+  });
+
+  it("replays the exact accepted #149 catalogue and recipe through the current resolver", async () => {
+    const f = await freshSuccessorJournal(WORKSHOP_GENERATION_149);
+    const { h2, opened } = await reopenWith(f, undefined);
+    const campaign = await must(Promise.resolve(opened));
+    try {
+      expect(headKey(campaign.store.head())).toEqual(headKey(f.head));
+    } finally {
+      await campaign.close();
+      await h2.campaign.close();
+    }
   });
 });

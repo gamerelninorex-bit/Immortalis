@@ -5,6 +5,8 @@
 // the honest admission. A negative therefore proves the resolver's own rule, not a broken hash. Each negative has a positive control that differs
 // only in the thing being forged.
 import { describe, expect, it } from "vitest";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CanonicalCampaign,
   GmWaitCustody,
@@ -22,7 +24,10 @@ import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-w
 import { temporalGmWaitMarkerKey } from "@immortalis/contracts";
 import { gmWaitX } from "../../packages/engine/src/gm-wait-identity.ts";
 import { advanceWorkshopWaitStage } from "../../packages/engine/src/owners/workshop/lane-x.ts";
-import { resumeWorkshopWait } from "../../packages/engine/src/owners/workshop/wait-decision.ts";
+import {
+  resumeWorkshopWait,
+  workshopDecisionOpportunity,
+} from "../../packages/engine/src/owners/workshop/wait-decision.ts";
 import {
   WORKSHOP_G0_CATALOGUE_SHA256,
   type WorkshopHistoryRef,
@@ -35,6 +40,7 @@ import { deterministicFixtureKeys } from "../support/deterministic-keys.ts";
 import {
   JOURNALS,
   SUCCESSOR,
+  fixtureCopy,
   headKey,
   openGenuineLaneX,
   reopenLaneXLineage,
@@ -350,6 +356,71 @@ describe("an original-policy lineage refuses novel custody, stage, clock and sea
     expect(headKey(store.head())).toEqual(before);
     await opened.value.close();
     await h2.campaign.close();
+  });
+
+  it("refuses a new authenticated choice at the genuine original pre-resume clock cut", async () => {
+    const { meta, h2, signed, opened } = await openGenuineLaneX(JOURNALS.resumed);
+    if (opened.ok) await opened.value.close();
+    const dir = fixtureCopy(JOURNALS.resumed);
+    const entries = journalOf(dir);
+    const last = entries.at(-1)!;
+    const cut = entries.at(-2)!;
+    expect(last.group.intent_id).toBe("transaction-intent:workshop-resume:" + meta.x);
+    expect(last.prev_sha256).toBe(cut.entry_sha256);
+    const journal = join(dir, "journal.jsonl");
+    const bytes = readFileSync(journal);
+    const length = bytes.lastIndexOf(0x0a, bytes.length - 2) + 1;
+    // Keep the genuine entries and receipts exactly as written. The scratch manifest points to the earlier committed head.
+    writeFileSync(journal, bytes.subarray(0, length));
+    const manifest = manifestOf(dir);
+    const { self_sha256, ...rest } = manifest;
+    void self_sha256;
+    const prefix = {
+      ...rest,
+      head: {
+        ...manifest.head,
+        revision: cut.revision,
+        journal_entries: cut.revision,
+        journal_bytes: length,
+        journal_head_sha256: cut.entry_sha256,
+        state_sha256: cut.receipt.state_sha256,
+      },
+    };
+    writeFileSync(
+      join(dir, "manifest.json"),
+      JSON.stringify({ ...prefix, self_sha256: sha256Canonical(prefix) }),
+    );
+    const prior = await CanonicalCampaign.open(dir, {
+      testkitFixtureAdmission: h2.admission,
+      audit: true,
+    });
+    try {
+      expect(prior.ok, JSON.stringify(prior.ok ? null : prior.error)).toBe(true);
+      if (!prior.ok) return;
+      const store = prior.value.store;
+      const before = headKey(store.head());
+      expect(before).toEqual({
+        revision: cut.revision,
+        journal: cut.entry_sha256,
+        state: cut.receipt.state_sha256,
+      });
+      const opportunity = workshopDecisionOpportunity(workshopView(store), meta.x)!;
+      expect(opportunity).toBeDefined();
+      const newChoice = signed.choose(opportunity.basis, "new-choice-at-old-cut");
+      expect(newChoice).not.toBe(meta.choiceRef);
+      const res = await resumeWorkshopWait(
+        store,
+        new TemporalCoordinator(store, new StageProviderRegistry()),
+        meta.x,
+        newChoice,
+        signed.fixture.choiceSource,
+      );
+      expect(res?.ok).toBe(false);
+      expect(headKey(store.head())).toEqual(before);
+    } finally {
+      if (prior.ok) await prior.value.close();
+      await h2.campaign.close();
+    }
   });
 });
 

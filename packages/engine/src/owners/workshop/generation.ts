@@ -19,10 +19,7 @@ import { canonicalEqual } from "../../hash.ts";
  *   - ORIGINAL ONLY: this resolves how a RECORDED lineage is judged. A live commit is judged under the CURRENT generation only, so
  *     historical selection never grants a capability a later generation introduced and never migrates a lineage.
  *
- * The cache identity of a checkpoint (`WriteAdmission.historyVerificationId`) stays the CURRENT generation's identity: it answers
- * "was this state verified by this build's verifier", which is a different question from "which policy did this lineage start
- * under". Any change to this registry is a change to the historical verifier and MUST change the CURRENT generation's identity
- * (a new generation entry does so by construction); the registry digest is pinned by a conformance test for that reason.
+ * Checkpoint reuse uses the resolver's separate verifier identity. The recorded lineage is never changed to invalidate a cache.
  */
 
 /** A policy as a workshop owner fact records it, selected and exact. */
@@ -58,6 +55,7 @@ export interface WorkshopGeneration {
   readonly id: string;
   readonly catalogueSha256: string;
   readonly identity: (inputs: WorkshopIdentityInputs) => string;
+  readonly economyClass?: "ECONOMY_REALIZED_ACCESS_FORWARD";
 }
 
 /** The terminal IF-6b historical-verifier segment as G0 spelled it. A frozen literal, deliberately NOT the live constant. */
@@ -69,7 +67,7 @@ export const WORKSHOP_G0_CATALOGUE_SHA256 =
 /** The shared spelling of a workshop identity; a generation differs only in the terminal policy segments it passes. */
 export function composeWorkshopIdentity(
   inputs: WorkshopIdentityInputs,
-  terminal: { readonly if6bPolicy: string },
+  terminal: { readonly if6bPolicy: string; readonly economyForwardSegment?: string },
 ): string {
   const workshopId = `${inputs.base}+B3-WORKSHOP-OWNER-V1:${inputs.profileSha256}${
     inputs.noticeVerificationId !== undefined ? `:${inputs.noticeVerificationId}` : ""
@@ -77,8 +75,11 @@ export function composeWorkshopIdentity(
   if (!inputs.laneX) return workshopId;
   return (
     workshopId +
-    (inputs.laneX.economyDraft ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1" : "") +
+    (!terminal.economyForwardSegment && inputs.laneX.economyDraft
+      ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1"
+      : "") +
     (inputs.laneX.choiceSha256 !== undefined ? "+B3-CHOICE:" + inputs.laneX.choiceSha256 : "") +
+    (terminal.economyForwardSegment ?? "") +
     "+" +
     terminal.if6bPolicy
   );
@@ -115,6 +116,13 @@ export const WORKSHOP_GENERATION_G0: WorkshopGeneration = Object.freeze({
   },
 });
 
+/** The exact pair accepted on main d311bcff (#149) used G0's frozen recipe with a different catalogue. */
+export const WORKSHOP_GENERATION_149: WorkshopGeneration = Object.freeze({
+  id: "G0_RESOLVER_149",
+  catalogueSha256: "f7a4b7ee4094fdf8efa3d17a2f9ee4d3bea36114ce227c6e839489dd10ab9948",
+  identity: WORKSHOP_GENERATION_G0.identity,
+});
+
 /**
  * The generation a build writes NEW history under. Today it spells exactly G0's recipe from the live constants; a successor
  * generation changes THIS entry (its recipe and its catalogue pointer) in the same change that appends G0's frozen entry above
@@ -128,17 +136,30 @@ export const workshopCurrentGeneration = (liveIf6bPolicy: string): WorkshopGener
       composeWorkshopIdentity(inputs, { if6bPolicy: liveIf6bPolicy }),
   });
 
+export const workshopEconomyForwardGeneration = (
+  if6bPolicy: string,
+  economyForwardSegment: string,
+): WorkshopGeneration =>
+  Object.freeze({
+    id: "CURRENT",
+    catalogueSha256: GM_WAIT_CATALOGUE_CURRENT_SHA256,
+    economyClass: "ECONOMY_REALIZED_ACCESS_FORWARD",
+    identity: (inputs: WorkshopIdentityInputs) =>
+      composeWorkshopIdentity(inputs, { if6bPolicy, economyForwardSegment }),
+  });
+
 /**
  * The version of the historical verifier that selects an original policy. A workshop admission's checkpoint-cache identity is its recorded identity plus
  * this segment, so a checkpoint earned before the resolver existed is replayed strictly once instead of being trusted. Any change to the registry or to
  * how a lineage is bound is a change to this verifier and MUST move this version.
  */
-export const WORKSHOP_RESOLVER_VERIFIER_SEGMENT = "+WORKSHOP-ORIGINAL-POLICY-RESOLVER-V1";
+export const WORKSHOP_RESOLVER_VERIFIER_SEGMENT = "+WORKSHOP-ORIGINAL-POLICY-RESOLVER-V2";
 
 /** One candidate: a registry entry with its identity recomputed for THIS admission's constructed inputs. */
 export interface WorkshopGenerationCandidate {
   readonly id: string;
   readonly binding: WorkshopPolicyBinding;
+  readonly economyClass?: WorkshopGeneration["economyClass"];
 }
 
 /**
@@ -148,7 +169,7 @@ export interface WorkshopGenerationCandidate {
 export function workshopCandidates(
   inputs: WorkshopIdentityInputs,
   current: WorkshopGeneration,
-  historical: readonly WorkshopGeneration[] = [WORKSHOP_GENERATION_G0],
+  historical: readonly WorkshopGeneration[] = [WORKSHOP_GENERATION_149, WORKSHOP_GENERATION_G0],
 ): readonly WorkshopGenerationCandidate[] {
   const out: WorkshopGenerationCandidate[] = [];
   for (const g of [current, ...historical]) {
@@ -163,7 +184,13 @@ export function workshopCandidates(
           c.binding.catalogueSha256 === binding.catalogueSha256,
       )
     )
-      out.push(Object.freeze({ id: g.id, binding }));
+      out.push(
+        Object.freeze({
+          id: g.id,
+          binding,
+          ...(g.economyClass ? { economyClass: g.economyClass } : {}),
+        }),
+      );
   }
   return Object.freeze(out);
 }

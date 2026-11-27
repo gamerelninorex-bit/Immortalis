@@ -55,6 +55,7 @@ import { msHarness } from "./ms-setup.ts";
 import { plainPolicy } from "./original-pc.ts";
 import { must } from "./temporal.ts";
 import { tempDir } from "./tmp.ts";
+import type { fixtureMsEconomyForwardAdmission } from "../../packages/engine/src/owners/admission.ts";
 
 export const workshopRawProfile = (mode: "quiet" | "glassbell") =>
   readFileSync(
@@ -77,6 +78,7 @@ export async function openWorkshop(
   mode: "quiet" | "glassbell",
   opts: {
     readonly laneX?: NonNullable<NonNullable<Parameters<typeof msHarness>[0]>["workshop"]>["laneX"];
+    readonly laneXAdmission?: typeof fixtureMsEconomyForwardAdmission;
     readonly admissionOverride?: (
       admission: import("@immortalis/engine").WriteAdmission,
     ) => import("@immortalis/engine").WriteAdmission;
@@ -114,6 +116,7 @@ export async function openWorkshop(
       profileBytes: bytes,
       campaignId: profile.campaignId,
       ...(opts.laneX ? { laneX: opts.laneX } : {}),
+      ...(opts.laneXAdmission ? { laneXAdmission: opts.laneXAdmission } : {}),
       ...(opts.currentGeneration ? { currentGeneration: opts.currentGeneration } : {}),
       async open(admission) {
         const dir = tempDir();

@@ -12,7 +12,11 @@ import { CanonicalCampaign, type WriteAdmission } from "@immortalis/engine";
 import { SYNTH_EXTENSION, syntheticSourceGroup } from "@immortalis/testkit";
 import { workshopCharterKey } from "../../packages/contracts/src/workshop-opening.ts";
 import { generateFixtureRunnerKeys } from "@immortalis/testkit";
-import { WORKSHOP_RESOLVER_VERIFIER_SEGMENT } from "../../packages/engine/src/owners/workshop/generation.ts";
+import {
+  WORKSHOP_GENERATION_149,
+  WORKSHOP_RESOLVER_VERIFIER_SEGMENT,
+  type WorkshopGeneration,
+} from "../../packages/engine/src/owners/workshop/generation.ts";
 import { signedWorkshopLaneX } from "../support/b3-lane-x.ts";
 import { openWorkshop } from "../support/b3-opening.ts";
 import { deterministicFixtureKeys } from "../support/deterministic-keys.ts";
@@ -91,10 +95,19 @@ async function openingOnly(
 }
 
 /** a harness whose admission carries the lineage's signed owner, so the package can be opened under it */
-async function harnessFor(f: Lineage) {
+async function harnessFor(f: Lineage, generation?: WorkshopGeneration) {
   let signed!: ReturnType<typeof signedWorkshopLaneX>;
   const h2 = await openWorkshop("glassbell", {
     fixedKeys: f.keys,
+    ...(generation
+      ? {
+          currentGeneration: generation,
+          historyRef: (historyId: string) => ({
+            historyId,
+            catalogueSha256: generation.catalogueSha256,
+          }),
+        }
+      : {}),
     laneX(k) {
       signed = signedWorkshopLaneX(k, true);
       return signed.fixture;
@@ -145,11 +158,18 @@ describe("checkpoint reuse is keyed on the verifier version, not on the recorded
     const f = await writeLaneXLineage({ advance: 0 });
     const h2 = await harnessFor(f);
     const a = h2.admission;
-    expect(a.checkpointVerifierId).toBe(
-      a.historyVerificationId + WORKSHOP_RESOLVER_VERIFIER_SEGMENT,
-    );
+    const prefix = a.historyVerificationId + WORKSHOP_RESOLVER_VERIFIER_SEGMENT + ":";
+    expect(a.checkpointVerifierId?.slice(0, prefix.length)).toBe(prefix);
+    expect(a.checkpointVerifierId?.slice(prefix.length)).toMatch(/^[0-9a-f]{64}$/);
     expect(a.historyVerificationId).not.toContain("RESOLVER");
-    await h2.campaign.close();
+    const prior = await harnessFor(f, WORKSHOP_GENERATION_149);
+    try {
+      expect(prior.admission.historyVerificationId).toBe(a.historyVerificationId);
+      expect(prior.admission.checkpointVerifierId).not.toBe(a.checkpointVerifierId);
+    } finally {
+      await prior.campaign.close();
+      await h2.campaign.close();
+    }
   });
 
   it("a warm checkpoint earned under the PRE-REPAIR cache identity is not trusted: strict replay of the whole journal, a new checkpoint identity, equal head, then a warm hit", async () => {

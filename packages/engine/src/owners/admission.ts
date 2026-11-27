@@ -1,4 +1,8 @@
-import { IF6B_POLICY, installIf6b } from "../temporal/if6b-stage.ts";
+import {
+  B3_ECONOMY_FORWARD_HISTORY_SEGMENT,
+  IF6B_POLICY,
+  installIf6b,
+} from "../temporal/if6b-stage.ts";
 import { workshopLaneXAdmission, type WorkshopLaneXFixture } from "./workshop/lane-x.ts";
 import { resolveWorkshopKey, withWorkshopRegistry } from "./workshop/registry.ts";
 import type { WorkshopNoticeSource } from "./workshop/notice-publication.ts";
@@ -11,6 +15,7 @@ import {
   WORKSHOP_RESOLVER_VERIFIER_SEGMENT,
   workshopCandidates,
   workshopCurrentGeneration,
+  workshopEconomyForwardGeneration,
   type WorkshopGeneration,
   type WorkshopGenerationCandidate,
   type WorkshopIdentityInputs,
@@ -598,7 +603,9 @@ function buildCanonicalAdmission(
     // F-014B B2: what qualifies a marker's original-owner preparation. The production admission qualifies NONE (D3(b) is not adopted, so
     // no pending enrolment and no authorized quiet variant can exist); only the TESTKIT-ONLY fixture admission qualifies a synthetic one.
     const if6b =
-      workshop && laneX && binding ? workshopLaneXAdmission(workshop, laneX, binding) : undefined;
+      workshop && laneX && binding
+        ? workshopLaneXAdmission(workshop, laneX, binding, candidate?.economyClass)
+        : undefined;
     const custody: GmWaitCustodyPolicy = {
       ...(if6b ? { if6b } : {}),
       preparation: policy.syntheticEvidence === "REQUIRE" ? "FIXTURE" : "NONE",
@@ -651,7 +658,13 @@ function buildCanonicalAdmission(
     historyVerificationId: selectedHistoryId,
     // F-014B (BLUE F1): the verifier changed, the RECORDED identity above did not, so checkpoint reuse is keyed on its own version
     ...(workshop
-      ? { checkpointVerifierId: selectedHistoryId + WORKSHOP_RESOLVER_VERIFIER_SEGMENT }
+      ? {
+          checkpointVerifierId:
+            selectedHistoryId +
+            WORKSHOP_RESOLVER_VERIFIER_SEGMENT +
+            ":" +
+            sha256Canonical(candidates),
+        }
       : {}),
     historicalFenceAdmission(group, state) {
       return judgedFor(group, state).view;
@@ -954,6 +967,37 @@ export function fixtureMsCanonicalAdmission(
   noticeSource?: WorkshopNoticeSource,
   laneX?: WorkshopLaneXFixture,
   /** TESTKIT ONLY: stands a successor generation in as CURRENT, so a build with a successor can be exercised before one exists. */
+  currentGeneration?: WorkshopGeneration,
+): WriteAdmission {
+  return buildFixtureMsAdmission(
+    binding,
+    workshopProfileBytes,
+    noticeSource,
+    laneX,
+    currentGeneration,
+  );
+}
+
+/** Internal construction of the prospective B3-E policy for a signed disposable Workshop campaign. */
+export function fixtureMsEconomyForwardAdmission(
+  binding: NonNullable<InitialSetupPolicy["msActorBinding"]>,
+  workshopProfileBytes: Uint8Array,
+  laneX: WorkshopLaneXFixture,
+): WriteAdmission {
+  return buildFixtureMsAdmission(
+    binding,
+    workshopProfileBytes,
+    undefined,
+    laneX,
+    workshopEconomyForwardGeneration(IF6B_POLICY, B3_ECONOMY_FORWARD_HISTORY_SEGMENT),
+  );
+}
+
+function buildFixtureMsAdmission(
+  binding: NonNullable<InitialSetupPolicy["msActorBinding"]>,
+  workshopProfileBytes?: Uint8Array,
+  noticeSource?: WorkshopNoticeSource,
+  laneX?: WorkshopLaneXFixture,
   currentGeneration?: WorkshopGeneration,
 ): WriteAdmission {
   const workshop =

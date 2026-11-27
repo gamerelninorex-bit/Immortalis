@@ -3,6 +3,11 @@ export const IF6B_BASE_COMMIT = "728104565662fece3e76be5b94c28f3c4201dbb7";
 export const IF6B_ENGINE_PATH = "packages/engine/src/temporal/if6b-stage.ts";
 export const IF6B_ENGINE_SHA256 =
   "1b08002314846f77252d9512fa8e633c84852bf6d31fbf334c025087167fef53";
+export const B3_E_BASE_COMMIT = "d311bcff7d6e9b4a2b5d8ba4a3bcaafd42224323";
+export const B3_E_IF6B_ENGINE_SHA256 =
+  "8fa2f234790cd65c121161a3df5aeee1c24ee29789fef7d0e7397f61effa95c1";
+export const atB3EconomyBase = (path: string): Buffer =>
+  execFileSync("git", ["show", `${B3_E_BASE_COMMIT}:${path}`]);
 export const IF6B_SETTLEMENT_PATH = "packages/engine/src/temporal/if6b-settlement.ts";
 export const IF6B_SETTLEMENT_SHA256 =
   "d2cb6a9c0ce253287b7621a338805c35b541056b37454f142783a180dcf6f7d1";

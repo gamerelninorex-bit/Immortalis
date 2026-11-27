@@ -11,9 +11,17 @@ import {
   temporalObjectKey,
   PLAYER_CHARACTER_BINDING_KEY,
   accessEventKey,
+  EconomyRealizationSchema,
+  economyRealizationKey,
+  economyRealizationStage,
+  GmWaitMarkerSchema,
   GmWaitByPcIndexSchema,
+  temporalGmWaitMarkerKey,
   temporalGmWaitByPcKey,
   temporalTransactionKey,
+  TemporalObjectSchema,
+  type CommitGroup,
+  type OwnerFact,
 } from "@immortalis/contracts";
 import {
   WorkshopDutySchema,
@@ -21,9 +29,12 @@ import {
   WorkshopNoticeOccurrenceSchema,
   WORKSHOP_SECOND,
   WorkshopSensoryCloseSchema,
+  workshopReservationKey,
 } from "../../packages/contracts/src/workshop-opening.ts";
 import {
   EconomyAdapter,
+  CanonicalCampaign,
+  fixtureMsCanonicalAdmission,
   GmWaitCustody,
   factKind,
   productionTemporalObject,
@@ -31,6 +42,8 @@ import {
   StageProviderRegistry,
   TemporalCoordinator,
   verifyEpistemicIntegrity,
+  type CampaignState,
+  type WriteAdmission,
 } from "@immortalis/engine";
 import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
 import { advanceWorkshopWaitStage } from "../../packages/engine/src/owners/workshop/lane-x.ts";
@@ -46,16 +59,141 @@ import {
   workshopDecisionOpportunity,
 } from "../../packages/engine/src/owners/workshop/wait-decision.ts";
 import { gmWaitX } from "../../packages/engine/src/gm-wait-identity.ts";
+import { gmWaitFenceOf, registerGmWaitFence } from "../../packages/engine/src/gm-wait-custody.ts";
+import { fixtureMsEconomyForwardAdmission } from "../../packages/engine/src/owners/admission.ts";
 import * as if6b from "../../packages/engine/src/temporal/if6b-stage.ts";
 import { economyProviders } from "@immortalis/testkit";
 import { signedWorkshopLaneX } from "../support/b3-lane-x.ts";
-import { openWorkshop, openingPublication } from "../support/b3-opening.ts";
+import { openWorkshop, openingPublication, workshopRawProfile } from "../support/b3-opening.ts";
 import { must } from "../support/temporal.ts";
 import { foreignGroup, proofOf, txOf } from "./b2-support.ts";
+
+function checkForwardEconomyRefusals(
+  group: CommitGroup,
+  state: CampaignState,
+  admission: WriteAdmission,
+  enrolment: OwnerFact,
+  objectKey: string,
+) {
+  const fence = gmWaitFenceOf(state);
+  const active = fence.active!;
+  const verify = (
+    candidate: CommitGroup,
+    prestate = state,
+    policy: Pick<WriteAdmission, "historyVerificationId"> = admission,
+  ) => if6b.if6bStageFor(candidate, prestate, fence, policy);
+  expect(verify(group)).toMatchObject({ class: "ECONOMY_REALIZED_ACCESS_FORWARD" });
+  expect(
+    verify(group, state, { historyVerificationId: admission.historyVerificationId! }),
+  ).toBeUndefined();
+  expect(
+    verify(group, state, { ...admission, historyVerificationId: "different-policy" }),
+  ).toBeUndefined();
+  expect(
+    if6b.if6bStageFor(
+      group,
+      state,
+      { ...fence, active: { ...active, pcId: "foreign-pc" } },
+      admission,
+    ),
+  ).toBeUndefined();
+
+  const write = group.writes[0]!;
+  const realization = EconomyRealizationSchema.parse(write.value);
+  const wrongTime = { ...realization.realized_at, value: realization.realized_at.value + 1 };
+  const variants: [string, CommitGroup][] = [
+    ["foreign campaign", { ...group, campaign_id: "foreign-campaign" }],
+    ["wrong owner", { ...group, owner: "world-state" }],
+    ["wrong facet", { ...group, facet: "economy_holding" }],
+    ["different group", { ...group, group_id: "foreign-group" }],
+    ["different intent", { ...group, intent_id: "foreign-intent" }],
+    [
+      "wrong predecessor",
+      { ...group, depends_on: [...group.depends_on.slice(0, -1), "foreign-open"] },
+    ],
+    [
+      "wrong time",
+      { ...group, writes: [{ ...write, value: { ...realization, realized_at: wrongTime } }] },
+    ],
+    [
+      "extra write",
+      { ...group, writes: [...group.writes, { ...write, key: "economy/realization/foreign" }] },
+    ],
+  ];
+  for (const [label, candidate] of variants) expect(verify(candidate), label).toBeUndefined();
+
+  const withFact = (key: string, fact?: OwnerFact): CampaignState => {
+    const facts = new Map(state.facts);
+    if (fact) facts.set(key, fact);
+    else facts.delete(key);
+    const changed = { ...state, facts };
+    registerGmWaitFence(changed, fence);
+    return changed;
+  };
+  for (const key of [
+    realization.demand.fact_key,
+    realization.request.fact_key,
+    realization.production.operation.fact_key,
+    realization.production.completion.fact_key,
+    realization.delivery_result.fact_key,
+    enrolment.key,
+    workshopReservationKey(state.campaign_id, active.pcId),
+  ]) {
+    const fact = state.facts.get(key)!;
+    expect(verify(group, withFact(key)), `absent ${key}`).toBeUndefined();
+    expect(
+      verify(group, withFact(key, { ...fact, version: fact.version + 1 })),
+      `stale ${key}`,
+    ).toBeUndefined();
+  }
+
+  const object = state.facts.get(objectKey)!;
+  const declared = TemporalObjectSchema.parse(object.value);
+  // Both still read the enrolled cue. Only the original Production object/declaration can earn credit.
+  for (const value of [
+    { ...declared, object_id: "obj-production-foreign" },
+    {
+      ...declared,
+      owning_ref: { ...declared.owning_ref, process_id: "production-operation:foreign" },
+    },
+    {
+      ...declared,
+      dependencies: declared.dependencies.filter(
+        (d) => d.stage.owner_operation.owner !== "economy",
+      ),
+    },
+    { ...declared, dependencies: [...declared.dependencies, declared.dependencies.at(-1)!] },
+  ]) {
+    expect(
+      verify(group, withFact(objectKey, { ...object, value: JsonValueSchema.parse(value) })),
+    ).toBeUndefined();
+  }
+
+  // Even a copy of the installed verifier cannot authorize the same group under a different history.
+  const markerKey = temporalGmWaitMarkerKey(active.x);
+  const markerFact = state.facts.get(markerKey)!;
+  const marker = GmWaitMarkerSchema.parse(markerFact.value);
+  const wrongIdentity = admission.historyVerificationId!.replace(
+    if6b.B3_ECONOMY_FORWARD_HISTORY_SEGMENT,
+    "",
+  );
+  const markerState = withFact(markerKey, {
+    ...markerFact,
+    value: JsonValueSchema.parse({
+      ...marker,
+      policy: { ...marker.policy, history_verification_id: wrongIdentity },
+    }),
+  });
+  expect(
+    verify(group, markerState, { ...admission, historyVerificationId: wrongIdentity }),
+  ).toBeUndefined();
+}
 
 describe("B3 Lane X with signed disposable owner sources", () => {
   it.each([
     "positive",
+    "economy-forward",
+    "economy-forward-interrupted",
     "contrary",
     "c54-unresolved",
     "economy-withheld",
@@ -64,24 +202,29 @@ describe("B3 Lane X with signed disposable owner sources", () => {
     "interrupted-unknown",
     "interrupted-contrary",
     "same-instant-unresolved",
+    "economy-forward-same-instant-unresolved",
     "future-a",
     "future-b",
   ] as const)(
     "resolves the native Lane X %s case",
     async (mode) => {
+      const forward = mode.startsWith("economy-forward");
       let signed!: ReturnType<typeof signedWorkshopLaneX>;
       const h = await openWorkshop("glassbell", {
         laneX(keys) {
-          signed = signedWorkshopLaneX(keys, mode !== "economy-withheld");
+          signed = signedWorkshopLaneX(keys, mode !== "economy-withheld" && !forward);
           return signed.fixture;
         },
+        ...(forward ? { laneXAdmission: fixtureMsEconomyForwardAdmission } : {}),
       });
       const proof = proofOf();
       const x = (gmWaitX("session-original-1", "1") as { x: string }).x;
       const earned = { unit: WORKSHOP_SECOND, value: 600 };
       const future = mode === "future-a" || mode === "future-b";
+      const collision = mode.endsWith("same-instant-unresolved");
+      const interruptedChoice = mode.endsWith("interrupted");
       const interrupted =
-        mode.startsWith("interrupted") || future || mode === "same-instant-unresolved";
+        mode.startsWith("interrupted") || interruptedChoice || future || collision;
       const target = { ...earned, value: interrupted || mode === "c54-unresolved" ? 900 : 600 };
       const unknown = mode === "unknown-hearing" || mode === "interrupted-unknown";
       const contrary = mode === "contrary" || mode === "interrupted-contrary";
@@ -90,6 +233,11 @@ describe("B3 Lane X with signed disposable owner sources", () => {
         historyVerificationId: h.admission.historyVerificationId!,
         kernelRule: factKind("temporal_state").rule,
       };
+      expect(policy.historyVerificationId.includes(if6b.B3_ECONOMY_FORWARD_HISTORY_SEGMENT)).toBe(
+        forward,
+      );
+      if (forward)
+        expect(policy.historyVerificationId).not.toContain("FIXTURE-ECONOMY-REALIZATION-DRAFT");
       let active = h.campaign;
       let store = active.store;
       let clock = new GmWaitCustody(store, policy);
@@ -128,7 +276,6 @@ describe("B3 Lane X with signed disposable owner sources", () => {
         const operation = store.getFact(h.charterInput.production_operation)!;
         const object = workshopNoticeTemporalObject(enrolment, operation)!;
         await must(h.register.registerObject({ ...openingPublication("notice-object"), object }));
-        const collision = mode === "same-instant-unresolved";
         let laterKey: string | undefined;
         if (future || collision) {
           const demand = { ...h.source.demand, demand_envelope_id: "independent-bracket-job" };
@@ -256,6 +403,8 @@ describe("B3 Lane X with signed disposable owner sources", () => {
             expect(store.head().revision).toBe(before);
           }
           const futureReads = future ? vi.spyOn(store.canonicalState!().facts, "get") : undefined;
+          const checkEconomy = n === 3 && forward && !collision;
+          const beforeEconomy = checkEconomy ? store.canonicalState!() : undefined;
           const first = advanceWorkshopWaitStage(store, x, signed.fixture.noticeSource);
           const second =
             n === 1 ? advanceWorkshopWaitStage(store, x, signed.fixture.noticeSource) : undefined;
@@ -298,6 +447,17 @@ describe("B3 Lane X with signed disposable owner sources", () => {
             });
             expect(await clock.sealOwn(x)).toMatchObject({ ok: false });
             expect(clock.status(h.source.pc.id).state).toBe("ACTIVE");
+            expect(store.head().revision).toBe(before);
+            expect(
+              store.getFact(economyRealizationKey(h.source.demand.demand_envelope_id)),
+            ).toBeUndefined();
+            const head = store.head();
+            await active.close();
+            active = await must(h.reopen({ audit: true }));
+            expect(active.store.head()).toEqual(head);
+            expect(new GmWaitCustody(active.store, policy).status(h.source.pc.id).state).toBe(
+              "ACTIVE",
+            );
             return;
           }
           expect(next.status).toBe("STAGE");
@@ -305,6 +465,37 @@ describe("B3 Lane X with signed disposable owner sources", () => {
           expect(next.result.ok, JSON.stringify(next)).toBe(true);
           if (!next.result.ok) throw new Error(JSON.stringify(next.result.error));
           credited.push(next.result.value.receipt.group_id);
+          if (beforeEconomy) {
+            const receipt = next.result.value.receipt;
+            const group = store.committedGroup(receipt.intent_id)!;
+            const objectKey = temporalObjectKey(h.productionObject.object_id);
+            expect(next.stage).toEqual(economyRealizationStage(h.requestId));
+            checkForwardEconomyRefusals(group, beforeEconomy, h.admission, enrolment, objectKey);
+            expect(group.writes).toHaveLength(1);
+            const key = economyRealizationKey(h.source.demand.demand_envelope_id);
+            expect(group.writes[0]).toMatchObject({ key, expected_version: 0 });
+            expect(beforeEconomy.facts.get(key)).toBeUndefined();
+            expect(store.getFact(key)).toMatchObject({
+              owner: "economy",
+              facet: "economy_state",
+              version: 1,
+              provenance: { group_id: receipt.group_id },
+              value: { realized_at: earned, close_stage: next.stage },
+            });
+            const head = store.head();
+            expect(await store.commit(group)).toMatchObject({
+              ok: true,
+              value: { receipt, replayed: true },
+            });
+            expect(
+              await store.commit({
+                ...group,
+                group_id: "other-economy-group",
+                intent_id: "other-economy-intent",
+              }),
+            ).toMatchObject({ ok: false });
+            expect(store.head()).toEqual(head);
+          }
           if (n === 1 && mode === "positive") {
             const published = store.committedGroup(next.result.value.receipt.intent_id)!;
             const head = store.head();
@@ -488,7 +679,7 @@ describe("B3 Lane X with signed disposable owner sources", () => {
           });
           const blank = "0".repeat(64);
           const before = store.head();
-          if (mode === "interrupted") {
+          if (interruptedChoice) {
             for (const [kind, change] of Object.entries({
               "stale-clock": {
                 clock: { ...opportunity.basis.clock, version: opportunity.basis.clock.version - 1 },
@@ -577,11 +768,23 @@ describe("B3 Lane X with signed disposable owner sources", () => {
         }
         const head = store.head();
         await active.close();
-        const reloaded = await must(h.reopen());
+        const reloaded = await must(h.reopen({ audit: true }));
         try {
           expect(reloaded.store.head()).toEqual(head);
         } finally {
           await reloaded.close();
+        }
+        if (mode === "economy-forward" || mode === "positive") {
+          const profile = workshopRawProfile("glassbell");
+          const wrongPolicy = forward
+            ? fixtureMsCanonicalAdmission(h.actorRunner.binding, profile, undefined, signed.fixture)
+            : fixtureMsEconomyForwardAdmission(h.actorRunner.binding, profile, signed.fixture);
+          expect(
+            await CanonicalCampaign.open(h.dir, {
+              audit: true,
+              testkitFixtureAdmission: wrongPolicy,
+            }),
+          ).toMatchObject({ ok: false });
         }
       } finally {
         await active.close();
