@@ -32,6 +32,8 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/gm-wait-catalogue/manifests/3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
   "packages/engine/gm-wait-catalogue/manifests/81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d.json",
+  // B3-T1 adds an isolated host archive in the engine package's internal host area.
+  "packages/engine/host-storage/workshop-retained-originals.ts",
   "packages/engine/src/commit/campaign-core.ts",
   "packages/engine/src/economy/integrity.ts",
   "packages/engine/src/epistemic/integrity.ts",
@@ -76,5 +78,6 @@ export const B3_SOURCE_PATHS: readonly string[] = [
 export const B3_NON_PACKAGE_PATHS: readonly string[] = [
   "docs/evidence/f014b-b3/blue-ci-reconciliation.md",
   "docs/evidence/f014b-b3/economy-realization-grant-draft.md",
+  "docs/evidence/f014b-b3/retained-originals-archive.md",
   ...B3_SOURCE_PATHS,
 ];
