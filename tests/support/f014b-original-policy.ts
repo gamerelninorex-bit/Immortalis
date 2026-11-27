@@ -9,7 +9,11 @@ import {
   WorkshopDutySchema,
   WorkshopNoticeEnrolmentSchema,
 } from "../../packages/contracts/src/workshop-opening.ts";
-import { WORKSHOP_G0_CATALOGUE_SHA256 } from "../../packages/engine/src/owners/workshop/generation.ts";
+import {
+  WORKSHOP_G0_CATALOGUE_SHA256,
+  WORKSHOP_GENERATION_G0,
+} from "../../packages/engine/src/owners/workshop/generation.ts";
+import { workshopFixtureIdentity } from "../../packages/engine/src/owners/workshop/source.ts";
 import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
 import { gmWaitX } from "../../packages/engine/src/gm-wait-identity.ts";
 import { advanceWorkshopWaitStage } from "../../packages/engine/src/owners/workshop/lane-x.ts";
@@ -24,7 +28,7 @@ import {
 } from "../../packages/engine/src/owners/workshop/generation.ts";
 import { IF6B_POLICY } from "../../packages/engine/src/temporal/if6b-stage.ts";
 import { signedWorkshopLaneX, type RetainedLaneXAuthorizations } from "./b3-lane-x.ts";
-import { openWorkshop, openingPublication } from "./b3-opening.ts";
+import { openWorkshop, openingPublication, workshopRawProfile } from "./b3-opening.ts";
 import { deterministicFixtureKeys } from "./deterministic-keys.ts";
 import { copyPackage, proofOf } from "../integration/b2-support.ts";
 
@@ -136,8 +140,19 @@ export async function writeLaneXLineage(opts: {
 }) {
   const keys = deterministicFixtureKeys(generateFixtureRunnerKeys().keyId);
   let signed!: ReturnType<typeof signedWorkshopLaneX>;
+  // the frozen G0 identity, recomputed from this harness's own constructed inputs (so it is right under ANY successor build too)
+  const g0Id = () =>
+    WORKSHOP_GENERATION_G0.identity({
+      base: "",
+      profileSha256: workshopFixtureIdentity(workshopRawProfile("glassbell")).sha256,
+      noticeVerificationId: signed.fixture.noticeSource.verificationId,
+      laneX: {
+        economyDraft: true,
+        choiceSha256: sha256Canonical(signed.fixture.choiceSource!.verificationId),
+      },
+    });
   const pair = (id: string) => ({
-    historyId: id,
+    historyId: opts.asG0 ? g0Id() : id,
     catalogueSha256:
       opts.generation?.catalogueSha256 ??
       (opts.asG0 ? WORKSHOP_G0_CATALOGUE_SHA256 : GM_WAIT_CATALOGUE_CURRENT_SHA256),
@@ -163,7 +178,7 @@ export async function writeLaneXLineage(opts: {
   const id = h.admission.historyVerificationId!;
   const clock = new GmWaitCustody(store, {
     catalogueSha256: opts.markerPair?.catalogueSha256 ?? pair(id).catalogueSha256,
-    historyVerificationId: opts.markerPair?.historyVerificationId ?? id,
+    historyVerificationId: opts.markerPair?.historyVerificationId ?? pair(id).historyId,
     kernelRule: factKind("temporal_state").rule,
   });
   const duty = store.listFacts().find((f) => WorkshopDutySchema.safeParse(f.value).success)!;

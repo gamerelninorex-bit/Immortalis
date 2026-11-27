@@ -258,7 +258,6 @@ describe("an original-policy lineage refuses novel custody, stage, clock and sea
     expect(opened.ok, JSON.stringify(opened.ok ? null : opened.error)).toBe(true);
     if (!opened.ok) return;
     const store = opened.value.store;
-    expect(h2.admission.historyVerificationId).toBe(meta.historyVerificationId); // the strings ARE equal
     expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).not.toBe(meta.catalogueSha256); // the catalogues are not
     const before = headKey(store.head());
     const stage = await advanceWorkshopWaitStage(store, meta.x, signed.fixture.noticeSource);
