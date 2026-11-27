@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { open, realpath, type FileHandle } from "node:fs/promises";
+import { link, open, statfs, unlink, type FileHandle } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { canonicalJson, Sha256, z } from "@immortalis/contracts";
 import { sha256Bytes } from "../src/initial-setup/identity.ts";
@@ -7,7 +8,6 @@ import {
   WorkshopProductionMessageSchema,
   type WorkshopRetainedOriginals,
 } from "../src/owners/workshop/production-auth.ts";
-import { nodeFs } from "../src/persistence/fs-ops.ts";
 
 const ArchiveV1Schema = z.strictObject({
   version: z.literal(1),
@@ -31,27 +31,53 @@ export class WorkshopArchiveError extends Error {
   }
 }
 
-async function openPrivateDirectory(directory: string): Promise<{
-  path: string;
-  handle: FileHandle;
-}> {
-  const path = resolve(directory);
+const procDescriptors = "/proc/self/fd";
+const procSuperMagic = 0x9fa0;
+const directoryFlags = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
+
+function directoryEntry(directory: FileHandle, name: string): string {
+  return join(procDescriptors, String(directory.fd), name);
+}
+
+async function openPrivateDirectory(directory: string): Promise<FileHandle> {
+  let handle: FileHandle | undefined;
   try {
-    if ((await realpath(path)) !== path) throw new Error();
-    const handle = await open(
-      path,
-      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
-    );
-    try {
-      const stat = await handle.stat();
-      if ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()) throw new Error();
-      return { path, handle };
-    } catch (error) {
-      await handle.close();
-      throw error;
+    if (process.platform !== "linux" || (await statfs(procDescriptors)).type !== procSuperMagic)
+      throw new Error();
+    handle = await open("/", directoryFlags);
+    // Resolve each component relative to its held parent. O_NOFOLLOW then guards that
+    // component, including when an ancestor has been renamed since the previous open.
+    for (const component of resolve(directory).split("/").filter(Boolean)) {
+      const parent = handle;
+      handle = await open(directoryEntry(parent, component), directoryFlags);
+      await parent.close();
     }
+    const stat = await handle.stat();
+    if ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()) throw new Error();
+    return handle;
   } catch {
+    await handle?.close().catch(() => undefined);
     throw new WorkshopArchiveError("workshop archive directory is inaccessible or unsafe");
+  }
+}
+
+async function createPrivateSnapshot(path: string, manifest: string): Promise<void> {
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  const file = await open(
+    temporary,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    try {
+      await file.writeFile(manifest, "utf8");
+      await file.sync();
+    } finally {
+      await file.close();
+    }
+    await link(temporary, path);
+  } finally {
+    await unlink(temporary).catch(() => undefined);
   }
 }
 
@@ -139,9 +165,10 @@ export async function publishWorkshopArchive(
   const snapshotSha256 = sha256Bytes(bytes);
   const root = await openPrivateDirectory(directory);
   try {
-    const path = join(root.path, `${snapshotSha256}.json`);
+    // The validated descriptor stays open through creation, link, retry, cleanup and sync.
+    const path = directoryEntry(root, `${snapshotSha256}.json`);
     try {
-      await nodeFs.createExclusive(path, manifest);
+      await createPrivateSnapshot(path, manifest);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST")
         throw new WorkshopArchiveError("workshop archive snapshot could not be published");
@@ -150,13 +177,13 @@ export async function publishWorkshopArchive(
         throw new WorkshopArchiveError("conflicting workshop archive snapshot at content address");
     }
     try {
-      await root.handle.sync();
+      await root.sync();
     } catch {
       throw new WorkshopArchiveError("workshop archive publication durability is unconfirmed");
     }
     return snapshotSha256;
   } finally {
-    await root.handle.close();
+    await root.close();
   }
 }
 
@@ -170,9 +197,9 @@ export async function openWorkshopArchive(
   const root = await openPrivateDirectory(directory);
   let bytes: Buffer;
   try {
-    bytes = await readSnapshot(join(root.path, `${expectedSha256}.json`));
+    bytes = await readSnapshot(directoryEntry(root, `${expectedSha256}.json`));
   } finally {
-    await root.handle.close();
+    await root.close();
   }
   if (sha256Bytes(bytes) !== expectedSha256)
     throw new WorkshopArchiveError("workshop archive snapshot digest mismatch");

@@ -1,12 +1,17 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
   chmod,
+  link,
+  mkdir,
   mkdtemp,
+  open,
   readFile,
   readdir,
   realpath,
+  rename,
   rm,
   stat,
+  statfs,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -38,9 +43,14 @@ import {
   type WorkshopView,
 } from "../../packages/engine/src/owners/workshop/publication.ts";
 import { WORKSHOP_NOTICE_RULE } from "../../packages/engine/src/owners/workshop/source.ts";
-import { nodeFs } from "../../packages/engine/src/persistence/fs-ops.ts";
 import { workshopRawProfile } from "../support/b3-opening.ts";
 
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const fs = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...fs, link: vi.fn(fs.link), open: vi.fn(fs.open), statfs: vi.fn(fs.statfs) };
+});
+
+const realFs = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
 const directories: string[] = [];
 
 async function privateDirectory(): Promise<string> {
@@ -50,7 +60,7 @@ async function privateDirectory(): Promise<string> {
 }
 
 afterEach(async () => {
-  vi.restoreAllMocks();
+  vi.resetAllMocks();
   await Promise.all(
     directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
   );
@@ -455,12 +465,118 @@ describe("B3-T1 host-owned retained Workshop originals", () => {
     );
   });
 
+  it("keeps temporary and published bytes in the validated directory if its name is replaced", async () => {
+    const c = corpus();
+    const parent = await privateDirectory();
+    const archive = join(parent, "archive");
+    const held = join(parent, "validated-archive");
+    const replacement = await privateDirectory();
+    await mkdir(archive, { mode: 0o700 });
+
+    let replaced = false;
+    vi.mocked(open).mockImplementation(async (path, flags, mode) => {
+      if (!replaced && typeof path === "string" && path.endsWith(".tmp")) {
+        replaced = true;
+        await rename(archive, held);
+        await symlink(replacement, archive);
+      }
+      return realFs.open(path, flags, mode);
+    });
+    vi.mocked(link).mockImplementationOnce(async (from, to) => {
+      expect((await stat(from)).mode & 0o777).toBe(0o600);
+      return realFs.link(from, to);
+    });
+
+    const digest = await publishWorkshopArchive(archive, c.originals);
+    expect(replaced).toBe(true);
+    expect(link).toHaveBeenCalledOnce();
+    expect(await readdir(replacement)).toEqual([]);
+    expect(await readdir(held)).toEqual([`${digest}.json`]);
+    expect((await stat(join(held, `${digest}.json`))).mode & 0o777).toBe(0o600);
+    expect((await openWorkshopArchive(held, digest)).read(c.gm.ref)?.bytes).toEqual(c.gm.bytes);
+  });
+
+  it("keeps link and cleanup in the validated directory after an ancestor is replaced", async () => {
+    const c = corpus();
+    const parent = await privateDirectory();
+    const ancestor = join(parent, "operator");
+    const held = join(parent, "validated-operator");
+    const replacement = await privateDirectory();
+    await mkdir(join(ancestor, "archive"), { mode: 0o700, recursive: true });
+    await mkdir(join(replacement, "archive"), { mode: 0o700 });
+
+    vi.mocked(link).mockImplementationOnce(async (from, to) => {
+      await rename(ancestor, held);
+      await symlink(replacement, ancestor);
+      await realFs.link(from, to);
+    });
+
+    const digest = await publishWorkshopArchive(join(ancestor, "archive"), c.originals);
+    expect(link).toHaveBeenCalledOnce();
+    expect(await readdir(join(replacement, "archive"))).toEqual([]);
+    expect(await readdir(join(held, "archive"))).toEqual([`${digest}.json`]);
+    const archive = await openWorkshopArchive(join(held, "archive"), digest);
+    expect(archive.read(c.gm.ref)?.signature).toEqual(c.gm.signature);
+  });
+
+  it.each(["cold read", "exact retry"])(
+    "anchors the %s after its validated ancestor is replaced",
+    async (operation) => {
+      const c = corpus();
+      const parent = await privateDirectory();
+      const ancestor = join(parent, "operator");
+      const held = join(parent, "validated-operator");
+      const replacement = await privateDirectory();
+      const directory = join(ancestor, "archive");
+      await mkdir(directory, { mode: 0o700, recursive: true });
+      await mkdir(join(replacement, "archive"), { mode: 0o700 });
+      const digest = await publishWorkshopArchive(directory, c.originals);
+      const filename = `${digest}.json`;
+      const bytes = await readFile(join(directory, filename));
+      await writeFile(join(replacement, "archive", filename), "different snapshot");
+
+      let replaced = false;
+      vi.mocked(open).mockImplementation(async (path, flags, mode) => {
+        if (!replaced && typeof path === "string" && path.endsWith(`/${filename}`)) {
+          replaced = true;
+          await rename(ancestor, held);
+          await symlink(replacement, ancestor);
+        }
+        return realFs.open(path, flags, mode);
+      });
+
+      if (operation === "cold read") {
+        expect((await openWorkshopArchive(directory, digest)).read(c.gm.ref)?.bytes).toEqual(
+          c.gm.bytes,
+        );
+      } else {
+        expect(await publishWorkshopArchive(directory, c.originals)).toBe(digest);
+      }
+      expect(replaced).toBe(true);
+      expect(await readdir(join(held, "archive"))).toEqual([filename]);
+      expect(await readFile(join(held, "archive", filename))).toEqual(bytes);
+      expect(await readdir(join(replacement, "archive"))).toEqual([filename]);
+      expect(await readFile(join(replacement, "archive", filename), "utf8")).toBe(
+        "different snapshot",
+      );
+    },
+  );
+
+  it("refuses storage without the Linux descriptor filesystem", async () => {
+    const c = corpus();
+    const directory = await privateDirectory();
+    vi.mocked(statfs).mockRejectedValueOnce(new Error("missing procfs"));
+    await expect(publishWorkshopArchive(directory, c.originals)).rejects.toThrow(
+      "directory is inaccessible or unsafe",
+    );
+    expect(await readdir(directory)).toEqual([]);
+  });
+
   it("retries a lost publication acknowledgment without overwriting an existing address", async () => {
     const c = corpus();
     const directory = await privateDirectory();
-    const create = nodeFs.createExclusive;
-    vi.spyOn(nodeFs, "createExclusive").mockImplementationOnce(async (path, manifest) => {
-      await create(path, manifest);
+    vi.mocked(link).mockImplementationOnce(async (from, to) => {
+      await realFs.link(from, to);
       throw Object.assign(new Error("test lost acknowledgment"), { code: "EIO" });
     });
     await expect(publishWorkshopArchive(directory, c.originals)).rejects.toThrow(
