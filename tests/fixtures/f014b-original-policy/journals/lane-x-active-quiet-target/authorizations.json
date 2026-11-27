@@ -1,0 +1,57 @@
+{
+ "derivedBy": "pristine main d0bcb615: authorize() re-run on the identical opening state (see README)",
+ "x": "bfb9587f82785729c057f8559845132206b9034cf82a3360ad57fbd1c136e89e",
+ "retainedAuthorizations": {
+  "proofs": [
+   {
+    "x": "bfb9587f82785729c057f8559845132206b9034cf82a3360ad57fbd1c136e89e",
+    "signed": {
+     "bytes": "eyJwdXJwb3NlIjoiZml4dHVyZTpDNTQiLCJjYW1wYWlnbiI6ImZpeHR1cmU6d29ya3Nob3Atb3BlbmluZy1nbGFzc2JlbGwtdjQ6Y2IzOWRhMmM0MDk5NTI2OTU0YWUxODJlNGEyMDZhNjI3YWQ2MmNiYjQ3Zjc2MGIxYzE0YzJkNDYxMmE0MDA3YiIsIngiOiJiZmI5NTg3ZjgyNzg1NzI5YzA1N2Y4NTU5ODQ1MTMyMjA2YjkwMzRjZjgyYTMzNjBhZDU3ZmJkMWMxMzZlODllIiwiZHV0eSI6ImFjdG9yLzMyYzJmZWJhNmUwOWVjNTYxNDRmYzcyN2Q4NzhjZTQ4OWE5NmFiOWNjMTg1NzBjMjYyNzJiY2RjZjQ1MWZmNGEvbG9jYWwtbm90aWNlLWR1dHkvOWMyZjFlMjFhY2M1ZWEzNTNhNzJiODVkNmI4ZTg3Y2M2ZjJhZjdlNDUyOTY3MDg0MmQ5M2VjMjVhNzkwMmE5ZCIsInJlZnMiOlt7Im93bmVyIjoicm9sZV9yZWdpc3RyeSIsImZhY2V0IjoicGxheWVyX2NoYXJhY3Rlcl9iaW5kaW5nIiwia2V5Ijoicm9sZS1yZWdpc3RyeS9iaW5kaW5nL3JvbGUucGxheWVyX2NoYXJhY3RlciIsInZlcnNpb24iOjEsImdyb3VwX2lkIjoiYjMtb3BlbmluZzpiaW5kIn0seyJvd25lciI6IndvcmxkX3N0YXRlIiwiZmFjZXQiOiJ3b3JsZF9mYWxsYmFja19waHlzaWNhbF9lbnRpdHkiLCJrZXkiOiJ3b3JsZC1zdGF0ZS9wYy9wYy13b3Jrc2hvcC12aXNpdG9yL2xvY3VzLWN1c3RvZHkiLCJ2ZXJzaW9uIjoxLCJncm91cF9pZCI6ImIzLW9wZW5pbmc6cGh5c2ljYWwtbG9jdXMifSx7Im93bmVyIjoid29ybGRfc3RhdGUiLCJmYWNldCI6IndvcmxkX3Byb2ZpbGUiLCJrZXkiOiJ3b3JsZC9iMy1xdWFsaWZpY2F0aW9uLXdvcmtzaG9wLXdvcmxkL3Byb2ZpbGUiLCJ2ZXJzaW9uIjoxLCJncm91cF9pZCI6ImIzLW9wZW5pbmc6d29ybGQifSx7Im93bmVyIjoid29ybGRfc3RhdGUiLCJmYWNldCI6IndvcmxkX2xvY3VzIiwia2V5Ijoid29ybGQvYjMtcXVhbGlmaWNhdGlvbi13b3Jrc2hvcC13b3JsZC9sb2N1cy93b3Jrc2hvcC1vcGVuaW5nLWdsYXNzYmVsbC12NCIsInZlcnNpb24iOjEsImdyb3VwX2lkIjoiYjMtb3BlbmluZzpsb2N1cyJ9LHsib3duZXIiOiJ3b3JsZF9zdGF0ZSIsImZhY2V0Ijoid29ybGRfZmFsbGJhY2tfcGh5c2ljYWxfZW50aXR5Iiwia2V5Ijoid29ybGQtc3RhdGUvYWN0b3IvMzJjMmZlYmE2ZTA5ZWM1NjE0NGZjNzI3ZDg3OGNlNDg5YTk2YWI5Y2MxODU3MGMyNjI3MmJjZGNmNDUxZmY0YS9wcmVzZW5jZSIsInZlcnNpb24iOjEsImdyb3VwX2lkIjoibXMtaW5pdGlhbC1hY3Rvcjpncm91cDp2MTp3b3JsZC1zdGF0ZS9hY3Rvci8zMmMyZmViYTZlMDllYzU2MTQ0ZmM3MjdkODc4Y2U0ODlhOTZhYjljYzE4NTcwYzI2MjcyYmNkY2Y0NTFmZjRhL3ByZXNlbmNlIn1dfQ==",
+     "signature": "b9h7lGYtlzQM8Dhzd9hsSkh85uvwbtzD/jaNHNLwtHwGG2ujlAGnZly37gA98KxXtYnsnf5q+ANqGVKbBe1gCA=="
+    },
+    "exact": [
+     {
+      "owner": "role_registry",
+      "facet": "player_character_binding",
+      "key": "role-registry/binding/role.player_character",
+      "version": 1,
+      "group_id": "b3-opening:bind"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_fallback_physical_entity",
+      "key": "world-state/pc/pc-workshop-visitor/locus-custody",
+      "version": 1,
+      "group_id": "b3-opening:physical-locus"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_profile",
+      "key": "world/b3-qualification-workshop-world/profile",
+      "version": 1,
+      "group_id": "b3-opening:world"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_locus",
+      "key": "world/b3-qualification-workshop-world/locus/workshop-opening-glassbell-v4",
+      "version": 1,
+      "group_id": "b3-opening:locus"
+     },
+     {
+      "owner": "world_state",
+      "facet": "world_fallback_physical_entity",
+      "key": "world-state/actor/32c2feba6e09ec56144fc727d878ce489a96ab9cc18570c26272bcdcf451ff4a/presence",
+      "version": 1,
+      "group_id": "ms-initial-actor:group:v1:world-state/actor/32c2feba6e09ec56144fc727d878ce489a96ab9cc18570c26272bcdcf451ff4a/presence"
+     }
+    ],
+    "rootRequestSha256": "df07e9e68c011b75c5131bd6069f48062982c90ac502441656f5aa3d7ee012ac",
+    "proposalSha256": "e6a09af36fb9586fea53e54ab6767af8792624ca7a380ea64d614f6176c8cfb1",
+    "t0WitnessSha256": "824b374c26dbb3f7e59413ab1551afaae1959c50a378d92b005afc8813317316"
+   }
+  ],
+  "delivered": null,
+  "choices": []
+ }
+}

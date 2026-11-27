@@ -618,6 +618,15 @@ function buildCanonicalAdmission(
     return ctx.if6b ? installIf6b(view, ctx.if6b) : view;
   };
   const touchesWorkshop = workshopBearing;
+  // the context (and the identity-bearing view the fence reads) a REPLAYED group is judged under; the current one unless its lineage is bound to a historical generation
+  const judgedFor = (group: CommitGroup, state: CampaignState) => {
+    const lineage = workshop ? bindWorkshopLineage(candidates, group, state) : undefined;
+    const context =
+      lineage?.status === "BOUND"
+        ? (historicalContexts.get(lineage.candidate) ?? currentContext)
+        : currentContext;
+    return { context, view: context === currentContext ? admission : judgingView(context) };
+  };
   const admission: WriteAdmission = {
     initializeView(state, checked) {
       initializeMsFence(state, checked);
@@ -632,6 +641,9 @@ function buildCanonicalAdmission(
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic change to any composed historical
     // verifier must change this identity (and force strict replay): see the composition above.
     historyVerificationId: selectedHistoryId,
+    historicalFenceAdmission(group, state) {
+      return judgedFor(group, state).view;
+    },
     verifyHistorical(group, state) {
       // F-014B replay prerequisite: a workshop lineage is judged under the ORIGINAL generation its committed charter recomputes to.
       const lineage = workshop ? bindWorkshopLineage(candidates, group, state) : undefined;
@@ -641,22 +653,19 @@ function buildCanonicalAdmission(
           "the recorded workshop policy is not a supported original generation",
           { reason: "WORKSHOP_GENERATION_UNKNOWN" },
         );
-      const judged =
-        lineage?.status === "BOUND"
-          ? (historicalContexts.get(lineage.candidate) ?? currentContext)
-          : currentContext;
-      const judgedAdmission = judged === currentContext ? admission : judgingView(judged);
+      const judged = judgedFor(group, state);
+      const judgedAdmission = judged.view;
       return (
         msFenceCheck(group, state) ??
         // F-014B B2 W2: the common fence and the custody transitions are judged at the ACTUAL incremental prestate, before any legacy
         // canonical dispatch. A group that touches no custody fact and meets no ACTIVE wait returns null here at once.
         gmWaitFenceViolation(group, gmWaitFenceOf(state), judgedAdmission, false, state) ??
-        gmWaitCustodyCheck(group, state, { policy: judged.custody, live: false }) ??
+        gmWaitCustodyCheck(group, state, { policy: judged.context.custody, live: false }) ??
         workshopGroupCheck(
           group,
           state,
           workshop,
-          judged.binding ?? selectedHistoryId,
+          judged.context.binding ?? selectedHistoryId,
           noticeSource,
         ) ??
         workshopTemporalHistoryCheck(group, state, workshop) ??
@@ -684,10 +693,13 @@ function buildCanonicalAdmission(
       // historical selection can neither grant what a later generation introduced nor mix generations inside one lineage.
       if (workshop && touchesWorkshop(group)) {
         const lineage = bindWorkshopLineage(candidates, group, state);
-        if (
-          lineage.status === "UNKNOWN" ||
-          (lineage.status === "BOUND" && lineage.candidate !== currentCandidate)
-        )
+        if (lineage.status === "UNKNOWN")
+          return reject(
+            "REFERENCE_INVALID",
+            "the workshop policy recorded for this lineage is not a supported generation",
+            { reason: "WORKSHOP_GENERATION_UNKNOWN" },
+          );
+        if (lineage.status === "BOUND" && lineage.candidate !== currentCandidate)
           return reject(
             "REFERENCE_INVALID",
             "a lineage chartered under an original policy is replay-only: no new live workshop write is admitted under it",

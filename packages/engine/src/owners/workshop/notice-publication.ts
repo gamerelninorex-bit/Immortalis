@@ -413,10 +413,10 @@ export function deriveNoticeSettlement(view: WorkshopView, key: string, abort: b
 
 export class WorkshopNoticeAdapter {
   readonly #store: CampaignStore;
-  readonly #historyId: string;
+  readonly #historyId: WorkshopHistoryRef;
   readonly #source: WorkshopNoticeSource | undefined;
 
-  constructor(store: CampaignStore, historyId: string, source?: WorkshopNoticeSource) {
+  constructor(store: CampaignStore, historyId: WorkshopHistoryRef, source?: WorkshopNoticeSource) {
     this.#store = store;
     this.#historyId = historyId;
     this.#source = source;

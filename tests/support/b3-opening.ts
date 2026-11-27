@@ -1,5 +1,6 @@
 // Fixture-only driver. Real owner APIs publish every group. The signed runner and
 // scripted referee are the existing mechanism fixtures, with their own namespaces.
+import type { WorkshopHistoryRef } from "../../packages/engine/src/owners/workshop/generation.ts";
 import { readFileSync } from "node:fs";
 import {
   NamedActorExistenceBasisSchema,
@@ -85,6 +86,8 @@ export async function openWorkshop(
     ) => void;
     readonly beforeLedger?: (attempt: () => Promise<unknown>) => Promise<void>;
     readonly fixedKeys?: unknown;
+    /** TESTKIT ONLY: the policy the owner adapters publish under, when it must differ from the admission's (forgery and successor rehearsal). */
+    readonly historyRef?: WorkshopHistoryRef | ((admissionId: string) => WorkshopHistoryRef);
     readonly currentGeneration?: NonNullable<
       NonNullable<Parameters<typeof msHarness>[0]>["workshop"]
     >["currentGeneration"];
@@ -167,7 +170,10 @@ export async function openWorkshop(
 
   const campaign = h.campaign;
   const store = h.store;
-  const historyId = h.admission.historyVerificationId!;
+  const historyId =
+    typeof opts.historyRef === "function"
+      ? opts.historyRef(h.admission.historyVerificationId!)
+      : (opts.historyRef ?? h.admission.historyVerificationId!);
   const ref = new RefereeAdjudicationAdapter(store);
   const nativeInput = { ...ids, attempt: 0, statement: source.pc.presence };
   const nativeTask = await must(Promise.resolve(ref.irTask(nativeInput)));

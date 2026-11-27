@@ -80,6 +80,16 @@ export interface WriteAdmission {
    * whole of today's write admission over history. A `check` that applies the same rule keeps admission and replay one rule.
    */
   verifyHistorical?(group: CommitGroup, state: CampaignState): Failure<CommitErrorCode> | null;
+  /**
+   * OPTIONAL. The identity-bearing view the common W2 fence consults for a REPLAYED group. A build whose historical policy is selected
+   * per recorded lineage (the workshop original-policy generations) answers with the lineage's own view, so the fence that the core
+   * itself runs before every owner rule judges a recorded stage under the policy it was written under. Absent, the fence consults the
+   * admission itself, exactly as before. A live commit never asks: it is judged under the admission's own (current) identity.
+   */
+  historicalFenceAdmission?(
+    group: CommitGroup,
+    state: CampaignState,
+  ): { readonly historyVerificationId?: string };
 }
 
 export const CommitErrorCodes = [
@@ -294,7 +304,7 @@ export class CampaignCore {
   }
 
   /** Re-registers an already-committed entry (used when replaying a journal on load). */
-  adopt(entry: JournalEntry, nextState: CampaignState): void {
+  adopt(entry: JournalEntry, nextState: CampaignState, replaying = false): void {
     const before = this.#state;
     this.#state = nextState;
     this.#headSha256 = entry.entry_sha256;
@@ -304,7 +314,7 @@ export class CampaignCore {
       entry.group,
       nextState,
       before,
-      this.#params.admission,
+      replaying ? this.#fenceAdmission(entry.group, before) : this.#params.admission,
       entry.receipt,
     );
     registerGmWaitFence(nextState, this.#fence);
@@ -510,7 +520,7 @@ export class CampaignCore {
     if (canonicalEqual(computed.entry, entry) === false)
       return mismatch("recomputed entry differs");
     const beforeAdoption = this.#state;
-    this.adopt(computed.entry, computed.nextState);
+    this.adopt(computed.entry, computed.nextState, true);
     this.#params.admission?.committedView?.(
       beforeAdoption,
       computed.nextState,
@@ -518,6 +528,12 @@ export class CampaignCore {
     );
     if (historical !== undefined) this.#ruleChecked.add(entry.group.group_id);
     return ok(undefined);
+  }
+
+  /** the admission view the fence consults for a REPLAYED group: the lineage's own when the admission selects one */
+  #fenceAdmission(group: CommitGroup, state: CampaignState) {
+    const admission = this.#params.admission;
+    return admission?.historicalFenceAdmission?.(group, state) ?? admission;
   }
 
   #compute(
@@ -597,7 +613,7 @@ export class CampaignCore {
     const fenced = gmWaitFenceViolation(
       group,
       this.#fence,
-      this.#params.admission,
+      checkRegistry ? this.#params.admission : this.#fenceAdmission(group, state),
       checkRegistry,
       state,
     );

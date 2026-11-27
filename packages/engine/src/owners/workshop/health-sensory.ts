@@ -546,8 +546,8 @@ export function readWorkshopSensoryClose(
 export class WorkshopHealthAdapter {
   readonly #store: CampaignStore;
   readonly #profile: WorkshopFixtureIdentity;
-  readonly #historyId: string;
-  constructor(store: CampaignStore, profile: WorkshopFixtureIdentity, historyId: string) {
+  readonly #historyId: WorkshopHistoryRef;
+  constructor(store: CampaignStore, profile: WorkshopFixtureIdentity, historyId: WorkshopHistoryRef) {
     this.#store = store;
     this.#profile = profile;
     this.#historyId = historyId;
