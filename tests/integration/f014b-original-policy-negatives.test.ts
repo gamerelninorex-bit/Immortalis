@@ -293,8 +293,13 @@ describe("an original-policy lineage refuses novel custody, stage, clock and sea
       expect(stage.status).toBe("STAGE");
       if (stage.status === "STAGE") {
         expect(stage.result.ok).toBe(false);
-        // with equal strings the W2 stage witness PASSES, so only the replay-only guard stops it; with a successor the witness already refuses
-        if (!generation)
+        // with EQUAL history strings the W2 stage witness PASSES, so only the replay-only guard stops it; with differing strings the witness already refuses
+        const recorded = (
+          store.getFact(temporalGmWaitMarkerKey(f.x))!.value as {
+            policy: { history_verification_id: string };
+          }
+        ).policy.history_verification_id;
+        if (recorded === h2.admission.historyVerificationId)
           expect(refusedByGuard(stage.result), JSON.stringify(stage.result)).toBe(true);
       }
       expect(headKey(store.head())).toEqual(before);

@@ -16,11 +16,11 @@ export const B3_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "839b8d0003d87fe800be523bc21f99bea7db2ee4cd879b89a816c4c603b3b9d0",
+    head: "718171b29ee1624a2bf7216164c5c5e7b3bff418f4c36c4e75d7dd5a7ea5c5c5",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",
-    head: "4543320f7ac0b89cbae37fb89bd136a2bedf0ba074257d33cb14dfc856fa7d28",
+    head: "1feef8b74edd31cef64fcd16fb513df9e814eef9dab4346684cb4371a51d9db9",
   },
 };
 
@@ -33,6 +33,7 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/gm-wait-catalogue/manifests/501f0f3d4fc8cdf7e7cb425e9f6444db74a80524206cc8d760575563b2492e56.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
   "packages/engine/gm-wait-catalogue/manifests/81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d.json",
+  "packages/engine/gm-wait-catalogue/manifests/f7a4b7ee4094fdf8efa3d17a2f9ee4d3bea36114ce227c6e839489dd10ab9948.json",
   // B3-T1 adds an isolated host archive in the engine package's internal host area.
   "packages/engine/host-storage/workshop-retained-originals.ts",
   "packages/engine/src/commit/campaign-core.ts",
@@ -61,6 +62,7 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/src/owners/workshop/registry.ts",
   "packages/engine/src/owners/workshop/source.ts",
   "packages/engine/src/owners/workshop/wait-decision.ts",
+  "packages/engine/src/persistence/checkpoint-package.ts",
   "packages/engine/src/production/admission.ts",
   "packages/engine/src/production/integrity.ts",
   "packages/engine/src/temporal/admission.ts",
