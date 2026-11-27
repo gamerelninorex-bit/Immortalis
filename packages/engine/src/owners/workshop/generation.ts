@@ -84,12 +84,35 @@ export function composeWorkshopIdentity(
   );
 }
 
-/** G0: the recipe and catalogue main published workshop history under at d0bcb615. Frozen; never edited, only joined by successors. */
+/**
+ * G0's shared base: the composed history identity main `d0bcb615` spelled for the fixture admission, BEFORE any workshop segment. Frozen as a literal so a later
+ * change to a shared segment constant or to `composeWorkshopIdentity` cannot move what G0 recomputes; a new base is a new generation, never an edit here.
+ */
+export const WORKSHOP_G0_FIXTURE_BASE =
+  "R1-stage-one-v1.1@2026-10-23T09:27:39.157Z+S1-P1@2026-10-23T12:26:49.599Z+GM-INITIAL-BOOTSTRAP-V9@2026-11-01T12:13:53.634Z+C1C2-V0.4@2026-11-03T00:51:23.053Z+INITIAL_LOCALITY_PARSER_V2+INITIAL_LOCALITY_PROVENANCE_V1+fixture-evidence-t1+MS-SETUP-V08@2026-11-09T00:43:08.394Z+MS_ACTOR_PARSER_V1+ROADBED-FREIGHT-FI@2026-11-13T06:14:52.876Z+S4-INITIAL-LEDGER@2026-11-15T13:54:22.606Z/2026-11-15T14:02:45.229Z+BRIEF@2026-11-17T04:59:46.616Z+POPULATION-STAGE-AUTHORITY-V2+CAL-TIME-T1-CLOCK-ORIGIN@2026-11-18T22:23:26.085Z+MS-V3-CLOCK-STEP-B2-ORIGIN+GM-WAIT-W2-CUSTODY-V1@2026-11-22T17:48:36.869Z";
+
+/**
+ * G0: the recipe and catalogue main published workshop history under at d0bcb615. Frozen and SELF-CONTAINED: its own base literal and its own inline
+ * composition (not `composeWorkshopIdentity`, not the caller's `inputs.base`). Only these variants exist, and only the inputs below choose among them:
+ * the notice-source tail, then (Lane X only) the draft-economy flag, the choice-source tail and the terminal IF-6b segment. It has no economy-forward, no
+ * quiet-seal and no stage-policy variant, so a historical selection can grant none of them.
+ */
 export const WORKSHOP_GENERATION_G0: WorkshopGeneration = Object.freeze({
   id: "G0",
   catalogueSha256: WORKSHOP_G0_CATALOGUE_SHA256,
-  identity: (inputs: WorkshopIdentityInputs) =>
-    composeWorkshopIdentity(inputs, { if6bPolicy: WORKSHOP_G0_IF6B_POLICY }),
+  identity: (inputs: WorkshopIdentityInputs) => {
+    const workshopId = `${WORKSHOP_G0_FIXTURE_BASE}+B3-WORKSHOP-OWNER-V1:${inputs.profileSha256}${
+      inputs.noticeVerificationId !== undefined ? `:${inputs.noticeVerificationId}` : ""
+    }`;
+    if (!inputs.laneX) return workshopId;
+    return (
+      workshopId +
+      (inputs.laneX.economyDraft ? "+FIXTURE-ECONOMY-REALIZATION-DRAFT-V1" : "") +
+      (inputs.laneX.choiceSha256 !== undefined ? "+B3-CHOICE:" + inputs.laneX.choiceSha256 : "") +
+      "+" +
+      WORKSHOP_G0_IF6B_POLICY
+    );
+  },
 });
 
 /**

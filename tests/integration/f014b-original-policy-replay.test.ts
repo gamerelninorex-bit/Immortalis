@@ -111,6 +111,12 @@ describe("the generation registry is finite and exact", () => {
     for (const name of LANE_X) {
       const { meta, inputs } = await inputsOf(name);
       expect(WORKSHOP_GENERATION_G0.identity(inputs), name).toBe(meta.historyVerificationId);
+      // frozen: a different shared base (a later segment, a changed composition) does not move G0, and does move the current generation
+      const moved = { ...inputs, base: inputs.base + "+A-LATER-SHARED-SEGMENT" };
+      expect(WORKSHOP_GENERATION_G0.identity(moved), name).toBe(meta.historyVerificationId);
+      expect(workshopCurrentGeneration(IF6B_POLICY).identity(moved)).not.toBe(
+        meta.historyVerificationId,
+      );
       expect(WORKSHOP_GENERATION_G0.catalogueSha256).toBe(meta.catalogueSha256);
     }
     expect(WORKSHOP_G0_CATALOGUE_SHA256).toBe(
