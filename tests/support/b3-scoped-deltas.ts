@@ -37,6 +37,8 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/src/epistemic/integrity.ts",
   "packages/engine/src/gm-wait-catalogue-current.ts",
   "packages/engine/src/gm-wait-custody.ts",
+  // B3-T1 successor adds isolated host storage without altering the historical byte pins.
+  "packages/engine/src/host-storage/workshop-retained-originals.ts",
   "packages/engine/src/owners/admission.ts",
   "packages/engine/src/owners/extension.ts",
   "packages/engine/src/owners/workshop/actor-duty.ts",
@@ -76,5 +78,6 @@ export const B3_SOURCE_PATHS: readonly string[] = [
 export const B3_NON_PACKAGE_PATHS: readonly string[] = [
   "docs/evidence/f014b-b3/blue-ci-reconciliation.md",
   "docs/evidence/f014b-b3/economy-realization-grant-draft.md",
+  "docs/evidence/f014b-b3/retained-originals-archive.md",
   ...B3_SOURCE_PATHS,
 ];
