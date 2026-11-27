@@ -105,6 +105,13 @@ export const workshopCurrentGeneration = (liveIf6bPolicy: string): WorkshopGener
       composeWorkshopIdentity(inputs, { if6bPolicy: liveIf6bPolicy }),
   });
 
+/**
+ * The version of the historical verifier that selects an original policy. A workshop admission's checkpoint-cache identity is its recorded identity plus
+ * this segment, so a checkpoint earned before the resolver existed is replayed strictly once instead of being trusted. Any change to the registry or to
+ * how a lineage is bound is a change to this verifier and MUST move this version.
+ */
+export const WORKSHOP_RESOLVER_VERIFIER_SEGMENT = "+WORKSHOP-ORIGINAL-POLICY-RESOLVER-V1";
+
 /** One candidate: a registry entry with its identity recomputed for THIS admission's constructed inputs. */
 export interface WorkshopGenerationCandidate {
   readonly id: string;

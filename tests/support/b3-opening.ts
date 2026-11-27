@@ -86,6 +86,8 @@ export async function openWorkshop(
     ) => void;
     readonly beforeLedger?: (attempt: () => Promise<unknown>) => Promise<void>;
     readonly fixedKeys?: unknown;
+    /** TESTKIT ONLY: a stage-owner extension so synthetic foreign groups can lengthen a journal past a checkpoint interval */
+    readonly extension?: import("@immortalis/engine").StageOwnerExtension;
     /** TESTKIT ONLY: the policy the owner adapters publish under, when it must differ from the admission's (forgery and successor rehearsal). */
     readonly historyRef?: WorkshopHistoryRef | ((admissionId: string) => WorkshopHistoryRef);
     readonly currentGeneration?: NonNullable<
@@ -120,6 +122,7 @@ export async function openWorkshop(
             campaignId: profile.campaignId,
             buildId: "workshop-b3-qualification",
             testkitFixtureAdmission: opts.admissionOverride?.(admission) ?? admission,
+            ...(opts.extension ? { extension: opts.extension } : {}),
           }),
         );
         await must(

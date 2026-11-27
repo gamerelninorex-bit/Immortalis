@@ -67,6 +67,13 @@ export interface WriteAdmission {
   committedView?(before: CampaignState, after: CampaignState, group: CommitGroup): void;
   /** Stable identity of the historical verifier. Absent => checkpoint history cannot be trusted. */
   readonly historyVerificationId?: string;
+  /**
+   * OPTIONAL. The identity checkpoint reuse is keyed on, when it must differ from `historyVerificationId`. The latter is the identity RECORDED in history
+   * (markers and owner facts carry it, and the W2 fence compares markers with it), so it can never move without rewriting recorded bytes. A
+   * historical verifier that changes while the recorded identity does not (the workshop original-policy resolver) declares its version here, so a
+   * checkpoint earned by the earlier verifier is not trusted and the first open replays strictly. Absent, checkpoint reuse uses `historyVerificationId`.
+   */
+  readonly checkpointVerifierId?: string;
   check(
     group: CommitGroup,
     state: CampaignState,

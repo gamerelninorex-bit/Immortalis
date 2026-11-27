@@ -115,7 +115,12 @@ export async function msHarness(
   const admission = {
     ...base,
     ...(options.historyId
-      ? { historyVerificationId: options.historyId(base.historyVerificationId!) }
+      ? {
+          historyVerificationId: options.historyId(base.historyVerificationId!),
+          ...(base.checkpointVerifierId
+            ? { checkpointVerifierId: options.historyId(base.checkpointVerifierId) }
+            : {}),
+        }
       : {}),
     initializeView: (state: CampaignState, checked: (id: string) => boolean) => {
       base.initializeView?.(state, checked);

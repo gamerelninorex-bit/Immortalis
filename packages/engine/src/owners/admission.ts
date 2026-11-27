@@ -8,6 +8,7 @@ import {
   workshopTemporalHistoryCheck,
 } from "./workshop/admission.ts";
 import {
+  WORKSHOP_RESOLVER_VERIFIER_SEGMENT,
   workshopCandidates,
   workshopCurrentGeneration,
   type WorkshopGeneration,
@@ -648,6 +649,10 @@ function buildCanonicalAdmission(
     // Checkpoint evidence is reusable only under this same historical rule policy. Any semantic change to any composed historical
     // verifier must change this identity (and force strict replay): see the composition above.
     historyVerificationId: selectedHistoryId,
+    // F-014B (BLUE F1): the verifier changed, the RECORDED identity above did not, so checkpoint reuse is keyed on its own version
+    ...(workshop
+      ? { checkpointVerifierId: selectedHistoryId + WORKSHOP_RESOLVER_VERIFIER_SEGMENT }
+      : {}),
     historicalFenceAdmission(group, state) {
       return judgedFor(group, state).view;
     },
@@ -1020,6 +1025,12 @@ export function legacyContractAdmission(base: WriteAdmission): WriteAdmission {
     ...(base.initializeView ? { initializeView: base.initializeView } : {}),
     ...(base.committedView ? { committedView: base.committedView } : {}),
     historyVerificationId: `${base.historyVerificationId ?? "structural"}+LEGACY-PRE-V9-RUNTIME-CONTRACT`,
+    ...(base.checkpointVerifierId
+      ? { checkpointVerifierId: `${base.checkpointVerifierId}+LEGACY-PRE-V9-RUNTIME-CONTRACT` }
+      : {}),
+    ...(base.historicalFenceAdmission
+      ? { historicalFenceAdmission: (g, s) => base.historicalFenceAdmission!(g, s) }
+      : {}),
     check: (group, state, history) =>
       legacyContractSurface(group) ?? base.check(group, state, history),
     verifyHistorical: (group, state) =>
