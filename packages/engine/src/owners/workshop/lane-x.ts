@@ -6,8 +6,10 @@ import {
   economyRealizationStage,
   FACET_PRODUCTION_STATE,
   FACET_WORLD_LOCUS,
+  GM_WAIT_IF6B_QUIET_SEAL_SEGMENT,
   OWNER_EPISTEMIC_ACCESS,
   GmWaitMarkerSchema,
+  GmWaitStagedTransactionSchema,
   GmWaitTransactionAuthoritySchema,
   JsonValueSchema,
   OWNER_PRODUCTION,
@@ -369,6 +371,22 @@ export function workshopLaneXAdmission(
         view.get(marker.preparation.fact.key)?.value,
       );
       if (!e.success) return false;
+      if (e.data.state.status === "PENDING") {
+        // G1: the ordinary quiet seal credited no stage and crossed no boundary, so no owner aftermath exists to wait for. Only that exact seal,
+        // under the identity that carries the G1 segment, over this X's still-PENDING enrolment; any other staged seal keeps waiting.
+        const quiet = GmWaitStagedTransactionSchema.safeParse(
+          view.get(temporalTransactionKey(gmWaitTransactionId(marker.x)))?.value,
+        );
+        return (
+          quiet.success &&
+          quiet.data.x === marker.x &&
+          quiet.data.stages.length === 0 &&
+          quiet.data.outcome.stop_reason === "TARGET_REACHED" &&
+          marker.policy.history_verification_id.endsWith(
+            GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY,
+          )
+        );
+      }
       if (e.data.state.status === "INELIGIBLE_AT_BOUNDARY") return true;
       if (e.data.state.status !== "OCCURRED") return false;
       const occurrence = view.get(e.data.state.occurrence_key);

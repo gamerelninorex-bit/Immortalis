@@ -19,6 +19,7 @@ import {
   factKind,
   sha256Canonical,
 } from "@immortalis/engine";
+import { GM_WAIT_IF6B_QUIET_SEAL_SEGMENT } from "@immortalis/contracts";
 import { generateFixtureRunnerKeys } from "@immortalis/testkit";
 import {
   WORKSHOP_SECOND,
@@ -31,6 +32,8 @@ import { WorkshopNoticeAdapter } from "../../packages/engine/src/owners/workshop
 import { workshopNoticeTemporalObject } from "../../packages/engine/src/owners/workshop/notice-temporal.ts";
 import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../packages/engine/src/gm-wait-catalogue-current.ts";
 import {
+  WORKSHOP_B3E_CATALOGUE_SHA256,
+  WORKSHOP_B3E_FORWARD_SEGMENT,
   WORKSHOP_G0_CATALOGUE_SHA256,
   WORKSHOP_GENERATION_G0,
   WORKSHOP_GENERATION_149,
@@ -129,33 +132,56 @@ describe("the generation registry is finite and exact", () => {
     );
   });
 
-  it("retains both accepted pairs and keeps forward Economy authority on its own candidate", async () => {
+  it("retains every accepted generation, frozen, and keeps each Economy class on its own candidates", async () => {
     const { inputs } = await inputsOf(JOURNALS.staged);
-    const today = workshopCandidates(inputs, workshopCurrentGeneration(IF6B_POLICY));
-    expect(today.map((c) => c.id)).toEqual(["CURRENT", "G0_RESOLVER_149", "G0"]);
-    expect(today[0]!.binding.catalogueSha256).toBe(GM_WAIT_CATALOGUE_CURRENT_SHA256);
-    expect(today[1]!.binding.catalogueSha256).toBe(WORKSHOP_GENERATION_149.catalogueSha256);
-    expect(today[2]!.binding.catalogueSha256).toBe(WORKSHOP_G0_CATALOGUE_SHA256);
-    expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).not.toBe(WORKSHOP_G0_CATALOGUE_SHA256);
-    expect(today.every((c) => c.binding.historyId === today[2]!.binding.historyId)).toBe(true);
+    const draft = workshopCandidates(inputs, workshopCurrentGeneration(IF6B_POLICY));
+    // the current generation (G1) first, then every accepted draft-class pair; no forward-class entry is a draft candidate
+    expect(draft.map((c) => c.id)).toEqual(["CURRENT", "B3E_DRAFT_146", "G0_RESOLVER_149", "G0"]);
+    expect(draft[0]!.binding.catalogueSha256).toBe(GM_WAIT_CATALOGUE_CURRENT_SHA256);
+    expect(draft[1]!.binding.catalogueSha256).toBe(WORKSHOP_B3E_CATALOGUE_SHA256);
+    expect(draft[2]!.binding.catalogueSha256).toBe(WORKSHOP_GENERATION_149.catalogueSha256);
+    expect(draft[3]!.binding.catalogueSha256).toBe(WORKSHOP_G0_CATALOGUE_SHA256);
+    expect(draft.some((c) => c.economyClass)).toBe(false);
+    // the three accepted draft pairs share G0's identity recipe; the current one is the same identity plus the G1 segment immediately before the terminal one
+    const g0Id = draft[3]!.binding.historyId;
+    expect(draft[1]!.binding.historyId).toBe(g0Id);
+    expect(draft[2]!.binding.historyId).toBe(g0Id);
+    expect(draft[0]!.binding.historyId).toBe(
+      g0Id.replace("+" + IF6B_POLICY, GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY),
+    );
+    expect(new Set(draft.map((c) => c.binding.catalogueSha256)).size).toBe(4);
+
     const forward = workshopCandidates(
       inputs,
       workshopEconomyForwardGeneration(IF6B_POLICY, B3_ECONOMY_FORWARD_HISTORY_SEGMENT),
     );
-    expect(forward[0]).toMatchObject({
-      id: "CURRENT",
-      economyClass: "ECONOMY_REALIZED_ACCESS_FORWARD",
-    });
-    expect(forward[0]!.binding.historyId).toContain(B3_ECONOMY_FORWARD_HISTORY_SEGMENT);
-    expect(forward[0]!.binding.historyId).not.toContain("FIXTURE-ECONOMY-REALIZATION-DRAFT");
-    expect(forward.slice(1)).toEqual(today.slice(1));
+    // the forward constructor lists only forward-class candidates: the draft entries are not candidates of a forward build (no class laundering)
+    expect(forward.map((c) => c.id)).toEqual(["CURRENT", "B3E_FORWARD_146"]);
+    expect(forward.every((c) => c.economyClass === "ECONOMY_REALIZED_ACCESS_FORWARD")).toBe(true);
+    expect(forward[1]!.binding.catalogueSha256).toBe(WORKSHOP_B3E_CATALOGUE_SHA256);
+    expect(forward[1]!.binding.historyId).toContain(WORKSHOP_B3E_FORWARD_SEGMENT);
+    expect(forward[1]!.binding.historyId).not.toContain("FIXTURE-ECONOMY-REALIZATION-DRAFT");
+    expect(
+      forward[1]!.binding.historyId.endsWith(WORKSHOP_B3E_FORWARD_SEGMENT + "+" + IF6B_POLICY),
+    ).toBe(true);
+    expect(
+      forward[0]!.binding.historyId.endsWith(
+        B3_ECONOMY_FORWARD_HISTORY_SEGMENT + GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY,
+      ),
+    ).toBe(true);
+    // the frozen forward segment is exactly the live one today, and is a literal
+    expect(WORKSHOP_B3E_FORWARD_SEGMENT).toBe(B3_ECONOMY_FORWARD_HISTORY_SEGMENT);
+    // neither obsolete nor unmerged catalogue digests are registered as history
+    const ids = [...draft, ...forward].map((c) => c.binding.catalogueSha256);
+    expect(ids.some((d) => d.startsWith("2673ba") || d.startsWith("4e0665b0"))).toBe(false);
+
     const withSuccessor = workshopCandidates(inputs, SUCCESSOR);
     expect(withSuccessor.map((c) => c.id)).toEqual([
       "SYNTHETIC-SUCCESSOR",
+      "B3E_DRAFT_146",
       "G0_RESOLVER_149",
       "G0",
     ]);
-    expect(new Set(withSuccessor.map((c) => c.binding.historyId)).size).toBe(2);
   });
 });
 

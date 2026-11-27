@@ -1,4 +1,4 @@
-import type { SourceRef } from "@immortalis/contracts";
+import { GM_WAIT_IF6B_QUIET_SEAL_SEGMENT, type SourceRef } from "@immortalis/contracts";
 import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../gm-wait-catalogue-current.ts";
 import { canonicalEqual } from "../../hash.ts";
 
@@ -67,7 +67,12 @@ export const WORKSHOP_G0_CATALOGUE_SHA256 =
 /** The shared spelling of a workshop identity; a generation differs only in the terminal policy segments it passes. */
 export function composeWorkshopIdentity(
   inputs: WorkshopIdentityInputs,
-  terminal: { readonly if6bPolicy: string; readonly economyForwardSegment?: string },
+  terminal: {
+    readonly if6bPolicy: string;
+    readonly economyForwardSegment?: string;
+    /** G1: the ordinary quiet seal exists only under this segment, which sits immediately before the terminal IF-6b segment */
+    readonly quietSealSegment?: string;
+  },
 ): string {
   const workshopId = `${inputs.base}+B3-WORKSHOP-OWNER-V1:${inputs.profileSha256}${
     inputs.noticeVerificationId !== undefined ? `:${inputs.noticeVerificationId}` : ""
@@ -80,6 +85,7 @@ export function composeWorkshopIdentity(
       : "") +
     (inputs.laneX.choiceSha256 !== undefined ? "+B3-CHOICE:" + inputs.laneX.choiceSha256 : "") +
     (terminal.economyForwardSegment ?? "") +
+    (terminal.quietSealSegment ?? "") +
     "+" +
     terminal.if6bPolicy
   );
@@ -123,6 +129,44 @@ export const WORKSHOP_GENERATION_149: WorkshopGeneration = Object.freeze({
   identity: WORKSHOP_GENERATION_G0.identity,
 });
 
+/** The catalogue digest accepted with B3-E (#146, merged at main 7b446df8) for BOTH its draft class and its forward class. A frozen literal. */
+export const WORKSHOP_B3E_CATALOGUE_SHA256 =
+  "737ad89cf3acb76ee65b16d0c4023f89c1100ecfe4b8e4ddd2d280097b269f0f";
+/** The Economy-forward class segment exactly as #146 accepted it. A frozen literal, deliberately NOT the live constant. */
+export const WORKSHOP_B3E_FORWARD_SEGMENT =
+  "+B3-E-ECONOMY-REALIZED-ACCESS@2026-11-26T23:22:06.437Z";
+
+/** #146's accepted DRAFT-class generation: G0's frozen recipe under the B3-E catalogue. It carries no forward class and no quiet-seal segment. */
+export const WORKSHOP_GENERATION_B3E_DRAFT: WorkshopGeneration = Object.freeze({
+  id: "B3E_DRAFT_146",
+  catalogueSha256: WORKSHOP_B3E_CATALOGUE_SHA256,
+  identity: WORKSHOP_GENERATION_G0.identity,
+});
+
+/**
+ * #146's accepted FORWARD-class generation, frozen and self-contained: G0's literal base, the draft flag dropped, the choice tail, the forward segment
+ * as #146 spelled it and the G0 terminal IF-6b segment. Its class authority is its own `economyClass`: only a forward-class admission lists it, so a
+ * draft-class build cannot select it and a forward-class build cannot select any draft entry.
+ */
+export const WORKSHOP_GENERATION_B3E_FORWARD: WorkshopGeneration = Object.freeze({
+  id: "B3E_FORWARD_146",
+  catalogueSha256: WORKSHOP_B3E_CATALOGUE_SHA256,
+  economyClass: "ECONOMY_REALIZED_ACCESS_FORWARD",
+  identity: (inputs: WorkshopIdentityInputs) => {
+    const workshopId = `${WORKSHOP_G0_FIXTURE_BASE}+B3-WORKSHOP-OWNER-V1:${inputs.profileSha256}${
+      inputs.noticeVerificationId !== undefined ? `:${inputs.noticeVerificationId}` : ""
+    }`;
+    if (!inputs.laneX) return workshopId;
+    return (
+      workshopId +
+      (inputs.laneX.choiceSha256 !== undefined ? "+B3-CHOICE:" + inputs.laneX.choiceSha256 : "") +
+      WORKSHOP_B3E_FORWARD_SEGMENT +
+      "+" +
+      WORKSHOP_G0_IF6B_POLICY
+    );
+  },
+});
+
 /**
  * The generation a build writes NEW history under. Today it spells exactly G0's recipe from the live constants; a successor
  * generation changes THIS entry (its recipe and its catalogue pointer) in the same change that appends G0's frozen entry above
@@ -133,7 +177,10 @@ export const workshopCurrentGeneration = (liveIf6bPolicy: string): WorkshopGener
     id: "CURRENT",
     catalogueSha256: GM_WAIT_CATALOGUE_CURRENT_SHA256,
     identity: (inputs: WorkshopIdentityInputs) =>
-      composeWorkshopIdentity(inputs, { if6bPolicy: liveIf6bPolicy }),
+      composeWorkshopIdentity(inputs, {
+        if6bPolicy: liveIf6bPolicy,
+        quietSealSegment: GM_WAIT_IF6B_QUIET_SEAL_SEGMENT,
+      }),
   });
 
 export const workshopEconomyForwardGeneration = (
@@ -145,7 +192,11 @@ export const workshopEconomyForwardGeneration = (
     catalogueSha256: GM_WAIT_CATALOGUE_CURRENT_SHA256,
     economyClass: "ECONOMY_REALIZED_ACCESS_FORWARD",
     identity: (inputs: WorkshopIdentityInputs) =>
-      composeWorkshopIdentity(inputs, { if6bPolicy, economyForwardSegment }),
+      composeWorkshopIdentity(inputs, {
+        if6bPolicy,
+        economyForwardSegment,
+        quietSealSegment: GM_WAIT_IF6B_QUIET_SEAL_SEGMENT,
+      }),
   });
 
 /**
@@ -153,7 +204,7 @@ export const workshopEconomyForwardGeneration = (
  * this segment, so a checkpoint earned before the resolver existed is replayed strictly once instead of being trusted. Any change to the registry or to
  * how a lineage is bound is a change to this verifier and MUST move this version.
  */
-export const WORKSHOP_RESOLVER_VERIFIER_SEGMENT = "+WORKSHOP-ORIGINAL-POLICY-RESOLVER-V2";
+export const WORKSHOP_RESOLVER_VERIFIER_SEGMENT = "+WORKSHOP-ORIGINAL-POLICY-RESOLVER-V3";
 
 /** One candidate: a registry entry with its identity recomputed for THIS admission's constructed inputs. */
 export interface WorkshopGenerationCandidate {
@@ -169,10 +220,16 @@ export interface WorkshopGenerationCandidate {
 export function workshopCandidates(
   inputs: WorkshopIdentityInputs,
   current: WorkshopGeneration,
-  historical: readonly WorkshopGeneration[] = [WORKSHOP_GENERATION_149, WORKSHOP_GENERATION_G0],
+  historical: readonly WorkshopGeneration[] = [
+    WORKSHOP_GENERATION_B3E_FORWARD,
+    WORKSHOP_GENERATION_B3E_DRAFT,
+    WORKSHOP_GENERATION_149,
+    WORKSHOP_GENERATION_G0,
+  ],
 ): readonly WorkshopGenerationCandidate[] {
   const out: WorkshopGenerationCandidate[] = [];
-  for (const g of [current, ...historical]) {
+  // class authority comes from the CONSTRUCTOR (the current generation's class), never from a recorded lineage: a historical entry of the other class is not a candidate
+  for (const g of [current, ...historical.filter((h) => h.economyClass === current.economyClass)]) {
     const binding = Object.freeze({
       historyId: g.identity(inputs),
       catalogueSha256: g.catalogueSha256,

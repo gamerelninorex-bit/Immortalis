@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CanonicalCampaign, type WriteAdmission } from "@immortalis/engine";
 import { SYNTH_EXTENSION, syntheticSourceGroup } from "@immortalis/testkit";
+import { GM_WAIT_IF6B_QUIET_SEAL_SEGMENT } from "@immortalis/contracts";
 import { workshopCharterKey } from "../../packages/contracts/src/workshop-opening.ts";
 import { generateFixtureRunnerKeys } from "@immortalis/testkit";
 import {
@@ -17,6 +18,7 @@ import {
   WORKSHOP_RESOLVER_VERIFIER_SEGMENT,
   type WorkshopGeneration,
 } from "../../packages/engine/src/owners/workshop/generation.ts";
+import { IF6B_POLICY } from "../../packages/engine/src/temporal/if6b-stage.ts";
 import { signedWorkshopLaneX } from "../support/b3-lane-x.ts";
 import { openWorkshop } from "../support/b3-opening.ts";
 import { deterministicFixtureKeys } from "../support/deterministic-keys.ts";
@@ -164,7 +166,13 @@ describe("checkpoint reuse is keyed on the verifier version, not on the recorded
     expect(a.historyVerificationId).not.toContain("RESOLVER");
     const prior = await harnessFor(f, WORKSHOP_GENERATION_149);
     try {
-      expect(prior.admission.historyVerificationId).toBe(a.historyVerificationId);
+      // the injected prior generation spells the accepted pre-G1 recipe; the current one differs from it by exactly the G1 segment before the terminal segment
+      expect(a.historyVerificationId).toBe(
+        prior.admission.historyVerificationId!.replace(
+          "+" + IF6B_POLICY,
+          GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY,
+        ),
+      );
       expect(prior.admission.checkpointVerifierId).not.toBe(a.checkpointVerifierId);
     } finally {
       await prior.campaign.close();

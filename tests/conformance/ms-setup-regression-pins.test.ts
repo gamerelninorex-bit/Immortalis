@@ -1,6 +1,7 @@
 // F-2 repair: explicit implementation identities, not governing source citations.
 // The five composed files changed under the ratified M-S brief. Six siblings retain (ROADBED R3-T25 freight later changed two of the
 // original eight: temporal/admission.ts and temporal/coordinator.ts, pinned in tests/support/freight-scoped-deltas.ts) their exact bytes from original main 8fa45367c3850e9528ba871ae6608dc178217e62.
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
@@ -14,7 +15,9 @@ import {
   IF6B_SETTLEMENT_PATH,
   IF6B_SETTLEMENT_SHA256,
   atB3EconomyBase,
+  B3_E_HEAD_COMMIT,
   B3_E_IF6B_ENGINE_SHA256,
+  G1_IF6B_ENGINE_SHA256,
   if6bSuccessorIdentity,
 } from "../support/if6b-scoped-delta.ts";
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
@@ -93,7 +96,13 @@ describe("restored M-S composition and unchanged sibling regression pins", () =>
     expect(createHash("sha256").update(atB3EconomyBase(IF6B_ENGINE_PATH)).digest("hex")).toBe(
       IF6B_ENGINE_SHA256,
     );
-    expect(sha(IF6B_ENGINE_PATH)).toBe(B3_E_IF6B_ENGINE_SHA256);
+    // B3-E's own file is immutable history (its accepted head commit); the working tree is judged against the current slice's pin
+    expect(
+      createHash("sha256")
+        .update(execFileSync("git", ["show", `${B3_E_HEAD_COMMIT}:${IF6B_ENGINE_PATH}`]))
+        .digest("hex"),
+    ).toBe(B3_E_IF6B_ENGINE_SHA256);
+    expect(sha(IF6B_ENGINE_PATH)).toBe(G1_IF6B_ENGINE_SHA256);
     expect(sha(IF6B_SETTLEMENT_PATH)).toBe(IF6B_SETTLEMENT_SHA256);
     expect(Object.keys(composed)).toHaveLength(2);
     expect(Object.keys(unchanged)).toHaveLength(5);

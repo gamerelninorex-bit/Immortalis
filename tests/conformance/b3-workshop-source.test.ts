@@ -25,7 +25,11 @@ import {
   B3_SHARED_DELTAS,
   gitB3BaseFile,
 } from "../support/b3-scoped-deltas.ts";
-import { atB3EconomyBase, B3_E_BASE_COMMIT } from "../support/if6b-scoped-delta.ts";
+import {
+  atB3EconomyBase,
+  B3_E_BASE_COMMIT,
+  B3_E_HEAD_COMMIT,
+} from "../support/if6b-scoped-delta.ts";
 import { tempDir } from "../support/tmp.ts";
 
 const baseCatalogue = "7707ff8ec86a9564dae2b026e730386f26fadfd4011c2934d0cc19dd5a6f09ed";
@@ -56,7 +60,7 @@ const installerBinPaths = [
 // The pinned pnpm bin linker sets this exact executable mode.
 const installerBinMode = 0o755;
 
-function b3EconomyGitScope(base: string, roots: string[], cwd = process.cwd()) {
+function b3EconomyGitScope(base: string, roots: string[], cwd = process.cwd(), head = "HEAD") {
   const git = (...args: string[]) => execFileSync("git", args, { cwd });
   const fields = (bytes: Buffer) => bytes.toString("utf8").split("\0").slice(0, -1);
   const delta = (...refs: string[]) => {
@@ -81,7 +85,7 @@ function b3EconomyGitScope(base: string, roots: string[], cwd = process.cwd()) {
     return changes;
   };
   return {
-    committed: delta(base, "HEAD"),
+    committed: delta(base, head),
     staged: delta("--cached", "HEAD"),
     worktree: delta().filter(({ path, oldMode, newMode, status }) => {
       if (
@@ -219,7 +223,13 @@ describe("B3 catalogue and historical source custody", () => {
     ];
     const paths = (args: string[]) =>
       execFileSync("git", args, { encoding: "utf8" }).split("\n").filter(Boolean);
-    const { committed, staged, worktree, untracked } = b3EconomyGitScope(B3_E_BASE_COMMIT, roots);
+    // the B3-E slice census is anchored to its accepted, merged head commit: a later slice changes HEAD, never this history
+    const { committed, staged, worktree, untracked } = b3EconomyGitScope(
+      B3_E_BASE_COMMIT,
+      roots,
+      process.cwd(),
+      B3_E_HEAD_COMMIT,
+    );
     expect(committed).toHaveLength(runtime.length + 2);
     expect(committed).toEqual(
       expect.arrayContaining([
@@ -245,13 +255,17 @@ describe("B3 catalogue and historical source custody", () => {
     for (const path of priorDigests) {
       expect(readFileSync(path).equals(atB3EconomyBase(path)), path).toBe(true);
     }
+    // every digest accepted up to and including B3-E stays retained (a later accepted catalogue only adds to the set)
     expect(GM_WAIT_CATALOGUE_RETAINED_SHA256).toEqual(
-      [
+      expect.arrayContaining([
         ...priorDigests.map((path) => path.slice(folder.length + 1, -5)),
         B3_E_CATALOGUE_SHA256,
-      ].sort(),
+      ]),
     );
-    expect(GM_WAIT_CATALOGUE_CURRENT_SHA256).toBe(B3_E_CATALOGUE_SHA256);
+    // the pointer AT the B3-E head names the B3-E digest (the working-tree pointer belongs to whatever slice is current)
+    expect(
+      execFileSync("git", ["show", `${B3_E_HEAD_COMMIT}:${pointer}`], { encoding: "utf8" }),
+    ).toContain(B3_E_CATALOGUE_SHA256);
     const bytes = readFileSync(B3_E_CATALOGUE_PATH);
     expect(bytes).toHaveLength(389714);
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(B3_E_CATALOGUE_SHA256);

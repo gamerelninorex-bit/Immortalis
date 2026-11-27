@@ -4,6 +4,7 @@ import {
   FACET_ECONOMY_STATE,
   FACET_PRODUCTION_STATE,
   GM_WAIT_IF6B_POLICY,
+  GM_WAIT_IF6B_QUIET_SEAL_SEGMENT,
   FACET_WORLD_LOCUS,
   FACET_WORLD_FALLBACK_ENTITY,
   GmWaitByPcIndexSchema,
@@ -254,7 +255,12 @@ export function installIf6b<T extends HistoryAdmission>(admission: T, policy: If
     throw new Error("IF-6b needs its own historical verifier identity");
   const forward = policy.ownerVerifiers.some((v) => v.class === "ECONOMY_REALIZED_ACCESS_FORWARD");
   if (
-    forward !== historyId.endsWith(B3_ECONOMY_FORWARD_HISTORY_SEGMENT + "+" + IF6B_POLICY) ||
+    // the forward segment is immediately before the terminal IF-6b segment, or, in the current generation, before the G1 quiet-seal segment that is
+    forward !==
+      (historyId.endsWith(B3_ECONOMY_FORWARD_HISTORY_SEGMENT + "+" + IF6B_POLICY) ||
+        historyId.endsWith(
+          B3_ECONOMY_FORWARD_HISTORY_SEGMENT + GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY,
+        )) ||
     (forward && policy.fixtureEconomyDraft)
   )
     throw new Error("B3-E needs its own Economy verifier and original history identity");

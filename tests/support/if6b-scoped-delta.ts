@@ -4,19 +4,25 @@ export const IF6B_ENGINE_PATH = "packages/engine/src/temporal/if6b-stage.ts";
 export const IF6B_ENGINE_SHA256 =
   "1b08002314846f77252d9512fa8e633c84852bf6d31fbf334c025087167fef53";
 export const B3_E_BASE_COMMIT = "d311bcff7d6e9b4a2b5d8ba4a3bcaafd42224323";
+/** The accepted, merged B3-E (#146) head: the immutable end of its slice census. */
+export const B3_E_HEAD_COMMIT = "7f2b806245486532fdcbb3444239c5c1ad5a6f96";
+/** if6b-stage.ts exactly as the accepted B3-E head left it (immutable; checked against the commit itself). */
 export const B3_E_IF6B_ENGINE_SHA256 =
   "8fa2f234790cd65c121161a3df5aeee1c24ee29789fef7d0e7397f61effa95c1";
+/** if6b-stage.ts at G1 (#148): the forward-class identity check also accepts the G1 segment between the forward segment and the terminal one. */
+export const G1_IF6B_ENGINE_SHA256 =
+  "7fa528f30ee0d0ca8f6152584599c5d999cc731bafb760ea3c5423d0c6cd01b5";
 export const atB3EconomyBase = (path: string): Buffer =>
   execFileSync("git", ["show", `${B3_E_BASE_COMMIT}:${path}`]);
 export const IF6B_SETTLEMENT_PATH = "packages/engine/src/temporal/if6b-settlement.ts";
 export const IF6B_SETTLEMENT_SHA256 =
-  "d2cb6a9c0ce253287b7621a338805c35b541056b37454f142783a180dcf6f7d1";
+  "555c0312b48c407232ff24b31b7f804716d51f63f448b18c7883a9708d439ba5";
 export const IF6B_SHARED_DELTAS: Readonly<
   Record<string, { readonly base: string; readonly head: string }>
 > = {
   "packages/contracts/src/temporal-custody.ts": {
     base: "549da088bd33c78c471832f1e20dde0c4395e907933b5da02a78236a264f14f8",
-    head: "6965e250dbdb0b02b77545e8c1b597ad8bacd46852cd985b0b004c3ff58e61c7",
+    head: "375f767cc2040c7b68d7474320af13ba0068160cb0d192c9bb8ff3971e6c7acc",
   },
   "packages/engine/src/commit/campaign-core.ts": {
     base: "41c21034ec40099d606c8672db4e84edf6dfdd4b3221ae3d3d8b8898945d07fc",

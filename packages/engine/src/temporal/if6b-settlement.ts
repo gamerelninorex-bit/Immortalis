@@ -1,10 +1,13 @@
 import {
   BoundaryIndexSchema,
   GM_WAIT_IF6B_POLICY,
+  GM_WAIT_IF6B_QUIET_SEAL_SEGMENT,
   GmWaitStagedTransactionSchema,
   JsonValueSchema,
   TEMPORAL_BOUNDARY_INDEX_KEY,
+  compareTime,
   timeEquals,
+  type BoundaryIndex,
   type GmWaitMarker,
   type TemporalState,
   type CommitGroup,
@@ -20,6 +23,59 @@ import {
   type If6bCommittedStage,
 } from "./if6b-stage.ts";
 
+type SettlementWrite = {
+  key: string;
+  version: number;
+  value: CommitGroup["writes"][number]["value"];
+};
+
+/**
+ * G1: the ordinary quiet seal (R-5(2) TARGET_REACHED). It exists only under the history identity that carries the G1 segment immediately before the
+ * terminal IF-6b segment, so an earlier identity refuses it. Nothing is due: the active boundary index parses (so it is sorted, duplicate-free and in
+ * one unit) AND every entry lies STRICTLY after the target, which refuses an incomparable entry, a boundary exactly at the target and anything earlier.
+ * A missing, malformed or contradictory index is never read as "nothing due". Time moves to the target and nowhere else: the clock and the seal are the
+ * only writes, so no object, boundary or index fact is touched and no boundary is retired.
+ */
+function quietSettlement(
+  authority: GmWaitTransactionAuthority,
+  marker: GmWaitMarker,
+  index: BoundaryIndex,
+  kernelRule: SourceRef,
+) {
+  const target = authority.requested.target;
+  if (
+    !marker.policy.history_verification_id.endsWith(
+      GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + GM_WAIT_IF6B_POLICY,
+    ) ||
+    index.entries.some((entry) => compareTime(entry.at, target) !== 1)
+  )
+    return undefined;
+  const { publication, ...opening } = authority;
+  void publication;
+  const candidate = GmWaitStagedTransactionSchema.safeParse({
+    ...opening,
+    stage_policy: GM_WAIT_IF6B_POLICY,
+    engaged: [],
+    boundaries_crossed: [],
+    stages: [],
+    rule_versions: [kernelRule],
+    outcome: {
+      actual_stop: target,
+      stop_reason: "TARGET_REACHED",
+      remainder: null,
+      unresolved_dependents: [],
+    },
+  });
+  if (!candidate.success) return undefined;
+  const nextClock: TemporalState = {
+    canonical_time: target,
+    last_transaction: authority.transaction_id,
+    continuation: null,
+  };
+  const writes: SettlementWrite[] = [];
+  return { transaction: candidate.data, nextClock, writes };
+}
+
 /** A staged seal consumes the exact durable stage records. Incomplete work retains the OPEN fence. */
 export function if6bSettlement(
   state: CampaignState,
@@ -31,17 +87,18 @@ export function if6bSettlement(
   const target = authority.requested.target;
   const indexFact = state.facts.get(TEMPORAL_BOUNDARY_INDEX_KEY);
   const index = BoundaryIndexSchema.safeParse(indexFact?.value);
-  if (!stages.length || !index.success || !indexFact) return undefined;
+  if (!index.success || !indexFact) return undefined;
+  // An absent occurrence boundary is not proof of a quiet wait: the expected original object must exist, valid, in the index.
   const boundary = if6bOccurrenceBoundary(state, marker);
   if (!boundary) return undefined;
+  if (!stages.length) return quietSettlement(authority, marker, index.data, kernelRule);
   const horizon = if6bWorkHorizon(boundary, target, stages);
   const occurrence = stages.find(
     ({ record, occurrence }) => occurrence && canonicalEqual(record.stage, boundary.stage),
   );
   if (!timeEquals(horizon, target) && !occurrence) return undefined;
   const due = if6bDueObjects(state, horizon);
-  const writes: { key: string; version: number; value: CommitGroup["writes"][number]["value"] }[] =
-    [];
+  const writes: SettlementWrite[] = [];
   const matched = new Set<string>();
   const engaged = [];
   for (const { entry, fact, object } of due) {

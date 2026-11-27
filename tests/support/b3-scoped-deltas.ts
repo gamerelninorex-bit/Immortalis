@@ -16,7 +16,7 @@ export const B3_SHARED_DELTAS: Readonly<
   },
   "packages/engine/src/gm-wait-catalogue-current.ts": {
     base: "89854ed0fc59b3efa1c6dde3890fb9ef29bdbe5ecfd5441ea1d36596fe3b9b21",
-    head: "e6ea99187afaf4764df59b2404f9a4e090fe3beafafaf6d639ee0b86452c11c0",
+    head: "e6ced2224139830254c1e9fb82e79458fbae4511611923baaeca1b495619bd3e",
   },
   "packages/engine/src/owners/extension.ts": {
     base: "9bb80e771ad34e6879a2138d08e5801952f2c3c577cc1dd67bd6d3050cb38bf1",
@@ -37,6 +37,7 @@ export const B3_PACKAGE_PATHS: readonly string[] = [
   "packages/engine/gm-wait-catalogue/manifests/3c5c47d88ea90e74861d68987c44dda9a94656b5bb88ab18b23a6bcb2ba41ecd.json",
   "packages/engine/gm-wait-catalogue/manifests/501f0f3d4fc8cdf7e7cb425e9f6444db74a80524206cc8d760575563b2492e56.json",
   "packages/engine/gm-wait-catalogue/manifests/63072512adffc31cd04c621832e5d8165440eb40551f99046675cd4c224ffe17.json",
+  "packages/engine/gm-wait-catalogue/manifests/6d343dec87934ffba04607a2ebef58e8a101cada9f75245eac142980daf84e24.json",
   "packages/engine/gm-wait-catalogue/manifests/81f6ccda0499b45c113c91f2c547892299d587da54e8777425f5fd8e61b6212d.json",
   "packages/engine/gm-wait-catalogue/manifests/f7a4b7ee4094fdf8efa3d17a2f9ee4d3bea36114ce227c6e839489dd10ab9948.json",
   // B3-T1 adds an isolated host archive in the engine package's internal host area.
