@@ -4,6 +4,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import ts from "typescript";
 import { TemporalObjectSchema } from "@immortalis/contracts";
 import {
   ALL_FACT_KINDS,
@@ -318,14 +319,17 @@ describe("IA-23 / CAL-01 temporal approximation calibration: not used, not inven
 
   it("declares no calibration constant: no numeric threshold, cadence, timeout, capacity or default in the temporal modules", () => {
     for (const f of TEMPORAL_SOURCES) {
-      const text = code(f);
+      const source = ts.createSourceFile(f, readFileSync(f, "utf8"), ts.ScriptTarget.Latest, true);
+      const numbers: string[] = [];
       // numeric literals other than structural ones: 0/1/2 (indices, counters, comparisons), 5 (diagnostic
       // issue-list length) and 64 (sha256 hex digest length)
-      const numbers = [...text.matchAll(/(?<![\w.$"'`-])(\d+(?:\.\d+)?)(?![\w"'`])/g)].map(
-        (m) => m[1],
-      );
+      const visit = (node: ts.Node): void => {
+        if (ts.isNumericLiteral(node)) numbers.push(node.text);
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
       expect(
-        numbers.filter((n) => !["0", "1", "2", "5", "64"].includes(n!)),
+        numbers.filter((n) => !["0", "1", "2", "5", "64"].includes(n)),
         f,
       ).toEqual([]);
     }

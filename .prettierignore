@@ -22,3 +22,6 @@ tests/fixtures/r02-a01-pre-s4/*/state.0000000000.json
 
 # B1 S1: frozen pre-S1 campaign packages and their custody file. Retained canonical JSON bytes: never reformat them (custody is by length and SHA-256).
 tests/fixtures/b1-s1-frozen/**/*.json
+
+# F-014B replay prerequisite: genuine journals written by pristine main d0bcb615. The bytes ARE the evidence (SHA256SUMS): never reformat.
+tests/fixtures/f014b-original-policy/journals/

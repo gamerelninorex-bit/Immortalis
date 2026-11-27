@@ -1,0 +1,50 @@
+{
+ "scenario": "b2-zero-stage-reconciled",
+ "kind": "b2",
+ "x": "bfb9587f82785729c057f8559845132206b9034cf82a3360ad57fbd1c136e89e",
+ "pc": "pc-fixture-1",
+ "slotAtClose": "SEALED_RECONCILED",
+ "head": {
+  "campaign_id": "campaign-world-foundation-1",
+  "revision": 11,
+  "state_sha256": "9c933c2f70bd8a11c29c6861200378bdddeae6e69ecda9e9d667eca5ff50ce18",
+  "journal_entries": 11,
+  "journal_head_sha256": "197ee86bee7aa2f9e361846a5f5ea7f778d1bb5c3df07037be9b89fbaa4571c3",
+  "spec_identity": {
+   "line": "f027",
+   "package_version": "v1.0",
+   "package_native_pin": "2026-09-29T00:40:44.707Z",
+   "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc",
+   "snapshot_files": {
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503",
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec"
+   }
+  },
+  "last_saved_spec_identity": {
+   "line": "f027",
+   "package_version": "v1.0",
+   "package_native_pin": "2026-09-29T00:40:44.707Z",
+   "spec_lock_sha256": "8612337064856a9921108df75da14a165a36982b024bc8905ad59f8a19f831dc",
+   "snapshot_files": {
+    "spec/f027/runtime-contract.md": "663f61f7da7e95bda4a2fa9191f9e001f45e7fabd48b8ff3d5fa8f6bef48fdec",
+    "spec/f027/acceptance-register.yaml": "932405d3c1e9009bffe964002f54bf584d59665ffb45fcefb87902d719243e51",
+    "spec/f027/open-gates.yaml": "cbfd4f8ced95951e967156e9f12b035e49d406aad1e274946f18ffd37af3f503"
+   }
+  },
+  "created_with": {
+   "package": "@immortalis/engine",
+   "version": "0.0.0",
+   "build_id": "b2"
+  },
+  "last_saved_with": {
+   "package": "@immortalis/engine",
+   "version": "0.0.0",
+   "build_id": "b2"
+  }
+ },
+ "build": {
+  "commit": "d0bcb615fd91cd3b10322fd8ff80964db42b7797",
+  "node": "v22.22.2"
+ }
+}

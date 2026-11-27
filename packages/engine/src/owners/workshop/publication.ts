@@ -12,10 +12,10 @@ import {
 } from "@immortalis/contracts";
 import type { WorkshopFactRef } from "../../../../contracts/src/workshop-opening.ts";
 import type { CampaignState } from "../../commit/campaign-core.ts";
-import { GM_WAIT_CATALOGUE_CURRENT_SHA256 } from "../../gm-wait-catalogue-current.ts";
 import { gmWaitTransactionId } from "../../gm-wait-identity.ts";
 import { canonicalEqual, sha256Canonical } from "../../hash.ts";
 import type { CampaignStore } from "../../persistence/store.ts";
+import { workshopCatalogueOf, workshopHistoryIdOf, type WorkshopHistoryRef } from "./generation.ts";
 
 export type WorkshopView = Pick<CampaignState, "campaign_id" | "revision"> & {
   readonly get: (key: string) => OwnerFact | undefined;
@@ -36,10 +36,14 @@ export const workshopMatches = (
   ref: WorkshopFactRef,
 ): fact is OwnerFact => fact !== undefined && canonicalEqual(workshopRef(fact), ref);
 
-export const workshopPolicy = (rule: SourceRef, historyId: string) => ({
+/**
+ * The policy a workshop owner fact records. A bare identity is published under the CURRENT catalogue; a selected generation
+ * binding (see generation.ts) is published exactly as selected, so a recorded lineage is re-derived under its ORIGINAL pair.
+ */
+export const workshopPolicy = (rule: SourceRef, history: WorkshopHistoryRef) => ({
   source_rule_ref: rule,
-  history_verification_id: historyId,
-  catalogue_sha256: GM_WAIT_CATALOGUE_CURRENT_SHA256,
+  history_verification_id: workshopHistoryIdOf(history),
+  catalogue_sha256: workshopCatalogueOf(history),
 });
 
 export function workshopClock(view: WorkshopView) {

@@ -1,5 +1,6 @@
 // Fixture-only driver. Real owner APIs publish every group. The signed runner and
 // scripted referee are the existing mechanism fixtures, with their own namespaces.
+import type { WorkshopHistoryRef } from "../../packages/engine/src/owners/workshop/generation.ts";
 import { readFileSync } from "node:fs";
 import {
   NamedActorExistenceBasisSchema,
@@ -54,6 +55,7 @@ import { msHarness } from "./ms-setup.ts";
 import { plainPolicy } from "./original-pc.ts";
 import { must } from "./temporal.ts";
 import { tempDir } from "./tmp.ts";
+import type { fixtureMsEconomyForwardAdmission } from "../../packages/engine/src/owners/admission.ts";
 
 export const workshopRawProfile = (mode: "quiet" | "glassbell") =>
   readFileSync(
@@ -76,6 +78,7 @@ export async function openWorkshop(
   mode: "quiet" | "glassbell",
   opts: {
     readonly laneX?: NonNullable<NonNullable<Parameters<typeof msHarness>[0]>["workshop"]>["laneX"];
+    readonly laneXAdmission?: typeof fixtureMsEconomyForwardAdmission;
     readonly admissionOverride?: (
       admission: import("@immortalis/engine").WriteAdmission,
     ) => import("@immortalis/engine").WriteAdmission;
@@ -84,6 +87,14 @@ export async function openWorkshop(
       input: Parameters<WorkshopGipAdapter["adoptCharter"]>[0],
     ) => void;
     readonly beforeLedger?: (attempt: () => Promise<unknown>) => Promise<void>;
+    readonly fixedKeys?: unknown;
+    /** TESTKIT ONLY: a stage-owner extension so synthetic foreign groups can lengthen a journal past a checkpoint interval */
+    readonly extension?: import("@immortalis/engine").StageOwnerExtension;
+    /** TESTKIT ONLY: the policy the owner adapters publish under, when it must differ from the admission's (forgery and successor rehearsal). */
+    readonly historyRef?: WorkshopHistoryRef | ((admissionId: string) => WorkshopHistoryRef);
+    readonly currentGeneration?: NonNullable<
+      NonNullable<Parameters<typeof msHarness>[0]>["workshop"]
+    >["currentGeneration"];
   } = {},
 ) {
   const bytes = workshopRawProfile(mode);
@@ -94,6 +105,7 @@ export async function openWorkshop(
   const locus_id = source.locus.locus_id;
   const ids = { pc_id, world_id, locus_id };
   const h = await msHarness({
+    ...(opts.fixedKeys ? { fixedKeys: opts.fixedKeys } : {}),
     actors: {
       kind: "ACTOR_PRODUCER_REQUIRED",
       constraints: [source.attendant_leaf],
@@ -104,6 +116,8 @@ export async function openWorkshop(
       profileBytes: bytes,
       campaignId: profile.campaignId,
       ...(opts.laneX ? { laneX: opts.laneX } : {}),
+      ...(opts.laneXAdmission ? { laneXAdmission: opts.laneXAdmission } : {}),
+      ...(opts.currentGeneration ? { currentGeneration: opts.currentGeneration } : {}),
       async open(admission) {
         const dir = tempDir();
         const campaign = await must(
@@ -111,6 +125,7 @@ export async function openWorkshop(
             campaignId: profile.campaignId,
             buildId: "workshop-b3-qualification",
             testkitFixtureAdmission: opts.admissionOverride?.(admission) ?? admission,
+            ...(opts.extension ? { extension: opts.extension } : {}),
           }),
         );
         await must(
@@ -161,7 +176,10 @@ export async function openWorkshop(
 
   const campaign = h.campaign;
   const store = h.store;
-  const historyId = h.admission.historyVerificationId!;
+  const historyId =
+    typeof opts.historyRef === "function"
+      ? opts.historyRef(h.admission.historyVerificationId!)
+      : (opts.historyRef ?? h.admission.historyVerificationId!);
   const ref = new RefereeAdjudicationAdapter(store);
   const nativeInput = { ...ids, attempt: 0, statement: source.pc.presence };
   const nativeTask = await must(Promise.resolve(ref.irTask(nativeInput)));

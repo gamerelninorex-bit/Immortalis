@@ -26,6 +26,7 @@ import {
 } from "./initial-setup.ts";
 import { admitInput, type InputOptions } from "./clock-origin.ts";
 import { must } from "./temporal.ts";
+import type { fixtureMsEconomyForwardAdmission } from "../../packages/engine/src/owners/admission.ts";
 
 export async function msHarness(
   options: {
@@ -42,6 +43,9 @@ export async function msHarness(
       laneX?: (
         keys: ReturnType<typeof generateFixtureRunnerKeys>,
       ) => NonNullable<Parameters<typeof fixtureMsCanonicalAdmission>[3]>;
+      laneXAdmission?: typeof fixtureMsEconomyForwardAdmission;
+      /** TESTKIT ONLY: stands a successor generation in as the build's CURRENT workshop generation. */
+      currentGeneration?: Parameters<typeof fixtureMsCanonicalAdmission>[4];
       open(
         admission: ReturnType<typeof fixtureMsCanonicalAdmission>,
       ): ReturnType<typeof openFixtureCampaign>;
@@ -57,7 +61,9 @@ export async function msHarness(
     historyId?: (current: string) => string;
   } = {},
 ) {
-  const keys = generateFixtureRunnerKeys(),
+  const keys =
+      (options as { fixedKeys?: ReturnType<typeof generateFixtureRunnerKeys> }).fixedKeys ??
+      generateFixtureRunnerKeys(),
     macKey = randomBytes(32),
     outboxDir = scratch("immortalis-ms-outbox-");
   let scopes = 0;
@@ -99,18 +105,27 @@ export async function msHarness(
   };
   const actorRunner = new MsActorRunner({ ...keys, driver: actorDriver, outboxDir, macKey });
   const laneX = options.workshop?.laneX?.(keys);
-  const base = fixtureMsCanonicalAdmission(
-    actorRunner.binding,
-    options.workshop?.profileBytes,
-    undefined,
-    laneX,
-  );
+  const base =
+    laneX && options.workshop?.laneXAdmission
+      ? options.workshop.laneXAdmission(actorRunner.binding, options.workshop.profileBytes, laneX)
+      : fixtureMsCanonicalAdmission(
+          actorRunner.binding,
+          options.workshop?.profileBytes,
+          undefined,
+          laneX,
+          options.workshop?.currentGeneration,
+        );
   let latest: CampaignState;
   const trace: { before: CampaignState; after: CampaignState; group: CommitGroup }[] = [];
   const admission = {
     ...base,
     ...(options.historyId
-      ? { historyVerificationId: options.historyId(base.historyVerificationId!) }
+      ? {
+          historyVerificationId: options.historyId(base.historyVerificationId!),
+          ...(base.checkpointVerifierId
+            ? { checkpointVerifierId: options.historyId(base.checkpointVerifierId) }
+            : {}),
+        }
       : {}),
     initializeView: (state: CampaignState, checked: (id: string) => boolean) => {
       base.initializeView?.(state, checked);
@@ -167,8 +182,9 @@ export async function msHarness(
     calls: () => calls,
     state: () => latest,
     trace,
-    reopen: () =>
+    reopen: (optionsForOpen?: { readonly audit: true }) =>
       CanonicalCampaign.open(h.dir, {
+        ...optionsForOpen,
         testkitFixtureAdmission: admission,
         ...(options.extension ? { extension: options.extension } : {}),
       }),

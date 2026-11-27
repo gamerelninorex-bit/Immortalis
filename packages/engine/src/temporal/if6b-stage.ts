@@ -1,12 +1,16 @@
 import {
   BoundaryIndexSchema,
+  ECONOMY_OPERATION_REALIZE_ACCESS,
+  FACET_ECONOMY_STATE,
   FACET_PRODUCTION_STATE,
   GM_WAIT_IF6B_POLICY,
+  GM_WAIT_IF6B_QUIET_SEAL_SEGMENT,
   FACET_WORLD_LOCUS,
   FACET_WORLD_FALLBACK_ENTITY,
   GmWaitByPcIndexSchema,
   GmWaitMarkerSchema,
   GmWaitTransactionAuthoritySchema,
+  OWNER_ECONOMY,
   OWNER_PRODUCTION,
   OWNER_WORLD_STATE,
   PRODUCTION_OPERATION_COMPLETE,
@@ -38,11 +42,17 @@ import { canonicalEqual, sha256Canonical } from "../hash.ts";
 import { stageGroupId, stageIntentId } from "./identity.ts";
 
 export const IF6B_POLICY = GM_WAIT_IF6B_POLICY;
+export const B3_ECONOMY_FORWARD_HISTORY_SEGMENT =
+  "+B3-E-ECONOMY-REALIZED-ACCESS@2026-11-26T23:22:06.437Z";
 export const IF6B_OCCURRENCE_OPERATION = "world-state-occur-addressed-notice";
 export const IF6B_RESUME_TRIGGER = "PC_RESUME_INTERRUPTED_WAIT";
 
 export type If6bStageClass =
-  "RH_RECOVERY" | "RH_OCCURRENCE" | "D3_COMPLETION" | "FIXTURE_ECONOMY_DRAFT";
+  | "RH_RECOVERY"
+  | "RH_OCCURRENCE"
+  | "D3_COMPLETION"
+  | "FIXTURE_ECONOMY_DRAFT"
+  | "ECONOMY_REALIZED_ACCESS_FORWARD";
 
 type OriginalFact = Pick<OwnerFact, "key" | "version"> & { readonly group_id: string };
 
@@ -96,10 +106,11 @@ function permitted(source: If6bOwnerVerifier): boolean {
           source.operation === WORLD_OPERATION_ACCEPT_FALLBACK)
       );
     case "FIXTURE_ECONOMY_DRAFT":
+    case "ECONOMY_REALIZED_ACCESS_FORWARD":
       return (
-        source.owner === "economy" &&
-        source.facet === "economy_state" &&
-        source.operation === "economy-record-realized-access"
+        source.owner === OWNER_ECONOMY &&
+        source.facet === FACET_ECONOMY_STATE &&
+        source.operation === ECONOMY_OPERATION_REALIZE_ACCESS
       );
     default:
       return false;
@@ -233,16 +244,31 @@ interface HistoryAdmission {
   readonly historyVerificationId?: string;
 }
 const if6bPolicy = Symbol("IF-6b fixture admission");
-type Registered = HistoryAdmission & { readonly [if6bPolicy]?: If6bAdmission };
+const economyForwardHistory = Symbol("B3-E installed history");
+type InstalledPolicy = If6bAdmission & { readonly [economyForwardHistory]?: string };
+type Registered = HistoryAdmission & { readonly [if6bPolicy]?: InstalledPolicy };
 
-/** Only a constructed fixture admission with a separate replay identity can install the draft route. */
+/** A verifier class is installed by owner composition and bound to its original replay identity. */
 export function installIf6b<T extends HistoryAdmission>(admission: T, policy: If6bAdmission): T {
-  if (!admission.historyVerificationId?.endsWith("+" + IF6B_POLICY))
+  const historyId = admission.historyVerificationId;
+  if (!historyId?.endsWith("+" + IF6B_POLICY))
     throw new Error("IF-6b needs its own historical verifier identity");
+  const forward = policy.ownerVerifiers.some((v) => v.class === "ECONOMY_REALIZED_ACCESS_FORWARD");
+  if (
+    // the forward segment is immediately before the terminal IF-6b segment, or, in the current generation, before the G1 quiet-seal segment that is
+    forward !==
+      (historyId.endsWith(B3_ECONOMY_FORWARD_HISTORY_SEGMENT + "+" + IF6B_POLICY) ||
+        historyId.endsWith(
+          B3_ECONOMY_FORWARD_HISTORY_SEGMENT + GM_WAIT_IF6B_QUIET_SEAL_SEGMENT + "+" + IF6B_POLICY,
+        )) ||
+    (forward && policy.fixtureEconomyDraft)
+  )
+    throw new Error("B3-E needs its own Economy verifier and original history identity");
   return Object.assign(admission, {
     [if6bPolicy]: Object.freeze({
       ...policy,
       ownerVerifiers: Object.freeze([...policy.ownerVerifiers]),
+      ...(forward ? { [economyForwardHistory]: historyId } : {}),
     }),
   });
 }
@@ -392,7 +418,10 @@ export function if6bStageFor(
     group,
     state,
     runtime.ownerVerifiers.filter(
-      (v) => v.class !== "FIXTURE_ECONOMY_DRAFT" || runtime.fixtureEconomyDraft === true,
+      (v) =>
+        (v.class !== "FIXTURE_ECONOMY_DRAFT" || runtime.fixtureEconomyDraft === true) &&
+        (v.class !== "ECONOMY_REALIZED_ACCESS_FORWARD" ||
+          runtime[economyForwardHistory] === marker.data.policy.history_verification_id),
     ),
     fence,
     match.entry.at,
